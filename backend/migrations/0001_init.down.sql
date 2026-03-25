@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS api_distance_cache;
+DROP TABLE IF EXISTS route_geometry;
+DROP TABLE IF EXISTS route_stops;
+DROP TABLE IF EXISTS route_stats;
+DROP TABLE IF EXISTS routes;
+DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS users;
+
+-- DROP EXTENSION IF EXISTS postgis;
+-- DROP EXTENSION IF EXISTS "uuid-ossp";

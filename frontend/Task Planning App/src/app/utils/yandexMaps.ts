@@ -1,0 +1,56 @@
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ymaps: any;
+  }
+}
+
+let loadPromise: Promise<void> | null = null;
+
+/**
+ * Загружает Yandex Maps JS API 2.1 и ждёт готовности ymaps.
+ * Повторные вызовы возвращают тот же Promise (singleton).
+ */
+export function loadYandexMaps(): Promise<void> {
+  // Уже загружен и готов
+  if (window.ymaps && typeof window.ymaps.Map === 'function') {
+    return Promise.resolve();
+  }
+
+  // Загрузка уже началась
+  if (loadPromise) return loadPromise;
+
+  const apiKey =
+    (import.meta.env.VITE_YANDEX_GEOCODER_KEY as string | undefined) ||
+    (import.meta.env.VITE_YANDEX_MAPS_KEY as string | undefined);
+
+  if (!apiKey) {
+    return Promise.reject(
+      new Error('VITE_YANDEX_GEOCODER_KEY не задан в .env.local'),
+    );
+  }
+
+  loadPromise = new Promise<void>((resolve, reject) => {
+    // Если скрипт уже в DOM (HMR), дождёмся ymaps.ready
+    const existing = document.querySelector(
+      'script[src^="https://api-maps.yandex.ru"]',
+    );
+    if (existing) {
+      window.ymaps.ready(resolve);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(apiKey)}&lang=ru_RU`;
+    script.type = 'text/javascript';
+    script.async = true;
+    script.onload = () => window.ymaps.ready(resolve);
+    script.onerror = () => {
+      loadPromise = null;
+      reject(new Error('Не удалось загрузить Яндекс Карты. Проверьте API-ключ.'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return loadPromise;
+}

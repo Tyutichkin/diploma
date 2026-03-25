@@ -24,9 +24,48 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
+# env files (secrets, API keys, DSNs)
 .env
+.env.local
+.env.*.local
+*.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Backend binary output
+backend/bin/
+backend/api
+
+# Frontend
+frontend/Task Planning App/node_modules/
+frontend/Task Planning App/dist/
+frontend/Task Planning App/.pnpm-debug.log*
+
+# Docker volumes / data dirs
+backend/postgres-data/
+
+# Diplom / latex artifacts (large binaries, not source code)
+Диплом Latex.zip
+Диплом Latex/
+Источники/
+ya_docs/
+*.zip
+*.synctex.gz
+*.aux
+*.log
+*.pdf
+
+# Playwright MCP
+.playwright-mcp/
+
+# Test notes
+test.md
