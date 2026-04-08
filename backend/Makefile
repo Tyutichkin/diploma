@@ -5,6 +5,9 @@ APP_BIN := bin/api
 run:
 	go run ./cmd/api
 
+run-docker:
+	docker compose up --build
+
 build:
 	mkdir -p bin
 	go build -o $(APP_BIN) ./cmd/api

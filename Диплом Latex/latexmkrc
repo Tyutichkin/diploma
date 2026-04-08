@@ -1,0 +1,4 @@
+# Сборка через XeLaTeX (нужно для fontspec и кириллицы)
+# -shell-escape нужен для пакета minted
+$pdf_mode = 5;
+$xelatex = 'xelatex -shell-escape -synctex=1 -interaction=nonstopmode -file-line-error %O %S';

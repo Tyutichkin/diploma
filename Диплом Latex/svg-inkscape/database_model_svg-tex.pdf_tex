@@ -1,0 +1,217 @@
+%% Creator: Inkscape 1.3 (0e150ed, 2023-07-21), www.inkscape.org
+%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010
+%% Accompanies image file 'database_model_svg-tex.pdf' (pdf, eps, ps)
+%%
+%% To include the image in your LaTeX document, write
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics{<filename>.pdf}
+%% To scale the image, write
+%%   \def\svgwidth{<desired width>}
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics[width=<desired width>]{<filename>.pdf}
+%%
+%% Images with a different path to the parent latex file can
+%% be accessed with the `import' package (which may need to be
+%% installed) using
+%%   \usepackage{import}
+%% in the preamble, and then including the image with
+%%   \import{<path to file>}{<filename>.pdf_tex}
+%% Alternatively, one can specify
+%%   \graphicspath{{<path to file>/}}
+%% 
+%% For more information, please see info/svg-inkscape on CTAN:
+%%   http://tug.ctan.org/tex-archive/info/svg-inkscape
+%%
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \newcommand*\fsize{\dimexpr\f@size pt\relax}%
+  \newcommand*\lineheight[1]{\fontsize{\fsize}{#1\fsize}\selectfont}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{942bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.59125222)%
+    \lineheight{1}%
+    \setlength\tabcolsep{0pt}%
+    \put(0,0){\includegraphics[width=\unitlength,page=1]{database_model_svg-tex.pdf}}%
+    \put(0.32105892,0.55660636){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}users\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=2]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.53631321){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}id : UUID «PK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=3]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.51681616){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}email : varchar(255) «UQ»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=4]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.50368853){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}password_hash : varchar(255)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=5]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.4905609){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}created_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=6]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.47743327){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}updated_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=7]{database_model_svg-tex.pdf}}%
+    \put(0.06747611,0.34373217){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}refresh_tokens\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=8]{database_model_svg-tex.pdf}}%
+    \put(0.01612261,0.323439){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}id : UUID «PK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=9]{database_model_svg-tex.pdf}}%
+    \put(0.01612261,0.30394196){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}user_id : UUID «FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=10]{database_model_svg-tex.pdf}}%
+    \put(0.01612261,0.29081432){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}token_hash : varchar(255) «UQ»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=11]{database_model_svg-tex.pdf}}%
+    \put(0.01612261,0.27768671){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}expires_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=12]{database_model_svg-tex.pdf}}%
+    \put(0.01612261,0.26455907){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}revoked_at : timestamptz «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=13]{database_model_svg-tex.pdf}}%
+    \put(0.01612261,0.25143153){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}created_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=14]{database_model_svg-tex.pdf}}%
+    \put(0.3218551,0.38967961){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}tasks\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=15]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.36938647){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}id : UUID «PK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=16]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.3498894){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}user_id : UUID «FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=17]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.33676177){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}title : varchar(200)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=18]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.32363415){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}address_text : varchar(400)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=19]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.31050652){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}latitude : numeric(9,6)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=20]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.29737898){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}longitude : numeric(9,6)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=21]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.28425134){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}duration_min : int\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=22]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.27112373){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}window_start : time «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=23]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.25799609){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}window_end : time «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=24]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.24486845){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}sort_index : int\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=25]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.23174084){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}created_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=26]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.2186133){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}updated_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=27]{database_model_svg-tex.pdf}}%
+    \put(0.2593551,0.20548567){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}is_deleted : boolean\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=28]{database_model_svg-tex.pdf}}%
+    \put(0.56906847,0.35686114){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}routes\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=29]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.33656799){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}id : UUID «PK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=30]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.31707093){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}user_id : UUID «FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=31]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.30394332){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}status : varchar(30) ' draft|optimized|failed\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=32]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.29081568){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}source : varchar(30) ' manual|optimized\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=33]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.27768804){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}algorithm : varchar(50) «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=34]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.26456051){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}started_at : timestamptz «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=35]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.25143287){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}finished_at : timestamptz «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=36]{database_model_svg-tex.pdf}}%
+    \put(0.4723328,0.23830526){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}created_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=37]{database_model_svg-tex.pdf}}%
+    \put(0.55632962,0.11772899){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}route_stats\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=38]{database_model_svg-tex.pdf}}%
+    \put(0.5053742,0.09743582){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}route_id : UUID «PK, FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=39]{database_model_svg-tex.pdf}}%
+    \put(0.5053742,0.07793878){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}total_distance_m : int «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=40]{database_model_svg-tex.pdf}}%
+    \put(0.5053742,0.06481112){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}total_travel_sec : int «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=41]{database_model_svg-tex.pdf}}%
+    \put(0.5053742,0.05168351){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}total_service_sec : int «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=42]{database_model_svg-tex.pdf}}%
+    \put(0.5053742,0.0385559){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}total_wait_sec : int «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=43]{database_model_svg-tex.pdf}}%
+    \put(0.5053742,0.02542833){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}computed_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=44]{database_model_svg-tex.pdf}}%
+    \put(0.30274682,0.13741847){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}route_stops\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=45]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.1171253){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}id : UUID «PK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=46]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.09762826){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}route_id : UUID «FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=47]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.08450065){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}task_id : UUID «FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=48]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.07137299){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}position : int\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=49]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.05824537){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}travel_from_prev_sec : int «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=50]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.04511781){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}arrive_time : timestamptz «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=51]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.0319902){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}service_start_time : timestamptz «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=52]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.01886258){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}service_end_time : timestamptz «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=53]{database_model_svg-tex.pdf}}%
+    \put(0.22432325,0.00573492){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}wait_sec : int «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=54]{database_model_svg-tex.pdf}}%
+    \put(0.76373408,0.11116844){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}route_geometry\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=55]{database_model_svg-tex.pdf}}%
+    \put(0.72750796,0.09087532){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}route_id : UUID «PK, FK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=56]{database_model_svg-tex.pdf}}%
+    \put(0.72750796,0.07137828){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}polyline : text\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=57]{database_model_svg-tex.pdf}}%
+    \put(0.72750796,0.05825062){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}bbox_json : jsonb «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=58]{database_model_svg-tex.pdf}}%
+    \put(0.72750796,0.04512301){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}geojson_json : jsonb «nullable»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=59]{database_model_svg-tex.pdf}}%
+    \put(0.72750796,0.0319954){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}updated_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=60]{database_model_svg-tex.pdf}}%
+    \put(0.50258758,0.57629585){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}api_distance_cache\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=61]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.5560027){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}id : UUID «PK»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=62]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.53650564){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}provider : varchar(30)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=63]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.52337802){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}origin : geometry(Point, 4326)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=64]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.5102504){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}dest : geometry(Point, 4326)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=65]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.49712276){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}distance_m : int\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=66]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.48399522){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}duration_sec : int\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=67]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.47086759){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}fetched_at : timestamptz\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=68]{database_model_svg-tex.pdf}}%
+    \put(0.47193471,0.45773996){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}request_hash : varchar(64) «UQ»\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=69]{database_model_svg-tex.pdf}}%
+    \put(0.77647293,0.56316687){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}Условные обозначения\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=70]{database_model_svg-tex.pdf}}%
+    \put(0.68610669,0.54287372){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}nullable : допускается NULL значения\end{tabular}}}}%
+    \put(0.68610669,0.52974609){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}timestamptz : дата и время с часовым поясом\end{tabular}}}}%
+    \put(0.68610669,0.51661847){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}jsonb : бинарный JSON\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=71]{database_model_svg-tex.pdf}}%
+    \put(0.68610669,0.49712141){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}PK : Primary Key (первичный ключ)\end{tabular}}}}%
+    \put(0.68610669,0.48399379){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}FK : Foreign Key (внешний ключ)\end{tabular}}}}%
+    \put(0.68610669,0.47086623){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}UQ : Unique constraint (ограничение по уникальности)\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=72]{database_model_svg-tex.pdf}}%
+    \put(0.27209395,0.4408554){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 ко многим\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=73]{database_model_svg-tex.pdf}}%
+    \put(0.37838376,0.4143347){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 ко многим\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=74]{database_model_svg-tex.pdf}}%
+    \put(0.04438694,0.51048917){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 ко многим\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=75]{database_model_svg-tex.pdf}}%
+    \put(0.41182325,0.18346687){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 ко многим\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=76]{database_model_svg-tex.pdf}}%
+    \put(0.27209395,0.17888884){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 ко многим\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=77]{database_model_svg-tex.pdf}}%
+    \put(0.67217357,0.15004332){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 к 1\end{tabular}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=78]{database_model_svg-tex.pdf}}%
+    \put(0.56110669,0.18536975){\color[rgb]{0,0,0}\makebox(0,0)[lt]{\lineheight{1.25}\smash{\begin{tabular}[t]{l}1 к 1\end{tabular}}}}%
+  \end{picture}%
+\endgroup%

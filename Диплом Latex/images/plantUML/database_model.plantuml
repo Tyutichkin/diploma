@@ -1,0 +1,117 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam roundcorner 10
+skinparam shadowing false
+
+entity "users" as users {
+  * id : UUID <<PK>>
+  --
+  * email : varchar(255) <<UQ>>
+  * password_hash : varchar(255)
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "refresh_tokens" as rt {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * token_hash : varchar(255) <<UQ>>
+  * expires_at : timestamptz
+  * revoked_at : timestamptz <<nullable>>
+  * created_at : timestamptz
+}
+
+entity "tasks" as tasks {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * title : varchar(200)
+  * address_text : varchar(400)
+  * latitude : numeric(9,6)
+  * longitude : numeric(9,6)
+  * duration_min : int
+  * window_start : time <<nullable>>
+  * window_end : time <<nullable>>
+  * sort_index : int
+  * created_at : timestamptz
+  * updated_at : timestamptz
+  * is_deleted : boolean
+}
+
+entity "routes" as routes {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * status : varchar(30)   ' draft|optimized|failed
+  * source : varchar(30)   ' manual|optimized
+  * algorithm : varchar(50) <<nullable>>
+  * started_at : timestamptz <<nullable>>
+  * finished_at : timestamptz <<nullable>>
+  * created_at : timestamptz
+}
+
+entity "route_stats" as stats {
+  * route_id : UUID <<PK, FK>>
+  --
+  * total_distance_m : int <<nullable>>
+  * total_travel_sec : int <<nullable>>
+  * total_service_sec : int <<nullable>>
+  * total_wait_sec : int <<nullable>>
+  * computed_at : timestamptz
+}
+
+entity "route_stops" as stops {
+  * id : UUID <<PK>>
+  --
+  * route_id : UUID <<FK>>
+  * task_id : UUID <<FK>>
+  * position : int
+  * travel_from_prev_sec : int <<nullable>>
+  * arrive_time : timestamptz <<nullable>>
+  * service_start_time : timestamptz <<nullable>>
+  * service_end_time : timestamptz <<nullable>>
+  * wait_sec : int <<nullable>>
+}
+
+entity "route_geometry" as geom {
+  * route_id : UUID <<PK, FK>>
+  --
+  * polyline : text
+  * bbox_json : jsonb <<nullable>>
+  * geojson_json : jsonb <<nullable>>
+  * updated_at : timestamptz
+}
+
+entity "api_distance_cache" as cache {
+  * id : UUID <<PK>>
+  --
+  * provider : varchar(30)
+  * origin : geometry(Point, 4326)
+  * dest : geometry(Point, 4326)
+  * distance_m : int
+  * duration_sec : int
+  * fetched_at : timestamptz
+  * request_hash : varchar(64) <<UQ>>
+}
+
+users ||--o{ tasks : "1 ко многим"
+users ||--o{ routes : "1 ко многим"
+users ||--o{ rt : "1 ко многим"
+
+routes ||--o{ stops : "1 ко многим"
+tasks  ||--o{ stops : "1 ко многим"
+routes ||--|| geom  : "1 к 1"
+routes ||--|| stats : "1 к 1"
+
+entity "Условные обозначения" as legend {
+  PK  : Primary Key (первичный ключ)
+  FK  : Foreign Key (внешний ключ)
+  UQ  : Unique constraint (ограничение по уникальности)
+  nullable : допускается NULL значения
+  timestamptz : дата и время с часовым поясом
+  jsonb : бинарный JSON
+}
+
+@enduml

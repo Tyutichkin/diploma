@@ -55,17 +55,17 @@ backend/postgres-data/
 
 # Diplom / latex artifacts (large binaries, not source code)
 Диплом Latex.zip
-Диплом Latex/
-Источники/
-ya_docs/
 *.zip
 *.synctex.gz
 *.aux
 *.log
-*.pdf
 
 # Playwright MCP
 .playwright-mcp/
 
 # Test notes
 test.md
+
+CLAUDE.md
+/ya_docs
+/Источники

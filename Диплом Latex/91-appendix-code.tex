@@ -1,0 +1,588 @@
+% !TeX root = ./rpz.tex
+\chapter{{\fontsize{14pt}{21pt}\selectfont\MakeUppercase{Приложение Б}}}
+\label{cha:appendix_code}
+
+\counterwithin{listing}{chapter}
+\setcounter{listing}{0}
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Листинг 1: алгоритм оптимизации маршрута (Go)
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{listing}[H]
+  \caption{Алгоритм ближайшего соседа с временными окнами (nearest\_neighbor.go)}
+  \label{app:lst_optimizer}
+  \begin{mdframed}
+    \begin{minted}{go}
+package optimizer
+
+import (
+	"context"
+	"math"
+)
+
+// NearestNeighborTW реализует эвристику ближайшего соседа для задачи
+// коммивояжёра с временными окнами (NNH-TW).
+//
+// Алгоритм:
+//  1. Выбрать начальный узел: с наиболее ранним открытием временного окна
+//     или узел 0, если временные окна не заданы.
+//  2. Отметить его посещённым; установить текущее время = startTime + длительность.
+//  3. Повторять, пока не посещены все узлы:
+//     a. Проход 1: найти ближайший допустимый узел (укладывается в окно).
+//     b. Проход 2: если таких нет — взять ближайший без учёта окна.
+//     c. Вычислить время ожидания, если прибываем до открытия окна.
+//     d. Сдвинуть текущее время: прибытие + ожидание + длительность обслуживания.
+//  4. Вернуть упорядоченные индексы узлов и агрегированную статистику.
+//
+// Временная сложность: O(n^2).
+type NearestNeighborTW struct{}
+
+func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
+
+func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
+
+func (a *NearestNeighborTW) Optimize(
+	_ context.Context, g *Graph, startTimeMins int,
+) (Result, error) {
+	n := len(g.Nodes)
+	if n == 0 {
+		return Result{}, nil
+	}
+
+	visited := make([]bool, n)
+	order := make([]int, 0, n)
+
+	cur := startNode(g)
+	visited[cur] = true
+	order = append(order, cur)
+
+	currentTimeMins := startTimeMins + g.Nodes[cur].DurationMin
+
+	var totalDistM, totalTravelSec, totalServiceSec, totalWaitSec int
+	totalServiceSec = g.Nodes[cur].DurationMin * 60
+
+	for len(order) < n {
+		next := -1
+		nextDurSec := math.MaxInt
+
+		// Проход 1: ближайший допустимый узел (укладывается в временное окно).
+		for i := 0; i < n; i++ {
+			if visited[i] {
+				continue
+			}
+			e := g.Edges[cur][i]
+			arrivalMins := currentTimeMins + e.DurationSec/60
+			if feasible(g.Nodes[i], arrivalMins) && e.DurationSec < nextDurSec {
+				nextDurSec = e.DurationSec
+				next = i
+			}
+		}
+
+		// Проход 2: запасной вариант — ближайший узел без учёта временного окна.
+		if next == -1 {
+			nextDurSec = math.MaxInt
+			for i := 0; i < n; i++ {
+				if visited[i] {
+					continue
+				}
+				if e := g.Edges[cur][i]; e.DurationSec < nextDurSec {
+					nextDurSec = e.DurationSec
+					next = i
+				}
+			}
+		}
+
+		if next == -1 {
+			break
+		}
+
+		e := g.Edges[cur][next]
+		node := g.Nodes[next]
+
+		arrivalMins := currentTimeMins + e.DurationSec/60
+		waitMins := 0
+		if node.WindowStart >= 0 && arrivalMins < node.WindowStart {
+			waitMins = node.WindowStart - arrivalMins
+		}
+
+		totalDistM += e.DistanceM
+		totalTravelSec += e.DurationSec
+		totalServiceSec += node.DurationMin * 60
+		totalWaitSec += waitMins * 60
+
+		currentTimeMins = arrivalMins + waitMins + node.DurationMin
+		visited[next] = true
+		order = append(order, next)
+		cur = next
+	}
+
+	return Result{
+		Order:           order,
+		TotalDistanceM:  totalDistM,
+		TotalTravelSec:  totalTravelSec,
+		TotalServiceSec: totalServiceSec,
+		TotalWaitSec:    totalWaitSec,
+	}, nil
+}
+
+// startNode выбирает начальный узел: с наиболее ранним открытием временного
+// окна, или узел 0, если временные окна не заданы.
+func startNode(g *Graph) int {
+	best := 0
+	for i, node := range g.Nodes {
+		if node.WindowStart < 0 {
+			continue
+		}
+		if g.Nodes[best].WindowStart < 0 ||
+			node.WindowStart < g.Nodes[best].WindowStart {
+			best = i
+		}
+	}
+	return best
+}
+
+// feasible возвращает true, если обслуживание узла может начаться
+// до закрытия его временного окна.
+func feasible(node Node, arrivalMins int) bool {
+	if node.WindowEnd < 0 {
+		return true
+	}
+	return arrivalMins <= node.WindowEnd-node.DurationMin
+}
+    \end{minted}
+  \end{mdframed}
+\end{listing}
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Листинг 2: HTTP-обработчики маршрутов (Go)
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{listing}[H]
+  \caption{HTTP-обработчики эндпоинтов маршрутов (handlers\_routes.go)}
+  \label{app:lst_handlers_routes}
+  \begin{mdframed}
+    \begin{minted}{go}
+package http
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	routestory "planner-backend/internal/domain/route/story"
+	"planner-backend/internal/platform/distance"
+)
+
+type RouteHandlers struct {
+	story *routestory.Story
+}
+
+func NewRouteHandlers(st *routestory.Story) *RouteHandlers {
+	return &RouteHandlers{story: st}
+}
+
+func (h *RouteHandlers) Create(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	var req CreateRouteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+	out, err := h.story.CreateDraft(
+		c.Request.Context(), userID, req.Source, req.OrderedTaskIDs,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func (h *RouteHandlers) List(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	out, err := h.story.List(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+// Optimize обрабатывает POST /api/routes/optimize.
+// Получает матрицу расстояний от клиента, строит граф в памяти,
+// запускает алгоритм оптимизации с учётом временных окон
+// и сохраняет результирующий маршрут.
+func (h *RouteHandlers) Optimize(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	var req OptimizeRouteReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	startTime := req.StartTimeMins
+	if startTime <= 0 {
+		startTime = 540 // по умолчанию: 09:00
+	}
+
+	// Преобразование клиентской матрицы расстояний в доменный тип.
+	var matrix [][]distance.Edge
+	if len(req.DistanceMatrix) > 0 {
+		matrix = make([][]distance.Edge, len(req.DistanceMatrix))
+		for i, row := range req.DistanceMatrix {
+			matrix[i] = make([]distance.Edge, len(row))
+			for j, cell := range row {
+				matrix[i][j] = distance.Edge{
+					DistanceM:   cell.DistanceM,
+					DurationSec: cell.DurationSec,
+				}
+			}
+		}
+	}
+
+	out, err := h.story.Optimize(
+		c.Request.Context(), userID, req.TaskIDs, startTime, matrix,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func (h *RouteHandlers) Get(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	routeID := c.Param("id")
+	out, found, err := h.story.Get(c.Request.Context(), userID, routeID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func (h *RouteHandlers) Delete(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	routeID := c.Param("id")
+	found, err := h.story.Delete(c.Request.Context(), userID, routeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *RouteHandlers) DeleteAll(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	if err := h.story.DeleteAll(c.Request.Context(), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *RouteHandlers) Rename(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+	routeID := c.Param("id")
+	var req RenameRouteReq
+	if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+	found, err := h.story.Rename(
+		c.Request.Context(), userID, routeID, req.Name,
+	)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+    \end{minted}
+  \end{mdframed}
+\end{listing}
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Листинг 3: API-клиент с автоматическим обновлением токена (TypeScript)
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{listing}[H]
+  \caption{Ключевые функции API-клиента: авторизованные запросы и обновление токена (client.ts)}
+  \label{app:lst_api_client}
+  \begin{mdframed}
+    \begin{minted}{typescript}
+// Единственный глобальный промис обновления токена — предотвращает
+// параллельные запросы /auth/refresh при одновременных 401-ошибках.
+let refreshSessionPromise: Promise<AuthSession> | null = null;
+
+// optimizeRoute передаёт идентификаторы задач и предварительно вычисленную
+// матрицу расстояний Яндекс.Карт на бэкенд.
+// Передача матрицы из buildYandexDistanceMatrix() обеспечивает согласованность
+// данных оптимизации с отображением на карте.
+export async function optimizeRoute(
+  taskIds: string[],
+  options: AuthorizedRequestOptions,
+  startTimeMins = 540,
+  distanceMatrix?: DistanceCell[][],
+): Promise<SavedRouteDetails> {
+  const route = await requestWithAuth<ApiRouteFull>(
+    '/routes/optimize',
+    {
+      method: 'POST',
+      body: JSON.stringify({ taskIds, startTimeMins, distanceMatrix }),
+    },
+    options,
+  );
+  return mapRouteDetails(route);
+}
+
+// requestWithAuth выполняет HTTP-запрос с токеном доступа.
+// При получении 401 однократно обновляет токен и повторяет запрос.
+async function requestWithAuth<T>(
+  path: string,
+  init: RequestInit,
+  options: AuthorizedRequestOptions,
+): Promise<T> {
+  try {
+    return await request<T>(path, init, options.session.accessToken);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401) {
+      throw error;
+    }
+  }
+  try {
+    const nextSession = await refreshSession(options);
+    return request<T>(path, init, nextSession.accessToken);
+  } catch (error) {
+    await options.onUnauthorized();
+    throw error;
+  }
+}
+
+// refreshSession обновляет пару токенов через /auth/refresh.
+// Дедупликация через единственный промис предотвращает гонку запросов.
+async function refreshSession(options: AuthorizedRequestOptions) {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = request<TokenPairResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken: options.session.refreshToken }),
+    })
+      .then((pair) => {
+        const nextSession = buildSession(
+          pair,
+          getEmailFromToken(pair.accessToken) ?? options.session.email,
+        );
+        options.onSessionChange(nextSession);
+        return nextSession;
+      })
+      .finally(() => {
+        refreshSessionPromise = null;
+      });
+  }
+  return refreshSessionPromise;
+}
+
+// request — базовый HTTP-клиент: устанавливает заголовки Content-Type,
+// Accept и Authorization, возвращает типизированный результат или
+// выбрасывает ApiError с HTTP-статусом.
+async function request<T = void>(
+  path: string,
+  init: RequestInit,
+  accessToken?: string,
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has('Content-Type') && init.body) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  if (!response.ok) {
+    const payload = await parseErrorPayload(response);
+    throw new ApiError(payload?.error ?? 'Request failed', response.status);
+  }
+  if (response.status === 204) return undefined as T;
+  const text = await response.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+    \end{minted}
+  \end{mdframed}
+\end{listing}
+
+% ──────────────────────────────────────────────────────────────────────────────
+% Листинг 4: построение матрицы расстояний через Яндекс Карты (TypeScript)
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{listing}[H]
+  \caption{Построение матрицы расстояний через Яндекс Маршруты JS API (routeOptimizer.ts)}
+  \label{app:lst_route_optimizer}
+  \begin{mdframed}
+    \begin{minted}{typescript}
+import { Task } from '../types/task';
+import { loadYandexMaps } from './yandexMaps';
+
+export interface DistanceCell {
+  distanceM: number;
+  durationSec: number;
+}
+
+/**
+ * Строит матрицу расстояний n×n для списка задач через Яндекс Маршруты.
+ * Используется тот же движок, что и для визуализации маршрута на карте,
+ * поэтому данные оптимизации согласованы с отображением.
+ *
+ * matrix[i][j] = стоимость проезда от tasks[i] до tasks[j].
+ * Диагональные элементы (i === j) равны нулю.
+ */
+export async function buildYandexDistanceMatrix(
+  tasks: Task[],
+  routingMode: 'auto' | 'pedestrian' | 'masstransit' = 'auto',
+): Promise<DistanceCell[][]> {
+  const n = tasks.length;
+  if (n === 0) return [];
+
+  await loadYandexMaps();
+
+  // masstransit через multiRouter не возвращает надёжные данные по времени —
+  // используем 'auto' как приближение.
+  const mode = routingMode === 'masstransit' ? 'auto' : routingMode;
+
+  const fallbackSec = 99_999;
+  const matrix: DistanceCell[][] = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (__, j) =>
+      i === j
+        ? { distanceM: 0, durationSec: 0 }
+        : { distanceM: 0, durationSec: fallbackSec },
+    ),
+  );
+
+  // Запрашиваем все пары параллельно: n*(n-1) запросов.
+  const pairs: [number, number][] = [];
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      if (i !== j) pairs.push([i, j]);
+
+  await Promise.all(
+    pairs.map(async ([i, j]) => {
+      const from = tasks[i];
+      const to = tasks[j];
+      if (from.latitude == null || to.latitude == null) return;
+
+      try {
+        const { distanceM, durationSec } = await new Promise<{
+          distanceM: number;
+          durationSec: number;
+        }>((resolve, reject) => {
+          const mr = new (window.ymaps as any).multiRouter.MultiRoute(
+            {
+              referencePoints: [
+                [from.latitude!, from.longitude!],
+                [to.latitude!, to.longitude!],
+              ],
+              params: { routingMode: mode },
+            },
+            {},
+          );
+
+          mr.model.events.once('requestsuccess', () => {
+            try {
+              const activeRoute: any = mr.getActiveRoute();
+              if (activeRoute) {
+                const distObj: any = activeRoute.properties.get('distance');
+                const durObj: any = activeRoute.properties.get('duration');
+                resolve({
+                  distanceM: Math.round(
+                    typeof distObj?.value === 'number' ? distObj.value : 0,
+                  ),
+                  durationSec: Math.round(
+                    typeof durObj?.value === 'number'
+                      ? durObj.value
+                      : fallbackSec,
+                  ),
+                });
+                return;
+              }
+
+              // Запасной путь: данные из модельных маршрутов напрямую.
+              const modelRoutes: any[] = mr.model.getRoutes();
+              if (modelRoutes.length > 0) {
+                const legs: any[] = modelRoutes[0].getLegs();
+                let totalDistM = 0;
+                let totalDurSec = 0;
+                legs.forEach((leg: any) => {
+                  const d: any = leg.properties?.get?.('distance');
+                  const dur: any = leg.properties?.get?.('duration');
+                  totalDistM += typeof d?.value === 'number' ? d.value : 0;
+                  totalDurSec +=
+                    typeof dur?.value === 'number' ? dur.value : 0;
+                });
+                resolve({
+                  distanceM: Math.round(totalDistM),
+                  durationSec:
+                    totalDurSec > 0
+                      ? Math.round(totalDurSec)
+                      : fallbackSec,
+                });
+                return;
+              }
+              reject(new Error('no route data'));
+            } catch (e) {
+              reject(e);
+            }
+          });
+
+          mr.model.events.once('requestfail', () => {
+            reject(new Error('routing failed'));
+          });
+        });
+
+        matrix[i][j] = { distanceM, durationSec };
+      } catch {
+        // Оставляем fallback: алгоритм избегает недостижимых пар.
+      }
+    }),
+  );
+
+  return matrix;
+}
+    \end{minted}
+  \end{mdframed}
+\end{listing}

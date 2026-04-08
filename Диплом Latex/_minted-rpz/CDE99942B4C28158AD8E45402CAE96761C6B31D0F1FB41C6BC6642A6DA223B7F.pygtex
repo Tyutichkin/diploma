@@ -1,0 +1,129 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{import}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{Task}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k+kr}{from}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}../types/task\PYGZsq{}}\PYG{p}{;}
+\PYG{k}{import}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{loadYandexMaps}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k+kr}{from}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}./yandexMaps\PYGZsq{}}\PYG{p}{;}
+
+\PYG{k}{export}\PYG{+w}{ }\PYG{k+kd}{interface}\PYG{+w}{ }\PYG{n+nx}{DistanceCell}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n+nx}{distanceM}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{number}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n+nx}{durationSec}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{number}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+cm}{/**}
+\PYG{c+cm}{ * Строит матрицу расстояний n×n для списка задач через Яндекс Маршруты.}
+\PYG{c+cm}{ * Используется тот же движок, что и для визуализации маршрута на карте,}
+\PYG{c+cm}{ * поэтому данные оптимизации согласованы с отображением.}
+\PYG{c+cm}{ *}
+\PYG{c+cm}{ * matrix[i][j] = стоимость проезда от tasks[i] до tasks[j].}
+\PYG{c+cm}{ * Диагональные элементы (i === j) равны нулю.}
+\PYG{c+cm}{ */}
+\PYG{k}{export}\PYG{+w}{ }\PYG{k}{async}\PYG{+w}{ }\PYG{k+kd}{function}\PYG{+w}{ }\PYG{n+nx}{buildYandexDistanceMatrix}\PYG{p}{(}
+\PYG{+w}{  }\PYG{n+nx}{tasks}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{Task}\PYG{p}{[],}
+\PYG{+w}{  }\PYG{n+nx}{routingMode}\PYG{o}{:}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}auto\PYGZsq{}}\PYG{+w}{ }\PYG{o}{|}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}pedestrian\PYGZsq{}}\PYG{+w}{ }\PYG{o}{|}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}masstransit\PYGZsq{}}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}auto\PYGZsq{}}\PYG{p}{,}
+\PYG{p}{)}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nb}{Promise}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{DistanceCell}\PYG{p}{[][]}\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{tasks}\PYG{p}{.}\PYG{n+nx}{length}\PYG{p}{;}
+\PYG{+w}{  }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{n}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{return}\PYG{+w}{ }\PYG{p}{[];}
+
+\PYG{+w}{  }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nx}{loadYandexMaps}\PYG{p}{();}
+
+\PYG{+w}{  }\PYG{c+c1}{// masstransit через multiRouter не возвращает надёжные данные по времени —}
+\PYG{+w}{  }\PYG{c+c1}{// используем \PYGZsq{}auto\PYGZsq{} как приближение.}
+\PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{mode}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{routingMode}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}masstransit\PYGZsq{}}\PYG{+w}{ }\PYG{o}{?}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}auto\PYGZsq{}}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{routingMode}\PYG{p}{;}
+
+\PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{fallbackSec}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{99}\PYG{n+nx}{\PYGZus{}999}\PYG{p}{;}
+\PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{matrix}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{DistanceCell}\PYG{p}{[][]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nb}{Array}\PYG{p}{.}\PYG{k+kr}{from}\PYG{p}{(\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{length}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{n}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{\PYGZus{}}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}
+\PYG{+w}{    }\PYG{n+nb}{Array}\PYG{p}{.}\PYG{k+kr}{from}\PYG{p}{(\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{length}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{n}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{\PYGZus{}\PYGZus{}}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}
+\PYG{+w}{      }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{n+nx}{j}
+\PYG{+w}{        }\PYG{o}{?}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{distanceM}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{0}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{durationSec}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{0}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{o}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{distanceM}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{0}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{durationSec}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{fallbackSec}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{p}{),}
+\PYG{+w}{  }\PYG{p}{);}
+
+\PYG{+w}{  }\PYG{c+c1}{// Запрашиваем все пары параллельно: n*(n\PYGZhy{}1) запросов.}
+\PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{pairs}\PYG{o}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{k+kt}{number}\PYG{p}{,}\PYG{+w}{ }\PYG{k+kt}{number}\PYG{p}{][]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[];}
+\PYG{+w}{  }\PYG{k}{for}\PYG{+w}{ }\PYG{p}{(}\PYG{k+kd}{let}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{o}{++}\PYG{p}{)}
+\PYG{+w}{    }\PYG{k}{for}\PYG{+w}{ }\PYG{p}{(}\PYG{k+kd}{let}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{o}{++}\PYG{p}{)}
+\PYG{+w}{      }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{!==}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nx}{pairs}\PYG{p}{.}\PYG{n+nx}{push}\PYG{p}{([}\PYG{n+nx}{i}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{p}{]);}
+
+\PYG{+w}{  }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nb}{Promise}\PYG{p}{.}\PYG{n+nx}{all}\PYG{p}{(}
+\PYG{+w}{    }\PYG{n+nx}{pairs}\PYG{p}{.}\PYG{n+nx}{map}\PYG{p}{(}\PYG{k}{async}\PYG{+w}{ }\PYG{p}{([}\PYG{n+nx}{i}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{p}{])}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{k+kr}{from}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{tasks}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{];}
+\PYG{+w}{      }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{to}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{tasks}\PYG{p}{[}\PYG{n+nx}{j}\PYG{p}{];}
+\PYG{+w}{      }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{k+kr}{from}\PYG{p}{.}\PYG{n+nx}{latitude}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{+w}{ }\PYG{o}{||}\PYG{+w}{ }\PYG{n+nx}{to}\PYG{p}{.}\PYG{n+nx}{latitude}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{return}\PYG{p}{;}
+
+\PYG{+w}{      }\PYG{k}{try}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{distanceM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{durationSec}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{k}{await}\PYG{+w}{ }\PYG{o+ow}{new}\PYG{+w}{ }\PYG{n+nb}{Promise}\PYG{o}{\PYGZlt{}}\PYG{p}{\PYGZob{}}
+\PYG{+w}{          }\PYG{n+nx}{distanceM}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{number}\PYG{p}{;}
+\PYG{+w}{          }\PYG{n+nx}{durationSec}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{number}\PYG{p}{;}
+\PYG{+w}{        }\PYG{p}{\PYGZcb{}}\PYG{o}{\PYGZgt{}}\PYG{p}{((}\PYG{n+nx}{resolve}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{reject}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{          }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{mr}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{o+ow}{new}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nb}{window}\PYG{p}{.}\PYG{n+nx}{ymaps}\PYG{+w}{ }\PYG{k+kr}{as}\PYG{+w}{ }\PYG{n+nx}{any}\PYG{p}{).}\PYG{n+nx}{multiRouter}\PYG{p}{.}\PYG{n+nx}{MultiRoute}\PYG{p}{(}
+\PYG{+w}{            }\PYG{p}{\PYGZob{}}
+\PYG{+w}{              }\PYG{n+nx}{referencePoints}\PYG{o}{:}\PYG{+w}{ }\PYG{p}{[}
+\PYG{+w}{                }\PYG{p}{[}\PYG{k+kr}{from}\PYG{p}{.}\PYG{n+nx}{latitude}\PYG{o}{!}\PYG{p}{,}\PYG{+w}{ }\PYG{k+kr}{from}\PYG{p}{.}\PYG{n+nx}{longitude}\PYG{o}{!}\PYG{p}{],}
+\PYG{+w}{                }\PYG{p}{[}\PYG{n+nx}{to}\PYG{p}{.}\PYG{n+nx}{latitude}\PYG{o}{!}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{to}\PYG{p}{.}\PYG{n+nx}{longitude}\PYG{o}{!}\PYG{p}{],}
+\PYG{+w}{              }\PYG{p}{],}
+\PYG{+w}{              }\PYG{n+nx}{params}\PYG{o}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{routingMode}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{mode}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{            }\PYG{p}{\PYGZob{}\PYGZcb{},}
+\PYG{+w}{          }\PYG{p}{);}
+
+\PYG{+w}{          }\PYG{n+nx}{mr}\PYG{p}{.}\PYG{n+nx}{model}\PYG{p}{.}\PYG{n+nx}{events}\PYG{p}{.}\PYG{n+nx}{once}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}requestsuccess\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{p}{()}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{            }\PYG{k}{try}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{              }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{activeRoute}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{mr}\PYG{p}{.}\PYG{n+nx}{getActiveRoute}\PYG{p}{();}
+\PYG{+w}{              }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{activeRoute}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{distObj}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{activeRoute}\PYG{p}{.}\PYG{n+nx}{properties}\PYG{p}{.}\PYG{n+nx}{get}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}distance\PYGZsq{}}\PYG{p}{);}
+\PYG{+w}{                }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{durObj}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{activeRoute}\PYG{p}{.}\PYG{n+nx}{properties}\PYG{p}{.}\PYG{n+nx}{get}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}duration\PYGZsq{}}\PYG{p}{);}
+\PYG{+w}{                }\PYG{n+nx}{resolve}\PYG{p}{(\PYGZob{}}
+\PYG{+w}{                  }\PYG{n+nx}{distanceM}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{Math.round}\PYG{p}{(}
+\PYG{+w}{                    }\PYG{o+ow}{typeof}\PYG{+w}{ }\PYG{n+nx}{distObj}\PYG{o}{?}\PYG{p}{.}\PYG{n+nx}{value}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}number\PYGZsq{}}\PYG{+w}{ }\PYG{o}{?}\PYG{+w}{ }\PYG{n+nx}{distObj.value}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{0}\PYG{p}{,}
+\PYG{+w}{                  }\PYG{p}{),}
+\PYG{+w}{                  }\PYG{n+nx}{durationSec}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{Math.round}\PYG{p}{(}
+\PYG{+w}{                    }\PYG{o+ow}{typeof}\PYG{+w}{ }\PYG{n+nx}{durObj}\PYG{o}{?}\PYG{p}{.}\PYG{n+nx}{value}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}number\PYGZsq{}}
+\PYG{+w}{                      }\PYG{o}{?}\PYG{+w}{ }\PYG{n+nx}{durObj.value}
+\PYG{+w}{                      }\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{fallbackSec}\PYG{p}{,}
+\PYG{+w}{                  }\PYG{p}{),}
+\PYG{+w}{                }\PYG{p}{\PYGZcb{});}
+\PYG{+w}{                }\PYG{k}{return}\PYG{p}{;}
+\PYG{+w}{              }\PYG{p}{\PYGZcb{}}
+
+\PYG{+w}{              }\PYG{c+c1}{// Запасной путь: данные из модельных маршрутов напрямую.}
+\PYG{+w}{              }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{modelRoutes}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{p}{[]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{mr}\PYG{p}{.}\PYG{n+nx}{model}\PYG{p}{.}\PYG{n+nx}{getRoutes}\PYG{p}{();}
+\PYG{+w}{              }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{modelRoutes}\PYG{p}{.}\PYG{n+nx}{length}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{legs}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{p}{[]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{modelRoutes}\PYG{p}{[}\PYG{l+m+mf}{0}\PYG{p}{].}\PYG{n+nx}{getLegs}\PYG{p}{();}
+\PYG{+w}{                }\PYG{k+kd}{let}\PYG{+w}{ }\PYG{n+nx}{totalDistM}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{;}
+\PYG{+w}{                }\PYG{k+kd}{let}\PYG{+w}{ }\PYG{n+nx}{totalDurSec}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{;}
+\PYG{+w}{                }\PYG{n+nx}{legs}\PYG{p}{.}\PYG{n+nx}{forEach}\PYG{p}{((}\PYG{n+nx}{leg}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{d}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{leg}\PYG{p}{.}\PYG{n+nx}{properties}\PYG{o}{?}\PYG{p}{.}\PYG{n+nx}{get}\PYG{o}{?}\PYG{p}{.(}\PYG{l+s+s1}{\PYGZsq{}distance\PYGZsq{}}\PYG{p}{);}
+\PYG{+w}{                  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{dur}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{any}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{leg}\PYG{p}{.}\PYG{n+nx}{properties}\PYG{o}{?}\PYG{p}{.}\PYG{n+nx}{get}\PYG{o}{?}\PYG{p}{.(}\PYG{l+s+s1}{\PYGZsq{}duration\PYGZsq{}}\PYG{p}{);}
+\PYG{+w}{                  }\PYG{n+nx}{totalDistM}\PYG{+w}{ }\PYG{o}{+=}\PYG{+w}{ }\PYG{o+ow}{typeof}\PYG{+w}{ }\PYG{n+nx}{d}\PYG{o}{?}\PYG{p}{.}\PYG{n+nx}{value}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}number\PYGZsq{}}\PYG{+w}{ }\PYG{o}{?}\PYG{+w}{ }\PYG{n+nx}{d.value}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{0}\PYG{p}{;}
+\PYG{+w}{                  }\PYG{n+nx}{totalDurSec}\PYG{+w}{ }\PYG{o}{+=}
+\PYG{+w}{                    }\PYG{o+ow}{typeof}\PYG{+w}{ }\PYG{n+nx}{dur}\PYG{o}{?}\PYG{p}{.}\PYG{n+nx}{value}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}number\PYGZsq{}}\PYG{+w}{ }\PYG{o}{?}\PYG{+w}{ }\PYG{n+nx}{dur.value}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{0}\PYG{p}{;}
+\PYG{+w}{                }\PYG{p}{\PYGZcb{});}
+\PYG{+w}{                }\PYG{n+nx}{resolve}\PYG{p}{(\PYGZob{}}
+\PYG{+w}{                  }\PYG{n+nx}{distanceM}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{Math.round}\PYG{p}{(}\PYG{n+nx}{totalDistM}\PYG{p}{),}
+\PYG{+w}{                  }\PYG{n+nx}{durationSec}\PYG{o}{:}
+\PYG{+w}{                    }\PYG{k+kt}{totalDurSec}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{l+m+mf}{0}
+\PYG{+w}{                      }\PYG{o}{?}\PYG{+w}{ }\PYG{n+nb}{Math}\PYG{p}{.}\PYG{n+nx}{round}\PYG{p}{(}\PYG{n+nx}{totalDurSec}\PYG{p}{)}
+\PYG{+w}{                      }\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{fallbackSec}\PYG{p}{,}
+\PYG{+w}{                }\PYG{p}{\PYGZcb{});}
+\PYG{+w}{                }\PYG{k}{return}\PYG{p}{;}
+\PYG{+w}{              }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{              }\PYG{n+nx}{reject}\PYG{p}{(}\PYG{o+ow}{new}\PYG{+w}{ }\PYG{n+ne}{Error}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}no route data\PYGZsq{}}\PYG{p}{));}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k}{catch}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{e}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{              }\PYG{n+nx}{reject}\PYG{p}{(}\PYG{n+nx}{e}\PYG{p}{);}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{          }\PYG{p}{\PYGZcb{});}
+
+\PYG{+w}{          }\PYG{n+nx}{mr}\PYG{p}{.}\PYG{n+nx}{model}\PYG{p}{.}\PYG{n+nx}{events}\PYG{p}{.}\PYG{n+nx}{once}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}requestfail\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{p}{()}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{            }\PYG{n+nx}{reject}\PYG{p}{(}\PYG{o+ow}{new}\PYG{+w}{ }\PYG{n+ne}{Error}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}routing failed\PYGZsq{}}\PYG{p}{));}
+\PYG{+w}{          }\PYG{p}{\PYGZcb{});}
+\PYG{+w}{        }\PYG{p}{\PYGZcb{});}
+
+\PYG{+w}{        }\PYG{n+nx}{matrix}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{][}\PYG{n+nx}{j}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{distanceM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{durationSec}\PYG{+w}{ }\PYG{p}{\PYGZcb{};}
+\PYG{+w}{      }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k}{catch}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{c+c1}{// Оставляем fallback: алгоритм избегает недостижимых пар.}
+\PYG{+w}{      }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{}),}
+\PYG{+w}{  }\PYG{p}{);}
+
+\PYG{+w}{  }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{matrix}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+\end{Verbatim}
