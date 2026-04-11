@@ -9,11 +9,8 @@
 % Листинг 1: алгоритм оптимизации маршрута (Go)
 % ──────────────────────────────────────────────────────────────────────────────
 
-\begin{listing}[H]
-  \caption{Алгоритм ближайшего соседа с временными окнами (nearest\_neighbor.go)}
-  \label{app:lst_optimizer}
-  \begin{mdframed}
-    \begin{minted}{go}
+\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами (nearest\_neighbor.go)}{app:lst_optimizer}
+  \begin{minted}{go}
 package optimizer
 
 import (
@@ -150,19 +147,15 @@ func feasible(node Node, arrivalMins int) bool {
 	}
 	return arrivalMins <= node.WindowEnd-node.DurationMin
 }
-    \end{minted}
-  \end{mdframed}
-\end{listing}
+  \end{minted}
+\end{codelisting}
 
 % ──────────────────────────────────────────────────────────────────────────────
 % Листинг 2: HTTP-обработчики маршрутов (Go)
 % ──────────────────────────────────────────────────────────────────────────────
 
-\begin{listing}[H]
-  \caption{HTTP-обработчики эндпоинтов маршрутов (handlers\_routes.go)}
-  \label{app:lst_handlers_routes}
-  \begin{mdframed}
-    \begin{minted}{go}
+\begin{codelisting}{HTTP-обработчики эндпоинтов маршрутов (handlers\_routes.go)}{app:lst_handlers_routes}
+  \begin{minted}{go}
 package http
 
 import (
@@ -331,19 +324,15 @@ func (h *RouteHandlers) Rename(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
-    \end{minted}
-  \end{mdframed}
-\end{listing}
+  \end{minted}
+\end{codelisting}
 
 % ──────────────────────────────────────────────────────────────────────────────
 % Листинг 3: API-клиент с автоматическим обновлением токена (TypeScript)
 % ──────────────────────────────────────────────────────────────────────────────
 
-\begin{listing}[H]
-  \caption{Ключевые функции API-клиента: авторизованные запросы и обновление токена (client.ts)}
-  \label{app:lst_api_client}
-  \begin{mdframed}
-    \begin{minted}{typescript}
+\begin{codelisting}{Ключевые функции API-клиента: авторизованные запросы и обновление токена (client.ts)}{app:lst_api_client}
+  \begin{minted}{typescript}
 // Единственный глобальный промис обновления токена — предотвращает
 // параллельные запросы /auth/refresh при одновременных 401-ошибках.
 let refreshSessionPromise: Promise<AuthSession> | null = null;
@@ -443,19 +432,15 @@ async function request<T = void>(
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
 }
-    \end{minted}
-  \end{mdframed}
-\end{listing}
+  \end{minted}
+\end{codelisting}
 
 % ──────────────────────────────────────────────────────────────────────────────
 % Листинг 4: построение матрицы расстояний через Яндекс Карты (TypeScript)
 % ──────────────────────────────────────────────────────────────────────────────
 
-\begin{listing}[H]
-  \caption{Построение матрицы расстояний через Яндекс Маршруты JS API (routeOptimizer.ts)}
-  \label{app:lst_route_optimizer}
-  \begin{mdframed}
-    \begin{minted}{typescript}
+\begin{codelisting}{Построение матрицы расстояний через Яндекс Маршруты JS API (routeOptimizer.ts)}{app:lst_route_optimizer}
+  \begin{minted}{typescript}
 import { Task } from '../types/task';
 import { loadYandexMaps } from './yandexMaps';
 
@@ -583,6 +568,5 @@ export async function buildYandexDistanceMatrix(
 
   return matrix;
 }
-    \end{minted}
-  \end{mdframed}
-\end{listing}
+  \end{minted}
+\end{codelisting}

@@ -116,11 +116,16 @@
     innerrightmargin=5pt,
     innertopmargin=5pt,
     innerbottommargin=5pt,
-    skipabove=0pt, % Reduces space above the frame
-    skipbelow=0pt, % Reduces space below the frame
-    leftmargin=0pt, % Reduces left outer margin
-    rightmargin=0pt % Reduces right outer margin
+    skipabove=0pt,
+    skipbelow=0pt,
+    leftmargin=0pt,
+    rightmargin=0pt
 }
+
+% tcolorbox is used for code listings because mdframed with roundcorner
+% relies on TikZ and TikZ-based mdframed frames cannot break across pages.
+% tcolorbox with breakable=true supports both rounded corners and page breaks.
+\usepackage[breakable,skins]{tcolorbox}
 
 \usepackage[chapter]{minted}
 
@@ -144,10 +149,36 @@
     breakanywhere=true,
     breakautoindent=true,
     breaklines=true,
+    tabsize=4,              % заменяет символы табуляции (^^I) на 4 пробела
 }
 
 \renewcommand{\listingscaption}{Листинг}
 \renewcommand{\listoflistingscaption}{Листинги}
+
+% Breakable code listing environment (non-float, page-breaking).
+% Uses tcolorbox instead of mdframed: tcolorbox with breakable=true supports
+% both rounded corners and page breaks. mdframed with roundcorner uses TikZ
+% which cannot break across pages.
+% Usage: \begin{codelisting}{Caption text}{label}
+%          \begin{minted}{lang} ... \end{minted}
+%        \end{codelisting}
+\newenvironment{codelisting}[2]{%
+  \par\vspace{5pt}%
+  \noindent\captionof{listing}{#1}\label{#2}%
+  \nopagebreak[4]%
+  \begin{tcolorbox}[%
+    breakable,%
+    enhanced,%
+    colback=white,%
+    colframe=black,%
+    arc=5pt,%
+    boxrule=0.5pt,%
+    left=5pt, right=5pt, top=5pt, bottom=5pt,%
+  ]%
+}{%
+  \end{tcolorbox}%
+  \vspace{5pt}%
+}
 
 
 \makeatletter
