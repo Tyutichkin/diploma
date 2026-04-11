@@ -1,68 +1,68 @@
 \babel@toc {russian}{}
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ВВЕДЕНИЕ}}}{8}{section*.3}%
-\contentsline {chapter}{\numberline {1}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Анализ предметной области и обоснование выбора технологий}}}{10}{chapter.1}%
-\contentsline {section}{\numberline {1.1}Исходное состояние объекта и характеристика предметной области}{10}{section.1.1}%
-\contentsline {section}{\numberline {1.2}Постановка проблемы и формирование цели разработки}{11}{section.1.2}%
-\contentsline {section}{\numberline {1.3}Обоснование выбора технологий и платформ}{12}{section.1.3}%
-\contentsline {subsection}{\numberline {1.3.1}Выбор серверной платформы}{12}{subsection.1.3.1}%
-\contentsline {subsection}{\numberline {1.3.2}Выбор СУБД и работы с геоданными}{12}{subsection.1.3.2}%
-\contentsline {subsection}{\numberline {1.3.3}Выбор клиентских технологий}{13}{subsection.1.3.3}%
-\contentsline {subsection}{\numberline {1.3.4}Итоговый технологический стек}{13}{subsection.1.3.4}%
-\contentsline {section}{\numberline {1.4}Обзор аналогов и сравнительный анализ}{13}{section.1.4}%
-\contentsline {section}{\numberline {1.5}Выводы}{14}{section.1.5}%
-\contentsline {chapter}{\numberline {2}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Реализация}}}{15}{chapter.2}%
-\contentsline {section}{\numberline {2.1}Модель данных}{15}{section.2.1}%
-\contentsline {subsection}{\numberline {2.1.1}Общая характеристика структуры хранения данных}{15}{subsection.2.1.1}%
-\contentsline {subsection}{\numberline {2.1.2}Сущности, связанные с пользователями}{16}{subsection.2.1.2}%
-\contentsline {subsection}{\numberline {2.1.3}Сущность задач}{16}{subsection.2.1.3}%
-\contentsline {subsection}{\numberline {2.1.4}Сущности маршрутов}{16}{subsection.2.1.4}%
-\contentsline {subsection}{\numberline {2.1.5}Хранение агрегированных показателей}{17}{subsection.2.1.5}%
-\contentsline {subsection}{\numberline {2.1.6}Геометрия маршрута}{17}{subsection.2.1.6}%
-\contentsline {subsection}{\numberline {2.1.7}Кэширование данных внешних API}{18}{subsection.2.1.7}%
-\contentsline {subsection}{\numberline {2.1.8}Вывод}{18}{subsection.2.1.8}%
-\contentsline {section}{\numberline {2.2}Интерфейс}{18}{section.2.2}%
-\contentsline {subsection}{\numberline {2.2.1}Общая логика построения интерфейса}{20}{subsection.2.2.1}%
-\contentsline {subsection}{\numberline {2.2.2}Организация рабочей области}{21}{subsection.2.2.2}%
-\contentsline {subsection}{\numberline {2.2.3}Организация ввода данных}{21}{subsection.2.2.3}%
-\contentsline {subsection}{\numberline {2.2.4}Навигационная структура}{21}{subsection.2.2.4}%
-\contentsline {subsection}{\numberline {2.2.5}Поддержка пользовательского контроля}{22}{subsection.2.2.5}%
-\contentsline {subsection}{\numberline {2.2.6}Вывод}{22}{subsection.2.2.6}%
-\contentsline {section}{\numberline {2.3}Техническая реализация}{22}{section.2.3}%
-\contentsline {subsection}{\numberline {2.3.1}Состав и объём программного кода}{22}{subsection.2.3.1}%
-\contentsline {subsection}{\numberline {2.3.2}Используемые библиотеки серверной части}{24}{subsection.2.3.2}%
-\contentsline {subsection}{\numberline {2.3.3}Используемые библиотеки клиентской части}{25}{subsection.2.3.3}%
-\contentsline {subsection}{\numberline {2.3.4}Требования к техническим средствам}{26}{subsection.2.3.4}%
-\contentsline {subsection}{\numberline {2.3.5}Требования к программному обеспечению}{26}{subsection.2.3.5}%
-\contentsline {subsection}{\numberline {2.3.6}Вывод}{27}{subsection.2.3.6}%
-\contentsline {section}{\numberline {2.4}Руководство пользователя и администратора}{28}{section.2.4}%
-\contentsline {subsection}{\numberline {2.4.1}Общие сведения о развёртывании}{28}{subsection.2.4.1}%
-\contentsline {subsection}{\numberline {2.4.2}Установка и настройка серверной части}{28}{subsection.2.4.2}%
-\contentsline {subsubsection}{\numberline {2.4.2.1}Развёртывание с использованием Docker Compose}{28}{subsubsection.2.4.2.1}%
-\contentsline {subsubsection}{\numberline {2.4.2.2}Параметры конфигурации}{29}{subsubsection.2.4.2.2}%
-\contentsline {subsubsection}{\numberline {2.4.2.3}Развёртывание без Docker}{30}{subsubsection.2.4.2.3}%
-\contentsline {subsection}{\numberline {2.4.3}Установка и настройка клиентской части}{30}{subsection.2.4.3}%
-\contentsline {subsubsection}{\numberline {2.4.3.1}Режим разработки}{30}{subsubsection.2.4.3.1}%
-\contentsline {subsubsection}{\numberline {2.4.3.2}Сборка для продуктивной эксплуатации}{31}{subsubsection.2.4.3.2}%
-\contentsline {subsection}{\numberline {2.4.4}Перечень возможных затруднений и способы их устранения}{31}{subsection.2.4.4}%
-\contentsline {subsection}{\numberline {2.4.5}Краткое руководство пользователя}{32}{subsection.2.4.5}%
-\contentsline {subsection}{\numberline {2.4.6}Руководство администратора}{33}{subsection.2.4.6}%
-\contentsline {subsection}{\numberline {2.4.7}Вывод}{34}{subsection.2.4.7}%
-\contentsline {chapter}{\numberline {3}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Внедрение и эксплуатация}}}{35}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Анализ внедрения продукта}{35}{section.3.1}%
-\contentsline {subsection}{\numberline {3.1.1}Вывод}{38}{subsection.3.1.1}%
-\contentsline {section}{\numberline {3.2}Аспекты отказоустойчивости, надёжности и производительности}{38}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Устойчивость к отказам внешних зависимостей}{38}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}Надёжность аутентификации}{39}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Надёжность инфраструктуры}{39}{subsection.3.2.3}%
-\contentsline {subsection}{\numberline {3.2.4}Производительность}{40}{subsection.3.2.4}%
-\contentsline {subsection}{\numberline {3.2.5}Вывод}{40}{subsection.3.2.5}%
-\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{41}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{41}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развёртывания}{41}{subsection.3.3.2}%
-\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{42}{subsection.3.3.3}%
-\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{42}{subsection.3.3.4}%
-\contentsline {subsection}{\numberline {3.3.5}Вывод}{43}{subsection.3.3.5}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{44}{section*.14}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{45}{section*.15}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{46}{section*.16}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Приложение Б}}}{52}{section*.19}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ВВЕДЕНИЕ}}}{9}{section*.3}%
+\contentsline {chapter}{\numberline {1}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Анализ предметной области и обоснование выбора технологий}}}{11}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Исходное состояние объекта и характеристика предметной области}{11}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Постановка проблемы и формирование цели разработки}{12}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Обоснование выбора технологий и платформ}{13}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}Выбор серверной платформы}{13}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.2}Выбор СУБД и работы с геоданными}{13}{subsection.1.3.2}%
+\contentsline {subsection}{\numberline {1.3.3}Выбор клиентских технологий}{14}{subsection.1.3.3}%
+\contentsline {subsection}{\numberline {1.3.4}Итоговый технологический стек}{14}{subsection.1.3.4}%
+\contentsline {section}{\numberline {1.4}Обзор аналогов и сравнительный анализ}{14}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Выводы}{15}{section.1.5}%
+\contentsline {chapter}{\numberline {2}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Реализация}}}{17}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Модель данных}{17}{section.2.1}%
+\contentsline {subsection}{\numberline {2.1.1}Общая характеристика структуры хранения данных}{17}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {2.1.2}Сущности, связанные с пользователями}{18}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {2.1.3}Сущность задач}{18}{subsection.2.1.3}%
+\contentsline {subsection}{\numberline {2.1.4}Сущности маршрутов}{18}{subsection.2.1.4}%
+\contentsline {subsection}{\numberline {2.1.5}Хранение агрегированных показателей}{19}{subsection.2.1.5}%
+\contentsline {subsection}{\numberline {2.1.6}Геометрия маршрута}{19}{subsection.2.1.6}%
+\contentsline {subsection}{\numberline {2.1.7}Кэширование данных внешних API}{20}{subsection.2.1.7}%
+\contentsline {subsection}{\numberline {2.1.8}Вывод}{20}{subsection.2.1.8}%
+\contentsline {section}{\numberline {2.2}Интерфейс}{20}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Общая логика построения интерфейса}{22}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Организация рабочей области}{23}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Организация ввода данных}{23}{subsection.2.2.3}%
+\contentsline {subsection}{\numberline {2.2.4}Навигационная структура}{23}{subsection.2.2.4}%
+\contentsline {subsection}{\numberline {2.2.5}Поддержка пользовательского контроля}{24}{subsection.2.2.5}%
+\contentsline {subsection}{\numberline {2.2.6}Вывод}{24}{subsection.2.2.6}%
+\contentsline {section}{\numberline {2.3}Техническая реализация}{24}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}Состав и объём программного кода}{24}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Используемые библиотеки серверной части}{26}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}Используемые библиотеки клиентской части}{27}{subsection.2.3.3}%
+\contentsline {subsection}{\numberline {2.3.4}Требования к техническим средствам}{28}{subsection.2.3.4}%
+\contentsline {subsection}{\numberline {2.3.5}Требования к программному обеспечению}{28}{subsection.2.3.5}%
+\contentsline {subsection}{\numberline {2.3.6}Вывод}{29}{subsection.2.3.6}%
+\contentsline {section}{\numberline {2.4}Руководство пользователя и администратора}{30}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Общие сведения о развёртывании}{30}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Установка и настройка серверной части}{30}{subsection.2.4.2}%
+\contentsline {subsubsection}{\numberline {2.4.2.1}Развёртывание с использованием Docker Compose}{30}{subsubsection.2.4.2.1}%
+\contentsline {subsubsection}{\numberline {2.4.2.2}Параметры конфигурации}{31}{subsubsection.2.4.2.2}%
+\contentsline {subsubsection}{\numberline {2.4.2.3}Развёртывание без Docker}{32}{subsubsection.2.4.2.3}%
+\contentsline {subsection}{\numberline {2.4.3}Установка и настройка клиентской части}{32}{subsection.2.4.3}%
+\contentsline {subsubsection}{\numberline {2.4.3.1}Режим разработки}{32}{subsubsection.2.4.3.1}%
+\contentsline {subsubsection}{\numberline {2.4.3.2}Сборка для продуктивной эксплуатации}{33}{subsubsection.2.4.3.2}%
+\contentsline {subsection}{\numberline {2.4.4}Перечень возможных затруднений и способы их устранения}{33}{subsection.2.4.4}%
+\contentsline {subsection}{\numberline {2.4.5}Краткое руководство пользователя}{34}{subsection.2.4.5}%
+\contentsline {subsection}{\numberline {2.4.6}Руководство администратора}{35}{subsection.2.4.6}%
+\contentsline {subsection}{\numberline {2.4.7}Вывод}{36}{subsection.2.4.7}%
+\contentsline {chapter}{\numberline {3}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Внедрение и эксплуатация}}}{37}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Анализ внедрения продукта}{37}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}Вывод}{40}{subsection.3.1.1}%
+\contentsline {section}{\numberline {3.2}Аспекты отказоустойчивости, надёжности и производительности}{40}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Устойчивость к отказам внешних зависимостей}{40}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Надёжность аутентификации}{41}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Надёжность инфраструктуры}{41}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Производительность}{42}{subsection.3.2.4}%
+\contentsline {subsection}{\numberline {3.2.5}Вывод}{42}{subsection.3.2.5}%
+\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{43}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{43}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развёртывания}{43}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{44}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{44}{subsection.3.3.4}%
+\contentsline {subsection}{\numberline {3.3.5}Вывод}{45}{subsection.3.3.5}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{46}{section*.14}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{48}{section*.15}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{50}{section*.16}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Приложение Б}}}{56}{section*.19}%

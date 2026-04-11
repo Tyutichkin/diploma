@@ -1,0 +1,5 @@
+[0] Config.pm:311> INFO - This is Biber 2.16
+[0] Config.pm:314> INFO - Logfile is 'rpz.blg'
+[59] biber-darwin:340> INFO - === сб апр. 11, 2026, 18:28:46
+[217] Utils.pm:411> ERROR - Cannot find 'rpz.bcf'!
+[217] Biber.pm:132> INFO - ERRORS: 1
