@@ -1,0 +1,48 @@
+@startuml auth_sequence_login
+' Сценарий 1: Вход в систему (JWT-аутентификация)
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 10
+skinparam SequenceArrowColor Black
+skinparam SequenceParticipantBorderColor Black
+skinparam SequenceParticipantBackgroundColor White
+skinparam SequenceLifeLineBorderColor Black
+skinparam NoteBackgroundColor White
+skinparam NoteBorderColor Black
+skinparam ArrowFontSize 9
+skinparam Padding 4
+
+participant "Браузер\n(React SPA)" as Browser
+participant "API-клиент\n(client.ts)" as Client
+participant "Сервер\n(Go / Gin)" as Server
+database "PostgreSQL" as DB
+
+Browser -> Client : login(email, password)
+activate Client
+
+Client -> Server : POST /api/auth/login\n{ email, password }
+activate Server
+
+Server -> DB : SELECT users WHERE email = ?
+activate DB
+DB --> Server : { id, password_hash }
+deactivate DB
+
+Server -> Server : bcrypt.Compare(\n  password_hash, password)
+
+Server -> DB : INSERT refresh_tokens\n{ user_id, token_hash, expires_at }
+activate DB
+DB --> Server : OK
+deactivate DB
+
+Server --> Client : 200 OK\n{ accessToken (15 мин),\n  refreshToken (30 дней), email }
+deactivate Server
+
+Client -> Client : Сохранить в localStorage\n("planner.auth.session")
+
+Client --> Browser : Сессия установлена
+deactivate Client
+
+@enduml

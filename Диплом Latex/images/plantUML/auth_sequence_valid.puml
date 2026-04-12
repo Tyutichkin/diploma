@@ -1,0 +1,41 @@
+@startuml auth_sequence_valid
+' Сценарий 2: Запрос к API с валидным access-токеном
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 10
+skinparam SequenceArrowColor Black
+skinparam SequenceParticipantBorderColor Black
+skinparam SequenceParticipantBackgroundColor White
+skinparam SequenceLifeLineBorderColor Black
+skinparam NoteBackgroundColor White
+skinparam NoteBorderColor Black
+skinparam ArrowFontSize 9
+skinparam Padding 4
+
+participant "Браузер\n(React SPA)" as Browser
+participant "API-клиент\n(client.ts)" as Client
+participant "Сервер\n(Go / Gin)" as Server
+database "PostgreSQL" as DB
+
+Browser -> Client : getTasks()
+activate Client
+
+Client -> Server : GET /api/tasks\nAuthorization: Bearer <accessToken>
+activate Server
+
+Server -> Server : Проверить JWT:\nподпись, срок действия, uid
+
+Server -> DB : SELECT tasks WHERE user_id = uid\nAND is_deleted = false
+activate DB
+DB --> Server : tasks[]
+deactivate DB
+
+Server --> Client : 200 OK  { tasks[] }
+deactivate Server
+
+Client --> Browser : tasks[]
+deactivate Client
+
+@enduml

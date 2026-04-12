@@ -1,0 +1,81 @@
+@startuml use_case
+' Use Case диаграмма — Система планирования маршрутов с временными окнами
+' Соответствует перечню функций из §1.2 диплома
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 11
+skinparam ArrowColor Black
+skinparam ActorBorderColor Black
+skinparam ActorBackgroundColor White
+skinparam UsecaseBorderColor Black
+skinparam UsecaseBackgroundColor White
+skinparam UsecaseFontSize 10
+skinparam PackageBorderColor Black
+skinparam PackageBackgroundColor White
+skinparam Padding 5
+skinparam RoundCorner 0
+
+left to right direction
+
+actor "Пользователь" as User
+actor "Внешний API\n(Яндекс Карты\n/ OSRM)" as ExtAPI
+
+rectangle "Веб-приложение планирования маршрутов" {
+
+    package "Управление учётной записью" {
+        usecase "Зарегистрироваться\nв системе" as UC_REG
+        usecase "Войти в систему" as UC_LOGIN
+        usecase "Выйти из системы" as UC_LOGOUT
+        usecase "Автоматически\nобновить токен" as UC_REFRESH
+    }
+
+    package "Управление задачами" {
+        usecase "Создать задачу\n(адрес, временное окно,\nдлительность)" as UC_CREATE
+        usecase "Редактировать задачу" as UC_EDIT
+        usecase "Удалить задачу" as UC_DELETE
+        usecase "Изменить порядок задач\n(перетаскивание)" as UC_REORDER
+        usecase "Геокодировать адрес\n(получить координаты)" as UC_GEO
+    }
+
+    package "Оптимизация маршрута" {
+        usecase "Запустить\nоптимизацию маршрута" as UC_OPT
+        usecase "Получить матрицу\nрасстояний" as UC_MATRIX
+        usecase "Вычислить\nоптимальный порядок\nпосещения (NNH-TW)" as UC_NNH
+        usecase "Рассчитать время\nприбытия, ожидания\nи завершения" as UC_TIME
+    }
+
+    package "Визуализация и экспорт" {
+        usecase "Отобразить маршрут\nна карте" as UC_MAP
+        usecase "Просмотреть\nупорядоченный\nсписок задач" as UC_LIST
+        usecase "Экспортировать\nмаршрут в JSON" as UC_EXPORT
+    }
+}
+
+' Пользователь → функции
+User --> UC_REG
+User --> UC_LOGIN
+User --> UC_LOGOUT
+User --> UC_CREATE
+User --> UC_EDIT
+User --> UC_DELETE
+User --> UC_REORDER
+User --> UC_OPT
+User --> UC_MAP
+User --> UC_LIST
+User --> UC_EXPORT
+
+' Включения (include)
+UC_LOGIN ..> UC_REFRESH : <<include>>
+UC_CREATE ..> UC_GEO : <<include>>
+UC_OPT ..> UC_MATRIX : <<include>>
+UC_OPT ..> UC_NNH : <<include>>
+UC_OPT ..> UC_TIME : <<include>>
+UC_OPT ..> UC_MAP : <<include>>
+
+' Внешний API
+UC_GEO --> ExtAPI
+UC_MATRIX --> ExtAPI
+
+@enduml

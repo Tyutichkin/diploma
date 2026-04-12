@@ -1,0 +1,140 @@
+@startuml auth_sequence
+' Диаграмма последовательности — JWT-аутентификация
+' Сценарии: вход, запрос с валидным токеном, авто-обновление при 401
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 10
+skinparam SequenceArrowColor Black
+skinparam SequenceParticipantBorderColor Black
+skinparam SequenceParticipantBackgroundColor White
+skinparam SequenceGroupBorderColor Black
+skinparam SequenceGroupBackgroundColor White
+skinparam SequenceBoxBackgroundColor #F0F0F0
+skinparam SequenceBoxBorderColor Black
+skinparam SequenceLifeLineBorderColor Black
+skinparam SequenceDividerBorderColor Black
+skinparam SequenceDividerBackgroundColor #E8E8E8
+skinparam ArrowFontSize 9
+skinparam NoteBackgroundColor White
+skinparam NoteBorderColor Black
+skinparam Padding 4
+
+participant "Браузер\n(React SPA)" as Browser
+participant "API-клиент\n(client.ts)" as Client
+participant "Сервер\n(Go / Gin)" as Server
+database "PostgreSQL" as DB
+
+== Сценарий 1: Вход в систему ==
+
+Browser -> Client : login(email, password)
+activate Client
+
+Client -> Server : POST /api/auth/login\n{ email, password }
+activate Server
+
+Server -> DB : Найти пользователя\nпо email
+activate DB
+DB --> Server : users{ id, hash }
+deactivate DB
+
+Server -> Server : bcrypt.Compare(\n  hash, password)
+
+note right of Server
+  Если хэши совпадают —
+  генерировать пару токенов
+end note
+
+Server -> DB : INSERT refresh_tokens\n{ user_id, token_hash, expires_at }
+activate DB
+DB --> Server : OK
+deactivate DB
+
+Server --> Client : 200 OK\n{ accessToken, refreshToken, email }
+deactivate Server
+
+Client -> Client : Сохранить сессию\nв localStorage\n("planner.auth.session")
+
+Client --> Browser : Сессия установлена
+deactivate Client
+
+== Сценарий 2: Запрос с валидным access-токеном ==
+
+Browser -> Client : getTasks()
+activate Client
+
+Client -> Server : GET /api/tasks\nAuthorization: Bearer <accessToken>
+activate Server
+
+Server -> Server : Проверить JWT:\nподпись, срок действия,\nuid из Claims
+
+Server -> DB : SELECT tasks\nWHERE user_id = uid\nAND is_deleted = false
+activate DB
+DB --> Server : tasks[]
+deactivate DB
+
+Server --> Client : 200 OK\n{ tasks[] }
+deactivate Server
+
+Client --> Browser : tasks[]
+deactivate Client
+
+== Сценарий 3: Авто-обновление токена при истечении ==
+
+Browser -> Client : createTask(data)
+activate Client
+
+Client -> Server : POST /api/tasks\nAuthorization: Bearer <expiredToken>
+activate Server
+
+Server --> Client : 401 Unauthorized
+deactivate Server
+
+note over Client
+  Первый 401 — запускается
+  ровно один запрос обновления
+  (дедупликация через Promise)
+end note
+
+Client -> Server : POST /api/auth/refresh\n{ refreshToken }
+activate Server
+
+Server -> DB : SELECT refresh_tokens\nWHERE hash = bcrypt(token)\nAND expires_at > NOW()
+activate DB
+DB --> Server : token{ user_id }
+deactivate DB
+
+Server -> Server : Сгенерировать\nновый accessToken\n(TTL 15 мин)
+
+Server -> DB : Обновить запись\nrefresh_tokens
+activate DB
+DB --> Server : OK
+deactivate DB
+
+Server --> Client : 200 OK\n{ accessToken, refreshToken }
+deactivate Server
+
+Client -> Client : Обновить сессию\nв localStorage
+
+note over Client
+  Повторить исходный запрос
+  автоматически, без уведомления
+  пользователя
+end note
+
+Client -> Server : POST /api/tasks\nAuthorization: Bearer <newToken>
+activate Server
+
+Server -> DB : INSERT tasks\n{ user_id, address, lat, lon,\n  duration, window_start, window_end }
+activate DB
+DB --> Server : task{ id }
+deactivate DB
+
+Server --> Client : 201 Created\n{ task }
+deactivate Server
+
+Client --> Browser : task создан
+deactivate Client
+
+@enduml

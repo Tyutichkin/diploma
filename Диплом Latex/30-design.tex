@@ -130,11 +130,11 @@
       \label{tab:clean_arch}
       \begin{tabular}{|p{3cm}|p{4cm}|p{6.5cm}|}
             \hline
-            \centering\textbf{Слой} & \centering\textbf{Пакет}                                           & \multicolumn{1}{c|}{\textbf{Назначение}}                                                  \\ \hline
-            Доменные сущности       & \path{internal/domain/*/}                                          & Структуры данных (\texttt{Task}, \texttt{Route}, \texttt{User}); без внешних зависимостей \\ \hline
-            Интерфейсы (порты)      & \path{internal/domain/*/gate/}                                     & Интерфейсы репозиториев и оптимизатора; определяют контракт без реализации                \\ \hline
-            Варианты использования  & \path{internal/domain/*/story/}                                    & Бизнес-логика: создание задач, запуск оптимизации, управление сессией                     \\ \hline
-            Адаптеры                & \path{internal/api/http/}~и \path{internal/platform/postgres/}     & HTTP-обработчики и SQL-репозитории; зависят от внешних библиотек                          \\ \hline
+            \centering\textbf{Слой} & \centering\textbf{Пакет}                                       & \multicolumn{1}{c|}{\textbf{Назначение}}                                                  \\ \hline
+            Доменные сущности       & \path{internal/domain/*/}                                      & Структуры данных (\texttt{Task}, \texttt{Route}, \texttt{User}); без внешних зависимостей \\ \hline
+            Интерфейсы (порты)      & \path{internal/domain/*/gate/}                                 & Интерфейсы репозиториев и оптимизатора; определяют контракт без реализации                \\ \hline
+            Варианты использования  & \path{internal/domain/*/story/}                                & Бизнес-логика: создание задач, запуск оптимизации, управление сессией                     \\ \hline
+            Адаптеры                & \path{internal/api/http/}~и \path{internal/platform/postgres/} & HTTP-обработчики и SQL-репозитории; зависят от внешних библиотек                          \\ \hline
       \end{tabular}
 \end{table}
 
@@ -210,6 +210,17 @@ feasible(node i, arrivalMins):
     Вернуть arrivalMins ≤ windowEnd[i] − duration[i]
   \end{minted}
 \end{codelisting}
+
+\subsection{Блок-схема алгоритма}
+
+Блок-схема алгоритма представлена на рисунке~\ref{fig:nnh_tw_flowchart}.
+
+\begin{figure}[H]
+      \centering
+      \includegraphics[width=0.62\textwidth]{nnh_tw_flowchart.png}
+      \caption{Блок-схема алгоритма ближайшего соседа с временными окнами (NNH-TW)}
+      \label{fig:nnh_tw_flowchart}
+\end{figure}
 
 \subsection{Трассировка на числовом примере}
 
@@ -322,14 +333,14 @@ NNH-TW. Для его проверки разработано 12~тест-кей
 \begin{table}[H]
       \caption{Тест-кейсы алгоритма NNH-TW}
       \label{tab:test_cases}
-      \begin{tabular}{|p{5.5cm}|p{7.5cm}|}
+      \begin{tabular}{|p{5.5cm}|p{8.5cm}|}
             \hline
-            \centering\textbf{Название теста}                & \multicolumn{1}{c|}{\textbf{Проверяемое условие}}                                                                         \\ \hline
+            \centering\textbf{Название теста}             & \multicolumn{1}{c|}{\textbf{Проверяемое условие}}                                                                         \\ \hline
             \path{TestOptimize_TwoNodesNoWindows}         & Граф из 2 узлов без временных ограничений; оба посещены ровно один раз                                                    \\ \hline
             \path{TestOptimize_ThreeNodesNearestNeighbor} & 3 узла; ближайший сосед выбирается корректно (порядок 0→1→2)                                                              \\ \hline
             \path{TestOptimize_TimeWindowEarliestFirst}   & Стартовый узел выбирается по наиболее раннему временному окну                                                             \\ \hline
             \path{TestOptimize_WaitBeforeWindow}          & Ожидание перед открытием окна ($\mathrm{TotalWaitSec} > 0$)                                                               \\ \hline
-            \path{TestOptimize_FallbackPass}              & Проход~2: нода выбирается без учeта окна при отсутствии допустимых узлов                                                      \\ \hline
+            \path{TestOptimize_FallbackPass}              & Проход~2: нода выбирается без учeта окна при отсутствии допустимых узлов                                                  \\ \hline
             \path{TestOptimize_AggregateStats}            & Корректность агрегатных показателей (расстояние, время, сервис)                                                           \\ \hline
             \path{TestOptimize_OneNode}                   & Граф из одного узла; \texttt{order = [0]}                                                                                 \\ \hline
             \path{TestOptimize_StartTimeMins480}          & Начало работы в 08:00; оба узла посещены                                                                                  \\ \hline
