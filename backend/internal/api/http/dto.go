@@ -65,21 +65,11 @@ type DistanceCellDTO struct {
 	DurationSec int `json:"durationSec"` // travel duration in seconds
 }
 
-// OptimizeRouteReq is the request body for POST /api/routes/optimize.
-//
-// The client should populate DistanceMatrix using the same routing engine
-// (Yandex Maps) that is used for map visualisation so that the optimised order
-// is consistent with the route drawn on screen.
-//
-// If DistanceMatrix is omitted the backend falls back to querying the
-// configured external routing API (OSRM by default).
+// OptimizeRouteReq — тело POST /api/routes/optimize.
+// DistanceMatrix желательно передавать: тогда бэкенд не ходит в OSRM
+// и порядок задач будет согласован с маршрутом на карте (Яндекс).
 type OptimizeRouteReq struct {
-	// TaskIDs are the IDs of the tasks to include in the route (order irrelevant).
-	TaskIDs []string `json:"taskIds"`
-	// StartTimeMins is the departure time in minutes since midnight (e.g. 540 = 09:00).
-	// Defaults to 540 when omitted or zero.
-	StartTimeMins int `json:"startTimeMins"`
-	// DistanceMatrix[i][j] is the travel cost from TaskIDs[i] to TaskIDs[j].
-	// When provided the backend skips the external API call and uses this data directly.
-	DistanceMatrix [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`
+	TaskIDs        []string            `json:"taskIds"`
+	StartTimeMins  int                 `json:"startTimeMins"`   // минуты от полуночи, по умолчанию 540 (09:00)
+	DistanceMatrix [][]DistanceCellDTO `json:"distanceMatrix,omitempty"` // matrix[i][j] — стоимость TaskIDs[i]→TaskIDs[j]
 }

@@ -17,8 +17,7 @@ type OSRMProvider struct {
 	httpClient *http.Client
 }
 
-// NewOSRMProvider creates an OSRMProvider that calls the given base URL.
-// baseURL defaults to http://router.project-osrm.org when empty.
+// NewOSRMProvider — если baseURL пустой, использует http://router.project-osrm.org.
 func NewOSRMProvider(baseURL string) *OSRMProvider {
 	if baseURL == "" {
 		baseURL = "http://router.project-osrm.org"
@@ -85,8 +84,7 @@ func (p *OSRMProvider) GetMatrix(ctx context.Context, points []Point) ([][]Edge,
 	return matrix, nil
 }
 
-// edgeFromOSRM converts OSRM float64 table cells into an Edge.
-// NaN or negative values (unreachable pairs) are replaced with large fallbacks.
+// edgeFromOSRM — NaN и отрицательные значения (недостижимые пары) заменяются большим fallback.
 func edgeFromOSRM(durations, distances [][]float64, i, j int) Edge {
 	const unreachableDurSec = 99_999 // ~27 h — large enough to be avoided
 

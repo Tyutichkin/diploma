@@ -3,7 +3,7 @@
 \PYG{c+c1}{// параллельные запросы /auth/refresh при одновременных 401\PYGZhy{}ошибках.}
 \PYG{k+kd}{let}\PYG{+w}{ }\PYG{n+nx}{refreshSessionPromise}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{Promise}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{AuthSession}\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{o}{|}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{p}{;}
 
-\PYG{c+c1}{// optimizeRoute передаёт идентификаторы задач и предварительно вычисленную}
+\PYG{c+c1}{// optimizeRoute передаeт идентификаторы задач и предварительно вычисленную}
 \PYG{c+c1}{// матрицу расстояний Яндекс.Карт на бэкенд.}
 \PYG{c+c1}{// Передача матрицы из buildYandexDistanceMatrix() обеспечивает согласованность}
 \PYG{c+c1}{// данных оптимизации с отображением на карте.}

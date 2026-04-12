@@ -56,24 +56,16 @@ func (s *Story) CreateDraft(ctx context.Context, userID, source string, orderedT
 	return rt, nil
 }
 
-// Optimize builds an in-memory weighted directed graph from the supplied
-// distance matrix (or fetches one from the external API when none is
-// provided), runs the configured graph-based optimisation algorithm with
-// time-window constraints, and persists the resulting route.
+// Optimize строит маршрут: получает матрицу расстояний (от фронта или через OSRM),
+// запускает алгоритм оптимизации с учётом временны́х окон и сохраняет результат.
 //
-// externalMatrix[i][j] must align with the order of tasks returned by
-// GetByIDs for the given taskIDs.  Pass nil to fall back to the configured
-// distance Provider (OSRM by default).
-//
-// Using a matrix pre-computed by the frontend (e.g. via Yandex Maps JS API)
-// guarantees that the optimised order is consistent with the route drawn on
-// the map, because both use the same routing engine and transport mode.
+// externalMatrix[i][j] должна соответствовать порядку задач из GetByIDs.
+// Если nil — матрица запрашивается у настроенного distance.Provider (OSRM).
 func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, startTimeMins int, externalMatrix [][]distancepkg.Edge) (route.Full, error) {
 	if len(taskIDs) < 2 {
 		return route.Full{}, errors.New("at least 2 tasks required for optimisation")
 	}
 
-	// 1. Fetch tasks by IDs from the database.
 	tasks, err := s.tasks.GetByIDs(ctx, userID, taskIDs)
 	if err != nil {
 		return route.Full{}, fmt.Errorf("fetch tasks: %w", err)
@@ -82,9 +74,7 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 		return route.Full{}, errors.New("at least 2 valid tasks required")
 	}
 
-	// 2. Obtain the n×n distance/duration matrix.
-	//    If the client supplied a pre-computed matrix (e.g. from Yandex Maps)
-	//    use it directly; otherwise query the configured external API.
+	// Если фронт прислал матрицу (Yandex Maps) — берём её; иначе запрашиваем OSRM.
 	var matrix [][]distancepkg.Edge
 	if len(externalMatrix) > 0 {
 		matrix = externalMatrix
@@ -99,10 +89,6 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 		}
 	}
 
-	// 3. Build the in-memory weighted directed graph.
-	//    Nodes carry location and time-window data; edges carry travel costs
-	//    from the distance matrix.  The graph is used only for this
-	//    computation and is not stored in the database.
 	nodes := make([]routeopt.Node, len(tasks))
 	for i, t := range tasks {
 		nodes[i] = routeopt.Node{
@@ -128,15 +114,11 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 
 	g := &routeopt.Graph{Nodes: nodes, Edges: edges}
 
-	// 4. Run the graph optimisation algorithm.
-	//    The algorithm (Optimizer interface) can be replaced without
-	//    touching any surrounding code.
 	result, err := s.optimizer.Optimize(ctx, g, startTimeMins)
 	if err != nil {
 		return route.Full{}, fmt.Errorf("optimise: %w", err)
 	}
 
-	// 5. Build per-stop inputs with actual travel times from the matrix.
 	stops := make([]routegate.StopInput, len(result.Order))
 	for pos, nodeIdx := range result.Order {
 		travelSec := 0
@@ -150,7 +132,7 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 		}
 	}
 
-	// 6. Persist the optimised route in a single transaction.
+	// Сохраняем всё в одной транзакции.
 	rt, err := s.routes.SaveOptimizedRoute(
 		ctx, userID, s.optimizer.Name(), stops,
 		result.TotalDistanceM, result.TotalTravelSec,
@@ -160,7 +142,7 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 		return route.Full{}, fmt.Errorf("save route: %w", err)
 	}
 
-	// 7. Construct the Full response from in-memory data (no extra DB round-trip).
+	// Собираем ответ из данных в памяти — лишнего запроса к БД нет.
 	routeStops := make([]route.Stop, len(stops))
 	for i, stop := range stops {
 		travel := stop.TravelFromPrevSec

@@ -13,9 +13,9 @@
 
 % Добавляем гипертекстовое оглавление в PDF
 \usepackage[
-    bookmarks=true, colorlinks=true, unicode=true,
-    urlcolor=black,linkcolor=black, anchorcolor=black,
-    citecolor=black, menucolor=black, filecolor=black,
+      bookmarks=true, colorlinks=true, unicode=true,
+      urlcolor=black,linkcolor=black, anchorcolor=black,
+      citecolor=black, menucolor=black, filecolor=black,
 ]{hyperref}
 
 \urlstyle{same}
@@ -38,7 +38,7 @@
 
 % С такими оно полями оно работает по-умолчанию:
 % \RequirePackage[left=20mm,right=10mm,top=20mm,bottom=20mm,headsep=0pt]{geometry}
-% Если вас тошнит от поля в 10мм --- увеличивайте до 20-ти, ну и про переплёт не забывайте:
+% Если вас тошнит от поля в 10мм --- увеличивайте до 20-ти, ну и про переплeт не забывайте:
 
 % Пакет Tikz
 \usepackage{tikz}
@@ -62,14 +62,14 @@
 \setstretch{1.43}
 
 \newenvironment{compactlist}{%
-    \renewcommand{\labelenumi}{\hspace{13mm}\arabic{enumi}.}
-    \setlength{\topsep}{0pt}%
-    \setlength{\partopsep}{0pt}%
-    \setlength{\itemsep}{0pt}%
-    \setlength{\parsep}{0pt}%
-    \begin{enumerate}%
-        }{%
-    \end{enumerate}%
+      \renewcommand{\labelenumi}{\hspace{13mm}\arabic{enumi}.}
+      \setlength{\topsep}{0pt}%
+      \setlength{\partopsep}{0pt}%
+      \setlength{\itemsep}{0pt}%
+      \setlength{\parsep}{0pt}%
+      \begin{enumerate}%
+            }{%
+      \end{enumerate}%
 }
 
 \makeatletter
@@ -109,17 +109,17 @@
 \usepackage{xcolor}
 
 \mdfsetup{
-    linecolor=black,
-    linewidth=1pt,
-    roundcorner=5pt,
-    innerleftmargin=5pt,
-    innerrightmargin=5pt,
-    innertopmargin=5pt,
-    innerbottommargin=5pt,
-    skipabove=0pt,
-    skipbelow=0pt,
-    leftmargin=0pt,
-    rightmargin=0pt
+      linecolor=black,
+      linewidth=1pt,
+      roundcorner=5pt,
+      innerleftmargin=5pt,
+      innerrightmargin=5pt,
+      innertopmargin=5pt,
+      innerbottommargin=5pt,
+      skipabove=0pt,
+      skipbelow=0pt,
+      leftmargin=0pt,
+      rightmargin=0pt
 }
 
 % tcolorbox is used for code listings because mdframed with roundcorner
@@ -131,9 +131,9 @@
 
 % Configure captions for minted's listing environment
 \captionsetup[listing]{
-    position=top,
-    justification=RaggedRight,
-    singlelinecheck=false
+      position=top,
+      justification=RaggedRight,
+      singlelinecheck=false
 }
 
 % Alternative: Force all float captions to top
@@ -141,15 +141,15 @@
 \restylefloat{listing}
 
 \setminted{
-    linenos=true,           % включить номера строк
-    numberblanklines=false, % не нумеровать пустые строки
-    numbersep=5pt,          % расстояние между номерами строк и кодом
-    xleftmargin=1em,        % отступ слева, чтобы номера не вылезали за границы
-    fontsize=\small,
-    breakanywhere=true,
-    breakautoindent=true,
-    breaklines=true,
-    tabsize=4,              % заменяет символы табуляции (^^I) на 4 пробела
+      linenos=true,           % включить номера строк
+      numberblanklines=false, % не нумеровать пустые строки
+      numbersep=5pt,          % расстояние между номерами строк и кодом
+      xleftmargin=1em,        % отступ слева, чтобы номера не вылезали за границы
+      fontsize=\small,
+      breakanywhere=true,
+      breakautoindent=true,
+      breaklines=true,
+      tabsize=4,              % заменяет символы табуляции (^^I) на 4 пробела
 }
 
 \renewcommand{\listingscaption}{Листинг}
@@ -163,39 +163,39 @@
 %          \begin{minted}{lang} ... \end{minted}
 %        \end{codelisting}
 \newenvironment{codelisting}[2]{%
-  \par\vspace{5pt}%
-  \noindent\captionof{listing}{#1}\label{#2}%
-  \nopagebreak[4]%
-  \begin{tcolorbox}[%
-    breakable,%
-    enhanced,%
-    colback=white,%
-    colframe=black,%
-    arc=5pt,%
-    boxrule=0.5pt,%
-    left=5pt, right=5pt, top=5pt, bottom=5pt,%
-  ]%
-}{%
-  \end{tcolorbox}%
-  \vspace{5pt}%
+      \par\vspace{5pt}%
+      \noindent\captionof{listing}{#1}\label{#2}%
+      \nopagebreak[4]%
+      \begin{tcolorbox}[%
+                  breakable,%
+                  enhanced,%
+                  colback=white,%
+                  colframe=black,%
+                  arc=5pt,%
+                  boxrule=0.5pt,%
+                  left=5pt, right=5pt, top=5pt, bottom=5pt,%
+            ]%
+            }{%
+      \end{tcolorbox}%
+      \vspace{5pt}%
 }
 
 
 \makeatletter
 \let\oldtableofcontents\tableofcontents
 \renewcommand{\tableofcontents}{%
-    \begingroup
-    \hyphenpenalty=10000
-    \exhyphenpenalty=10000
-    \oldtableofcontents
-    \endgroup
+      \begingroup
+      \hyphenpenalty=10000
+      \exhyphenpenalty=10000
+      \oldtableofcontents
+      \endgroup
 }
 \makeatother
 
 \makeatletter
 \def\@hangfrom#1{\setbox\@tempboxa\hbox{{#1}}%
-    \hangindent 0pt%\wd\@tempboxa
-    \noindent\box\@tempboxa}
+      \hangindent 0pt%\wd\@tempboxa
+      \noindent\box\@tempboxa}
 \makeatother
 
 \usepackage{etoolbox}
@@ -216,6 +216,6 @@
 \renewcommand{\thesection}{\thechapter.\arabic{section}}
 \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
 \renewcommand{\@seccntformat}[1]{%
-    {\fontsize{14pt}{21pt}\selectfont\bfseries \csname the#1\endcsname}\hspace{1em}%
+      {\fontsize{14pt}{21pt}\selectfont\bfseries \csname the#1\endcsname}\hspace{1em}%
 }
 \makeatother

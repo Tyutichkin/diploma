@@ -15,16 +15,11 @@ type Result struct {
 
 // Optimizer finds an optimised visit order for nodes in a graph.
 // Implementations must be safe for concurrent use.
-//
-// To swap the algorithm, provide a different Optimizer implementation
-// to routestory.New — no other code needs to change.
 type Optimizer interface {
-	// Name returns a short, stable identifier for the algorithm.
-	// It is persisted in the database alongside the route.
+	// Name — короткий идентификатор алгоритма, сохраняется в БД рядом с маршрутом.
 	Name() string
 
-	// Optimize returns node indices in the optimised visit order,
-	// together with aggregate travel statistics.
-	// startTimeMins is the departure time in minutes since midnight (e.g. 540 = 09:00).
+	// Optimize возвращает индексы узлов в оптимальном порядке обхода.
+	// startTimeMins — время выезда в минутах от полуночи (например, 540 = 09:00).
 	Optimize(ctx context.Context, g *Graph, startTimeMins int) (Result, error)
 }

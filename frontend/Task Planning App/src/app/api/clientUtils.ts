@@ -1,10 +1,3 @@
-// Exported utility functions from the API client layer for testability.
-// These are pure functions extracted from client.ts.
-
-/**
- * Normalizes "HH:MM:SS" time strings to "HH:MM".
- * Returns undefined for null/undefined/empty values.
- */
 export function normalizeTime(value?: string | null): string | undefined {
   if (!value) {
     return undefined;
@@ -12,10 +5,6 @@ export function normalizeTime(value?: string | null): string | undefined {
   return value.slice(0, 5);
 }
 
-/**
- * Serializes "HH:MM" time strings to "HH:MM:SS" (appends :00).
- * Returns empty string for undefined.
- */
 export function serializeTime(value?: string): string {
   if (!value) {
     return '';
@@ -23,10 +12,6 @@ export function serializeTime(value?: string): string {
   return value.length === 5 ? `${value}:00` : value;
 }
 
-/**
- * Extracts the email claim from a JWT access token payload.
- * Returns null if the token is malformed or has no email claim.
- */
 export function getEmailFromToken(token: string): string | null {
   try {
     const [, payload] = token.split('.');
@@ -67,9 +52,6 @@ export interface MappedTask {
   completed: boolean;
 }
 
-/**
- * Maps a PascalCase API task response to a camelCase domain Task.
- */
 export function mapTaskFromApi(task: ApiTask): MappedTask {
   return {
     id: task.ID,

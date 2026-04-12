@@ -20,8 +20,7 @@ type Repository interface {
 	GetFull(ctx context.Context, userID, routeID string) (route.Full, bool, error)
 	MarkFailed(ctx context.Context, routeID string) error
 
-	// SaveOptimizedRoute creates a fully optimised route (record + stops + stats)
-	// in a single transaction and returns the created route.
+	// SaveOptimizedRoute сохраняет маршрут, остановки и статистику в одной транзакции.
 	SaveOptimizedRoute(
 		ctx context.Context,
 		userID, algorithm string,
@@ -29,14 +28,11 @@ type Repository interface {
 		distanceM, travelSec, serviceSec, waitSec int,
 	) (route.Route, error)
 
-	// DeleteRoute removes a single route belonging to userID.
-	// Returns false when the route does not exist or belongs to another user.
+	// DeleteRoute — false если маршрут не найден или принадлежит другому пользователю.
 	DeleteRoute(ctx context.Context, userID, routeID string) (bool, error)
 
-	// DeleteAllRoutes removes every route belonging to userID.
 	DeleteAllRoutes(ctx context.Context, userID string) error
 
-	// RenameRoute updates the human-readable name of a route.
-	// Returns false when the route does not exist or belongs to another user.
+	// RenameRoute — false если маршрут не найден или принадлежит другому пользователю.
 	RenameRoute(ctx context.Context, userID, routeID, name string) (bool, error)
 }

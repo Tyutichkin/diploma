@@ -21,9 +21,7 @@ import (
 //     d. Advance current time: arrival + wait + service duration.
 //  4. Return the ordered node indices and aggregate statistics.
 //
-// Time complexity: O(n²).
-// The algorithm is a greedy constructive heuristic; it can be replaced by
-// any other Optimizer implementation without touching the surrounding code.
+// Сложность: O(n²).
 type NearestNeighborTW struct{}
 
 func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
