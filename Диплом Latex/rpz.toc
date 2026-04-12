@@ -77,14 +77,15 @@
 \contentsline {subsection}{\numberline {3.2.3}Надeжность инфраструктуры}{55}{subsection.3.2.3}%
 \contentsline {subsection}{\numberline {3.2.4}Производительность}{55}{subsection.3.2.4}%
 \contentsline {subsection}{\numberline {3.2.5}Производительность алгоритма оптимизации}{56}{subsection.3.2.5}%
-\contentsline {subsection}{\numberline {3.2.6}Вывод}{57}{subsection.3.2.6}%
-\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{57}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{57}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развeртывания}{58}{subsection.3.3.2}%
-\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{58}{subsection.3.3.3}%
-\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{58}{subsection.3.3.4}%
-\contentsline {subsection}{\numberline {3.3.5}Вывод}{59}{subsection.3.3.5}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{60}{section*.22}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{62}{section*.23}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{66}{section*.24}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Приложение Б}}}{72}{section*.27}%
+\contentsline {subsection}{\numberline {3.2.6}Нагрузочное тестирование}{57}{subsection.3.2.6}%
+\contentsline {subsection}{\numberline {3.2.7}Вывод}{58}{subsection.3.2.7}%
+\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{58}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{58}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развeртывания}{59}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{59}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{59}{subsection.3.3.4}%
+\contentsline {subsection}{\numberline {3.3.5}Вывод}{60}{subsection.3.3.5}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{61}{section*.23}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{63}{section*.24}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{67}{section*.25}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Приложение Б}}}{73}{section*.28}%
