@@ -4,7 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Task, OptimizedRoute } from '../types/task';
 import { SavedRouteSummary } from '../types/route';
 import { TaskList } from './TaskList';
-import { TaskForm } from './TaskForm';
+import { TaskForm, TaskRole } from './TaskForm';
 import { MapView, TransportMode, RouteLeg } from './MapView';
 import { RouteStepList } from './RouteStepList';
 import { Button } from './ui/button';
@@ -23,11 +23,13 @@ import {
   Pencil,
   Check,
   X,
+
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildYandexDistanceMatrix, geocodeAddressSuggestions } from '../utils/routeOptimizer';
 import {
   ApiError,
+  PrecedenceConstraint,
   createTask,
   deleteAllRoutes,
   deleteRoute,
@@ -42,6 +44,11 @@ import {
   updateTask,
 } from '../api/client';
 import { useAuth } from '../context/auth-context';
+
+interface PrecedencePair {
+  beforeId: string;
+  afterId: string;
+}
 
 function normalizeTasksOrder(tasks: Task[]) {
   return tasks.map((task, index) => ({
@@ -74,6 +81,106 @@ function readCompletedTaskIds(email: string) {
   } catch {
     return [];
   }
+}
+
+function timeToMins(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minsToTime(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function validateStartEndConstraints(
+  tasks: Task[],
+  startTaskId: string,
+  endTaskId: string,
+  startTimeMins: number,
+): string[] {
+  const issues: string[] = [];
+  const startTask = startTaskId ? tasks.find((t) => t.id === startTaskId) : null;
+  const endTask = endTaskId ? tasks.find((t) => t.id === endTaskId) : null;
+
+  if (!startTask && !endTask) return issues;
+
+  // Начальная точка: её окно должно быть доступно в момент старта маршрута
+  if (startTask?.timeWindowEnd) {
+    const winEnd = timeToMins(startTask.timeWindowEnd);
+    if (winEnd < startTimeMins) {
+      issues.push(
+        `Временное окно начальной точки "${startTask.title}" заканчивается в ${startTask.timeWindowEnd}, раньше времени начала маршрута (${minsToTime(startTimeMins)}).`,
+      );
+    }
+  }
+
+  // Начальная точка vs конечная точка
+  if (startTask && endTask) {
+    const sWinStart = startTask.timeWindowStart ? timeToMins(startTask.timeWindowStart) : null;
+    const sWinEnd = startTask.timeWindowEnd ? timeToMins(startTask.timeWindowEnd) : null;
+    const eWinEnd = endTask.timeWindowEnd ? timeToMins(endTask.timeWindowEnd) : null;
+    const eWinStart = endTask.timeWindowStart ? timeToMins(endTask.timeWindowStart) : null;
+
+    // Начало старта позже конца финиша
+    if (sWinStart !== null && eWinEnd !== null && sWinStart >= eWinEnd) {
+      issues.push(
+        `Начальная точка "${startTask.title}" начинается в ${startTask.timeWindowStart}, но конечная точка "${endTask.title}" заканчивается в ${endTask.timeWindowEnd}. Маршрут заведомо невозможен.`,
+      );
+    }
+
+    // После завершения начальной задачи окно конечной уже закрыто
+    if (sWinStart !== null && eWinEnd !== null) {
+      const earliestDoneStart = sWinStart + startTask.duration;
+      if (earliestDoneStart >= eWinEnd) {
+        issues.push(
+          `После выполнения начальной точки "${startTask.title}" (не ранее ${minsToTime(earliestDoneStart)}) временное окно конечной точки "${endTask.title}" уже закрыто (до ${endTask.timeWindowEnd}).`,
+        );
+      }
+    }
+
+    // Конец окна начальной точки позже начала окна конечной — возможный конфликт
+    if (sWinEnd !== null && eWinStart !== null && sWinEnd > eWinStart) {
+      issues.push(
+        `Окно начальной точки "${startTask.title}" (до ${startTask.timeWindowEnd}) перекрывается с окном конечной точки "${endTask.title}" (с ${endTask.timeWindowStart}). Маршрут может быть невыполним.`,
+      );
+    }
+  }
+
+  // Промежуточные задачи vs начальная точка
+  if (startTask?.timeWindowStart) {
+    const sWinStart = timeToMins(startTask.timeWindowStart);
+    for (const task of tasks) {
+      if (task.id === startTaskId || task.id === endTaskId) continue;
+      if (task.timeWindowEnd) {
+        const tWinEnd = timeToMins(task.timeWindowEnd);
+        if (tWinEnd <= sWinStart) {
+          issues.push(
+            `Задача "${task.title}" должна быть завершена до ${task.timeWindowEnd}, но начальная точка "${startTask.title}" не откроется раньше ${startTask.timeWindowStart}. Задача не может быть выполнена после начальной точки.`,
+          );
+        }
+      }
+    }
+  }
+
+  // Промежуточные задачи vs конечная точка
+  if (endTask?.timeWindowEnd) {
+    const eWinEnd = timeToMins(endTask.timeWindowEnd);
+    for (const task of tasks) {
+      if (task.id === startTaskId || task.id === endTaskId) continue;
+      if (task.timeWindowStart) {
+        const tWinStart = timeToMins(task.timeWindowStart);
+        if (tWinStart >= eWinEnd) {
+          issues.push(
+            `Задача "${task.title}" начинается не ранее ${task.timeWindowStart}, но конечная точка "${endTask.title}" закрывается в ${endTask.timeWindowEnd}. Задача не может быть выполнена до конечной точки.`,
+          );
+        }
+      }
+    }
+  }
+
+  return issues;
 }
 
 function reorderTasksByIds(tasks: Task[], orderedTaskIds: string[]) {
@@ -113,6 +220,9 @@ export function MainPage() {
   const [editingRouteName, setEditingRouteName] = useState('');
   const [transportMode, setTransportMode] = useState<TransportMode>('auto');
   const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
+  const [startTaskId, setStartTaskId] = useState<string>('');
+  const [endTaskId, setEndTaskId] = useState<string>('');
+  const [precedences, setPrecedences] = useState<PrecedencePair[]>([]);
 
   const handleUnauthorized = useCallback(async () => {
     toast.error('Сессия истекла. Выполните вход заново.');
@@ -232,7 +342,20 @@ export function MainPage() {
     setIsFormOpen(true);
   };
 
-  const handleSaveTask = async (task: Task) => {
+  const handleSetRole = useCallback((id: string, role: 'start' | 'end' | null) => {
+    if (role === 'start') {
+      setStartTaskId(id);
+      if (endTaskId === id) setEndTaskId('');
+    } else if (role === 'end') {
+      setEndTaskId(id);
+      if (startTaskId === id) setStartTaskId('');
+    } else {
+      if (startTaskId === id) setStartTaskId('');
+      if (endTaskId === id) setEndTaskId('');
+    }
+  }, [startTaskId, endTaskId]);
+
+  const handleSaveTask = async (task: Task, role: TaskRole) => {
     if (!requestOptions) {
       return;
     }
@@ -244,6 +367,7 @@ export function MainPage() {
     setIsSavingTask(true);
 
     try {
+      let savedId: string;
       if (editingTask) {
         const savedTask = await updateTask(
           task.id,
@@ -267,6 +391,7 @@ export function MainPage() {
               : currentTask,
           ),
         );
+        savedId = task.id;
         toast.success('Задача обновлена');
       } else {
         const savedTask = await createTask(
@@ -284,7 +409,19 @@ export function MainPage() {
         );
 
         replaceTasks([...tasksRef.current, savedTask]);
+        savedId = savedTask.id;
         toast.success('Задача добавлена');
+      }
+
+      if (role === 'start') {
+        setStartTaskId(savedId);
+        if (endTaskId === savedId) setEndTaskId('');
+      } else if (role === 'end') {
+        setEndTaskId(savedId);
+        if (startTaskId === savedId) setStartTaskId('');
+      } else {
+        if (startTaskId === savedId) setStartTaskId('');
+        if (endTaskId === savedId) setEndTaskId('');
       }
 
       setRouteOptimized(false);
@@ -308,6 +445,8 @@ export function MainPage() {
       await deleteTask(id, requestOptions);
       replaceTasks(tasksRef.current.filter((task) => task.id !== id));
       setCompletedTaskIds((currentIds) => currentIds.filter((taskId) => taskId !== id));
+      if (startTaskId === id) setStartTaskId('');
+      if (endTaskId === id) setEndTaskId('');
       setRouteOptimized(false);
       setOptimizedInfo(null);
       setActiveRouteId(null);
@@ -358,6 +497,20 @@ export function MainPage() {
       return;
     }
 
+    const START_TIME_MINS = 540;
+    const constraintIssues = validateStartEndConstraints(
+      tasksRef.current,
+      startTaskId,
+      endTaskId,
+      START_TIME_MINS,
+    );
+    if (constraintIssues.length > 0) {
+      for (const issue of constraintIssues) {
+        toast.warning(issue, { duration: 8000 });
+      }
+      return;
+    }
+
     setIsOptimizing(true);
     toast.info('Построение матрицы расстояний через Яндекс...');
 
@@ -372,11 +525,18 @@ export function MainPage() {
 
       // Шаг 2: бэкенд строит граф из матрицы, запускает алгоритм NNH-TW
       // и возвращает оптимальный порядок задач.
+      const constraintPairs: PrecedenceConstraint[] = precedences
+        .filter((p) => p.beforeId && p.afterId && p.beforeId !== p.afterId)
+        .map((p) => ({ beforeTaskId: p.beforeId, afterTaskId: p.afterId }));
+
       const result = await optimizeRoute(
         tasksRef.current.map((t) => t.id),
         requestOptions,
         540,
         distanceMatrix,
+        startTaskId || undefined,
+        endTaskId || undefined,
+        constraintPairs.length > 0 ? constraintPairs : undefined,
       );
 
       const orderedTasks = normalizeTasksOrder(reorderTasksByIds(tasksRef.current, result.orderedTaskIds));
@@ -782,15 +942,98 @@ export function MainPage() {
           </CardContent>
         </Card>
 
+        {tasks.length >= 2 && (
+          <Card className="mb-6 border-gray-200">
+            <CardContent className="p-4 space-y-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-gray-700">
+                      Ограничения порядка выполнения задач
+                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-gray-400 cursor-help flex-shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Первая задача выполняется раньше второй.<br />Ограничения учитываются при оптимизации.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPrecedences((prev) => [...prev, { beforeId: '', afterId: '' }])}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Добавить
+                  </Button>
+                </div>
+                {precedences.length === 0 && (
+                  <p className="text-sm text-gray-400">Ограничения не заданы.</p>
+                )}
+                <div className="space-y-2">
+                  {precedences.map((pair, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <select
+                        className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={pair.beforeId}
+                        onChange={(e) =>
+                          setPrecedences((prev) =>
+                            prev.map((p, i) => (i === idx ? { ...p, beforeId: e.target.value } : p)),
+                          )
+                        }
+                      >
+                        <option value="" disabled>Задача A</option>
+                        {tasks.map((t) => (
+                          <option key={t.id} value={t.id} disabled={t.id === pair.afterId}>
+                            {t.title}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-sm text-gray-500">до</span>
+                      <select
+                        className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={pair.afterId}
+                        onChange={(e) =>
+                          setPrecedences((prev) =>
+                            prev.map((p, i) => (i === idx ? { ...p, afterId: e.target.value } : p)),
+                          )
+                        }
+                      >
+                        <option value="" disabled>Задача B</option>
+                        {tasks.map((t) => (
+                          <option key={t.id} value={t.id} disabled={t.id === pair.beforeId}>
+                            {t.title}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="text-gray-400 hover:text-red-500"
+                        onClick={() => setPrecedences((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="h-[calc(100vh-420px)] min-h-[400px]">
             <TaskList
               tasks={tasks}
+              startTaskId={startTaskId || undefined}
+              endTaskId={endTaskId || undefined}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               onToggleComplete={handleToggleComplete}
               onReorder={handleReorderTasks}
               onReorderEnd={handlePersistReorder}
+              onSetRole={handleSetRole}
             />
           </div>
 
@@ -816,6 +1059,17 @@ export function MainPage() {
           task={editingTask}
           isOpen={isFormOpen}
           isSaving={isSavingTask}
+          initialRole={
+            editingTask
+              ? editingTask.id === startTaskId
+                ? 'start'
+                : editingTask.id === endTaskId
+                  ? 'end'
+                  : null
+              : null
+          }
+          canSetStart={!startTaskId || editingTask?.id === startTaskId}
+          canSetEnd={!endTaskId || editingTask?.id === endTaskId}
           onClose={() => setIsFormOpen(false)}
           onSave={handleSaveTask}
           onGeocodeMultiple={geocodeAddressSuggestions}

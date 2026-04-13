@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"planner-backend/internal/domain/task"
 )
@@ -121,9 +123,13 @@ func (r *TaskRepo) Create(ctx context.Context, userID string, in task.CreateInpu
 }
 
 func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
-	setWSNull := in.WindowStart != nil && *in.WindowStart == ""
-	setWENull := in.WindowEnd != nil && *in.WindowEnd == ""
-
+	// window_start / window_end use a 3-state *string:
+	//   nil      → keep existing value  (COALESCE keeps the column)
+	//   &""      → clear (set to NULL)
+	//   &"HH:MM" → set to new value
+	//
+	// A single CASE expression per field avoids passing a separate bool
+	// parameter, which can trigger type-inference failures in pgx.
 	row := r.pool.QueryRow(ctx, `
 		UPDATE tasks
 		SET
@@ -132,17 +138,24 @@ func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.Up
 			latitude = COALESCE($3, latitude),
 			longitude = COALESCE($4, longitude),
 			duration_min = COALESCE($5, duration_min),
-			window_start = CASE WHEN $6 THEN NULL ELSE COALESCE($7::time, window_start) END,
-			window_end   = CASE WHEN $8 THEN NULL ELSE COALESCE($9::time, window_end) END,
-			sort_index = COALESCE($10, sort_index),
-			updated_at = $11
-		WHERE id=$12 AND user_id=$13 AND is_deleted=false
+			window_start = CASE
+				WHEN $6 IS NULL        THEN window_start
+				WHEN $6::text = ''     THEN NULL
+				ELSE $6::time
+			END,
+			window_end = CASE
+				WHEN $7 IS NULL        THEN window_end
+				WHEN $7::text = ''     THEN NULL
+				ELSE $7::time
+			END,
+			sort_index = COALESCE($8, sort_index),
+			updated_at = $9
+		WHERE id=$10 AND user_id=$11 AND is_deleted=false
 		RETURNING id, user_id, title, address_text, latitude, longitude, duration_min,
 		          window_start, window_end, sort_index, created_at, updated_at, is_deleted
 	`,
 		in.Title, in.AddressText, in.Latitude, in.Longitude, in.DurationMin,
-		setWSNull, in.WindowStart,
-		setWENull, in.WindowEnd,
+		in.WindowStart, in.WindowEnd,
 		in.SortIndex, time.Now(),
 		taskID, userID,
 	)
@@ -153,7 +166,10 @@ func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.Up
 		&t.ID, &t.UserID, &t.Title, &t.AddressText, &t.Latitude, &t.Longitude, &t.DurationMin,
 		&ws, &we, &t.SortIndex, &t.CreatedAt, &t.UpdatedAt, &t.IsDeleted,
 	); err != nil {
-		return task.Task{}, false, nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return task.Task{}, false, nil
+		}
+		return task.Task{}, false, err
 	}
 
 	applyTimeWindows(&t, ws, we)

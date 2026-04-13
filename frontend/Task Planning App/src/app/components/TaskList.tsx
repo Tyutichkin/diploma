@@ -5,20 +5,26 @@ import { ScrollArea } from './ui/scroll-area';
 
 interface TaskListProps {
   tasks: Task[];
+  startTaskId?: string;
+  endTaskId?: string;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void | Promise<void>;
   onToggleComplete: (id: string) => void;
   onReorder: (dragIndex: number, hoverIndex: number) => void;
   onReorderEnd: () => void | Promise<void>;
+  onSetRole: (id: string, role: 'start' | 'end' | null) => void;
 }
 
 export function TaskList({
   tasks,
+  startTaskId,
+  endTaskId,
   onEdit,
   onDelete,
   onToggleComplete,
   onReorder,
   onReorderEnd,
+  onSetRole,
 }: TaskListProps) {
   return (
     <Card className="h-full flex flex-col">
@@ -38,11 +44,16 @@ export function TaskList({
                   key={task.id}
                   task={task}
                   index={index}
+                  isStart={task.id === startTaskId}
+                  isEnd={task.id === endTaskId}
+                  canSetStart={!startTaskId || task.id === startTaskId}
+                  canSetEnd={!endTaskId || task.id === endTaskId}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onToggleComplete={onToggleComplete}
                   onMove={onReorder}
                   onMoveEnd={onReorderEnd}
+                  onSetRole={onSetRole}
                 />
               ))}
             </div>

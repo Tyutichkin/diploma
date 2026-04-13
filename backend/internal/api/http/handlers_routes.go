@@ -87,7 +87,15 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
 		}
 	}
 
-	out, err := h.story.Optimize(c.Request.Context(), userID, req.TaskIDs, startTime, matrix)
+	precedences := make([]routestory.PrecedenceConstraint, len(req.PrecedenceConstraints))
+	for i, p := range req.PrecedenceConstraints {
+		precedences[i] = routestory.PrecedenceConstraint{
+			BeforeTaskID: p.BeforeTaskID,
+			AfterTaskID:  p.AfterTaskID,
+		}
+	}
+
+	out, err := h.story.Optimize(c.Request.Context(), userID, req.TaskIDs, startTime, matrix, req.StartTaskID, req.EndTaskID, precedences)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

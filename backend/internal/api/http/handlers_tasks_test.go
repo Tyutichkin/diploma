@@ -203,6 +203,46 @@ func TestTaskHandler_Update_Success(t *testing.T) {
 	assert.Equal(t, newTitle, got.Title)
 }
 
+// 5.3.7a PATCH /api/tasks/:id — сброс начала окна (windowStart="") → 200, WindowStart nil в repo
+func TestTaskHandler_Update_ClearWindowStart(t *testing.T) {
+	taskID := uuid.NewString()
+	var gotInput task.UpdateInput
+	repo := &handlerTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, in task.UpdateInput) (task.Task, bool, error) {
+			gotInput = in
+			return makeTestTask(taskID, taskTestUserID, "task"), true, nil
+		},
+	}
+	r := newTaskTestRouter(repo)
+	w := doJSON(t, r, "PATCH", "/api/tasks/"+taskID, map[string]any{
+		"windowStart": "",
+		"windowEnd":   "18:00:00",
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, gotInput.WindowStart, "WindowStart должен быть ptr(\"\") — признак сброса")
+	assert.Equal(t, "", *gotInput.WindowStart)
+}
+
+// 5.3.7b PATCH /api/tasks/:id — сброс конца окна (windowEnd="") → 200
+func TestTaskHandler_Update_ClearWindowEnd(t *testing.T) {
+	taskID := uuid.NewString()
+	var gotInput task.UpdateInput
+	repo := &handlerTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, in task.UpdateInput) (task.Task, bool, error) {
+			gotInput = in
+			return makeTestTask(taskID, taskTestUserID, "task"), true, nil
+		},
+	}
+	r := newTaskTestRouter(repo)
+	w := doJSON(t, r, "PATCH", "/api/tasks/"+taskID, map[string]any{
+		"windowStart": "09:00:00",
+		"windowEnd":   "",
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, gotInput.WindowEnd, "WindowEnd должен быть ptr(\"\") — признак сброса")
+	assert.Equal(t, "", *gotInput.WindowEnd)
+}
+
 // 5.3.8 PATCH /api/tasks/:id — не найдено → 404
 func TestTaskHandler_Update_NotFound(t *testing.T) {
 	repo := &handlerTaskRepo{

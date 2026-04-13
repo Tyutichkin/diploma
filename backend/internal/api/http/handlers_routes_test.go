@@ -126,7 +126,7 @@ func (m *hDistProvider) GetMatrix(ctx context.Context, points []distancepkg.Poin
 type hOptimizer struct{}
 
 func (o *hOptimizer) Name() string { return "nearest-neighbor-tw" }
-func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, _ int) (routeopt.Result, error) {
+func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, _ int, _ routeopt.Constraints) (routeopt.Result, error) {
 	order := make([]int, len(g.Nodes))
 	for i := range order {
 		order[i] = i
@@ -232,6 +232,44 @@ func TestRouteHandler_Optimize_Success(t *testing.T) {
 		"taskIds":        []string{t1.ID, t2.ID, t3.ID},
 		"startTimeMins":  540,
 		"distanceMatrix": matrix,
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// 5.4.2b POST /api/routes/optimize — ограничения начала, конца и предшествования
+func TestRouteHandler_Optimize_WithConstraints(t *testing.T) {
+	routeID := uuid.NewString()
+	t1 := makeTestTask2(uuid.NewString(), routeTestUserID)
+	t2 := makeTestTask2(uuid.NewString(), routeTestUserID)
+	t3 := makeTestTask2(uuid.NewString(), routeTestUserID)
+
+	matrix := [][]DistanceCellDTO{
+		{{}, {DistanceM: 1000, DurationSec: 600}, {DistanceM: 2000, DurationSec: 1200}},
+		{{DistanceM: 1000, DurationSec: 600}, {}, {DistanceM: 1000, DurationSec: 600}},
+		{{DistanceM: 2000, DurationSec: 1200}, {DistanceM: 1000, DurationSec: 600}, {}},
+	}
+
+	tRepo := &hTaskRepo{
+		getByIDsFn: func(_ context.Context, _ string, _ []string) ([]task.Task, error) {
+			return []task.Task{t1, t2, t3}, nil
+		},
+	}
+	rRepo := &hRouteRepo{
+		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
+			return makeTestRoute(routeID, routeTestUserID, "optimized"), nil
+		},
+	}
+
+	r := newRouteTestRouter(rRepo, tRepo, &hDistProvider{})
+	w := doJSON(t, r, "POST", "/api/routes/optimize", map[string]any{
+		"taskIds":       []string{t1.ID, t2.ID, t3.ID},
+		"startTimeMins": 540,
+		"distanceMatrix": matrix,
+		"startTaskId":   t1.ID,
+		"endTaskId":     t3.ID,
+		"precedenceConstraints": []map[string]string{
+			{"beforeTaskId": t1.ID, "afterTaskId": t2.ID},
+		},
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
 }

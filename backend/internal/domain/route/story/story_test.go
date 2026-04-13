@@ -103,12 +103,12 @@ func (m *mockDistProvider) GetMatrix(ctx context.Context, points []distancepkg.P
 
 type mockOptimizer struct {
 	nameFn     func() string
-	optimizeFn func(ctx context.Context, g *routeopt.Graph, startTimeMins int) (routeopt.Result, error)
+	optimizeFn func(ctx context.Context, g *routeopt.Graph, startTimeMins int, c routeopt.Constraints) (routeopt.Result, error)
 }
 
 func (m *mockOptimizer) Name() string { return m.nameFn() }
-func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTimeMins int) (routeopt.Result, error) {
-	return m.optimizeFn(ctx, g, startTimeMins)
+func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTimeMins int, c routeopt.Constraints) (routeopt.Result, error) {
+	return m.optimizeFn(ctx, g, startTimeMins, c)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ func makeRoute(id, userID, status string) route.Route {
 func defaultOptimizer() *mockOptimizer {
 	return &mockOptimizer{
 		nameFn: func() string { return "nearest-neighbor-tw" },
-		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int) (routeopt.Result, error) {
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int, _ routeopt.Constraints) (routeopt.Result, error) {
 			order := make([]int, len(g.Nodes))
 			for i := range order {
 				order[i] = i
@@ -238,7 +238,7 @@ func TestOptimize_Success(t *testing.T) {
 	}
 
 	s := New(rRepo, tRepo, &mockDistProvider{}, defaultOptimizer())
-	full, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix)
+	full, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "optimized", full.Route.Status)
 	assert.NotNil(t, full.Stats)
@@ -248,7 +248,7 @@ func TestOptimize_Success(t *testing.T) {
 // 3.2.2 Менее 2 задач
 func TestOptimize_LessThanTwoTasks(t *testing.T) {
 	s := New(&mockRouteRepo{}, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	_, err := s.Optimize(context.Background(), "uid", []string{"one-task"}, 540, nil)
+	_, err := s.Optimize(context.Background(), "uid", []string{"one-task"}, 540, nil, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "2")
 }
@@ -273,7 +273,7 @@ func TestOptimize_ExactlyTwoTasks(t *testing.T) {
 	}
 
 	s := New(rRepo, tRepo, &mockDistProvider{}, defaultOptimizer())
-	full, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix)
+	full, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, full.Stops, 2)
 }
@@ -286,7 +286,7 @@ func TestOptimize_InvalidTaskIDs(t *testing.T) {
 		},
 	}
 	s := New(&mockRouteRepo{}, tRepo, &mockDistProvider{}, defaultOptimizer())
-	_, err := s.Optimize(context.Background(), "uid", []string{"bad-id-1", "bad-id-2"}, 540, nil)
+	_, err := s.Optimize(context.Background(), "uid", []string{"bad-id-1", "bad-id-2"}, 540, nil, nil, nil, nil)
 	assert.Error(t, err)
 }
 
@@ -315,7 +315,7 @@ func TestOptimize_ExternalMatrix_OSRMNotCalled(t *testing.T) {
 	}
 
 	s := New(rRepo, tRepo, dist, defaultOptimizer())
-	_, err := s.Optimize(context.Background(), uid, []string{t1.ID, t2.ID}, 540, identity2x2Matrix())
+	_, err := s.Optimize(context.Background(), uid, []string{t1.ID, t2.ID}, 540, identity2x2Matrix(), nil, nil, nil)
 	require.NoError(t, err)
 	assert.False(t, osrmCalled, "OSRM should not be called when external matrix is provided")
 }
@@ -345,7 +345,7 @@ func TestOptimize_NoMatrix_OSRMCalled(t *testing.T) {
 	}
 
 	s := New(rRepo, tRepo, dist, defaultOptimizer())
-	_, err := s.Optimize(context.Background(), uid, []string{t1.ID, t2.ID}, 540, nil)
+	_, err := s.Optimize(context.Background(), uid, []string{t1.ID, t2.ID}, 540, nil, nil, nil, nil)
 	require.NoError(t, err)
 	assert.True(t, osrmCalled, "OSRM should be called when no external matrix is provided")
 }
@@ -368,7 +368,63 @@ func TestOptimize_OSRMError(t *testing.T) {
 	}
 
 	s := New(&mockRouteRepo{}, tRepo, dist, defaultOptimizer())
-	_, err := s.Optimize(context.Background(), uid, []string{t1.ID, t2.ID}, 540, nil)
+	_, err := s.Optimize(context.Background(), uid, []string{t1.ID, t2.ID}, 540, nil, nil, nil, nil)
+	assert.Error(t, err)
+}
+
+// 3.2.7 Ограничения передаются алгоритму
+func TestOptimize_ConstraintsPassedToOptimizer(t *testing.T) {
+	uid := uuid.NewString()
+	t1 := makeRouteTask(uuid.NewString(), uid)
+	t2 := makeRouteTask(uuid.NewString(), uid)
+	taskIDs := []string{t1.ID, t2.ID}
+	matrix := identity2x2Matrix()
+
+	var capturedConstraints routeopt.Constraints
+	opt := &mockOptimizer{
+		nameFn: func() string { return "nearest-neighbor-tw" },
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int, c routeopt.Constraints) (routeopt.Result, error) {
+			capturedConstraints = c
+			order := make([]int, len(g.Nodes))
+			for i := range order {
+				order[i] = i
+			}
+			return routeopt.Result{Order: order, TotalDistanceM: 1000, TotalTravelSec: 600}, nil
+		},
+	}
+
+	rRepo := &mockRouteRepo{
+		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
+			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+		},
+	}
+	tRepo := &mockTaskRepo{
+		getByIDsFn: func(_ context.Context, _ string, _ []string) ([]task.Task, error) {
+			return []task.Task{t1, t2}, nil
+		},
+	}
+
+	startID := t1.ID
+	endID := t2.ID
+	s := New(rRepo, tRepo, &mockDistProvider{}, opt)
+	_, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix,
+		&startID, &endID,
+		[]PrecedenceConstraint{{BeforeTaskID: t1.ID, AfterTaskID: t2.ID}},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, capturedConstraints.StartNodeIdx)
+	assert.Equal(t, 0, *capturedConstraints.StartNodeIdx)
+	require.NotNil(t, capturedConstraints.EndNodeIdx)
+	assert.Equal(t, 1, *capturedConstraints.EndNodeIdx)
+	require.Len(t, capturedConstraints.PrecedencePairs, 1)
+	assert.Equal(t, routeopt.PrecedencePair{Before: 0, After: 1}, capturedConstraints.PrecedencePairs[0])
+}
+
+// 3.2.8 Одинаковые start и end task → ошибка
+func TestOptimize_SameStartAndEnd(t *testing.T) {
+	s := New(&mockRouteRepo{}, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
+	id := uuid.NewString()
+	_, err := s.Optimize(context.Background(), "uid", []string{id, uuid.NewString()}, 540, nil, &id, &id, nil)
 	assert.Error(t, err)
 }
 

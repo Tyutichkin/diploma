@@ -13,6 +13,28 @@ type Result struct {
 	TotalWaitSec    int // time spent waiting for time windows to open, seconds
 }
 
+// PrecedencePair задаёт ограничение порядка: узел Before должен быть посещён
+// строго до узла After. Оба значения — индексы в Graph.Nodes.
+type PrecedencePair struct {
+	Before int
+	After  int
+}
+
+// Constraints содержит дополнительные ограничения на порядок обхода узлов.
+// Нулевое значение означает отсутствие ограничений.
+type Constraints struct {
+	// StartNodeIdx фиксирует первый узел маршрута.
+	// Если nil — стартовый узел выбирается алгоритмом.
+	StartNodeIdx *int
+
+	// EndNodeIdx фиксирует последний узел маршрута.
+	// Если nil — конечный узел не фиксируется.
+	EndNodeIdx *int
+
+	// PrecedencePairs задаёт попарные ограничения порядка посещения.
+	PrecedencePairs []PrecedencePair
+}
+
 // Optimizer finds an optimised visit order for nodes in a graph.
 // Implementations must be safe for concurrent use.
 type Optimizer interface {
@@ -21,5 +43,6 @@ type Optimizer interface {
 
 	// Optimize возвращает индексы узлов в оптимальном порядке обхода.
 	// startTimeMins — время выезда в минутах от полуночи (например, 540 = 09:00).
-	Optimize(ctx context.Context, g *Graph, startTimeMins int) (Result, error)
+	// c — дополнительные ограничения; нулевое значение означает их отсутствие.
+	Optimize(ctx context.Context, g *Graph, startTimeMins int, c Constraints) (Result, error)
 }

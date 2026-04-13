@@ -139,12 +139,11 @@ func TestCreate_NoTimeWindow(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// 2.1.8 WindowEnd < WindowStart (проверяется ли на уровне story — зависит от реализации)
-// Текущая реализация не проверяет — репозиторий должен принять
-func TestCreate_TimeWindowEndBeforeStart(t *testing.T) {
+// 2.1.7 Корректное временное окно — задача создаётся успешно
+func TestCreate_ValidTimeWindow(t *testing.T) {
 	uid := uuid.NewString()
-	ws := "18:00:00"
-	we := "09:00:00"
+	ws := "09:00:00"
+	we := "18:00:00"
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, in task.CreateInput) (task.Task, error) {
 			return makeTask(uuid.NewString(), uid, in.Title), nil
@@ -154,10 +153,132 @@ func TestCreate_TimeWindowEndBeforeStart(t *testing.T) {
 	in := validCreateInput()
 	in.WindowStart = &ws
 	in.WindowEnd = &we
-	// current story does not validate time window order
 	_, err := s.Create(context.Background(), uid, in)
-	// just checking it doesn't panic; actual validation is at repo/handler level
-	_ = err
+	require.NoError(t, err)
+}
+
+// 2.1.8 WindowEnd < WindowStart — story должна отклонять
+func TestCreate_TimeWindowEndBeforeStart(t *testing.T) {
+	s := New(&mockTaskRepo{})
+	ws := "18:00:00"
+	we := "09:00:00"
+	in := validCreateInput()
+	in.WindowStart = &ws
+	in.WindowEnd = &we
+	_, err := s.Create(context.Background(), "uid", in)
+	assert.Error(t, err)
+}
+
+// 2.1.9 Только начало окна без конца — допустимо
+func TestCreate_OnlyWindowStart(t *testing.T) {
+	uid := uuid.NewString()
+	ws := "09:00:00"
+	repo := &mockTaskRepo{
+		createFn: func(_ context.Context, _ string, in task.CreateInput) (task.Task, error) {
+			return makeTask(uuid.NewString(), uid, in.Title), nil
+		},
+	}
+	s := New(repo)
+	in := validCreateInput()
+	in.WindowStart = &ws
+	in.WindowEnd = nil
+	_, err := s.Create(context.Background(), uid, in)
+	require.NoError(t, err)
+}
+
+// 2.2.4 Обновление с инвертированным окном — story должна отклонять
+func TestUpdate_TimeWindowEndBeforeStart(t *testing.T) {
+	s := New(&mockTaskRepo{})
+	ws := "20:00:00"
+	we := "08:00:00"
+	_, _, err := s.Update(context.Background(), "uid", uuid.NewString(), task.UpdateInput{
+		WindowStart: &ws,
+		WindowEnd:   &we,
+	})
+	assert.Error(t, err)
+}
+
+// 2.2.5 Обновление только конца окна без начала — допустимо
+func TestUpdate_OnlyWindowEnd(t *testing.T) {
+	uid := uuid.NewString()
+	taskID := uuid.NewString()
+	we := "18:00:00"
+	repo := &mockTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, in task.UpdateInput) (task.Task, bool, error) {
+			return makeTask(taskID, uid, "task"), true, nil
+		},
+	}
+	s := New(repo)
+	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{WindowEnd: &we})
+	require.NoError(t, err)
+	assert.True(t, found)
+}
+
+// 2.2.6 Сброс начала окна (пустая строка) — допустимо, repo вызывается с ptr("")
+func TestUpdate_ClearWindowStart(t *testing.T) {
+	uid := uuid.NewString()
+	taskID := uuid.NewString()
+	empty := ""
+	we := "18:00:00"
+	var gotInput task.UpdateInput
+	repo := &mockTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, in task.UpdateInput) (task.Task, bool, error) {
+			gotInput = in
+			return makeTask(taskID, uid, "task"), true, nil
+		},
+	}
+	s := New(repo)
+	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
+		WindowStart: &empty,
+		WindowEnd:   &we,
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	require.NotNil(t, gotInput.WindowStart)
+	assert.Equal(t, "", *gotInput.WindowStart)
+}
+
+// 2.2.7 Сброс конца окна (пустая строка) — допустимо, repo вызывается с ptr("")
+func TestUpdate_ClearWindowEnd(t *testing.T) {
+	uid := uuid.NewString()
+	taskID := uuid.NewString()
+	ws := "09:00:00"
+	empty := ""
+	var gotInput task.UpdateInput
+	repo := &mockTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, in task.UpdateInput) (task.Task, bool, error) {
+			gotInput = in
+			return makeTask(taskID, uid, "task"), true, nil
+		},
+	}
+	s := New(repo)
+	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
+		WindowStart: &ws,
+		WindowEnd:   &empty,
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	require.NotNil(t, gotInput.WindowEnd)
+	assert.Equal(t, "", *gotInput.WindowEnd)
+}
+
+// 2.2.8 Сброс обоих полей окна — допустимо
+func TestUpdate_ClearBothWindows(t *testing.T) {
+	uid := uuid.NewString()
+	taskID := uuid.NewString()
+	empty := ""
+	repo := &mockTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, in task.UpdateInput) (task.Task, bool, error) {
+			return makeTask(taskID, uid, "task"), true, nil
+		},
+	}
+	s := New(repo)
+	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
+		WindowStart: &empty,
+		WindowEnd:   &empty,
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
 }
 
 // ── Update tests ──────────────────────────────────────────────────────────────

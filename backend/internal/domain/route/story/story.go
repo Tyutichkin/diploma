@@ -56,14 +56,36 @@ func (s *Story) CreateDraft(ctx context.Context, userID, source string, orderedT
 	return rt, nil
 }
 
+// PrecedenceConstraint задаёт попарное ограничение порядка посещения задач:
+// задача BeforeTaskID должна быть выполнена строго до задачи AfterTaskID.
+type PrecedenceConstraint struct {
+	BeforeTaskID string
+	AfterTaskID  string
+}
+
 // Optimize строит маршрут: получает матрицу расстояний (от фронта или через OSRM),
 // запускает алгоритм оптимизации с учётом временны́х окон и сохраняет результат.
 //
 // externalMatrix[i][j] должна соответствовать порядку задач из GetByIDs.
 // Если nil — матрица запрашивается у настроенного distance.Provider (OSRM).
-func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, startTimeMins int, externalMatrix [][]distancepkg.Edge) (route.Full, error) {
+//
+// startTaskID и endTaskID фиксируют первую и последнюю точку маршрута соответственно.
+// precedences задаёт попарные ограничения порядка посещения.
+func (s *Story) Optimize(
+	ctx context.Context,
+	userID string,
+	taskIDs []string,
+	startTimeMins int,
+	externalMatrix [][]distancepkg.Edge,
+	startTaskID, endTaskID *string,
+	precedences []PrecedenceConstraint,
+) (route.Full, error) {
 	if len(taskIDs) < 2 {
 		return route.Full{}, errors.New("at least 2 tasks required for optimisation")
+	}
+
+	if startTaskID != nil && endTaskID != nil && *startTaskID == *endTaskID {
+		return route.Full{}, errors.New("start and end task must be different")
 	}
 
 	tasks, err := s.tasks.GetByIDs(ctx, userID, taskIDs)
@@ -90,6 +112,7 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 	}
 
 	nodes := make([]routeopt.Node, len(tasks))
+	taskIDToIdx := make(map[string]int, len(tasks))
 	for i, t := range tasks {
 		nodes[i] = routeopt.Node{
 			TaskID:      t.ID,
@@ -99,6 +122,7 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 			WindowEnd:   parseTimeMins(t.WindowEnd),
 			DurationMin: t.DurationMin,
 		}
+		taskIDToIdx[t.ID] = i
 	}
 
 	edges := make([][]routeopt.Edge, len(tasks))
@@ -114,7 +138,29 @@ func (s *Story) Optimize(ctx context.Context, userID string, taskIDs []string, s
 
 	g := &routeopt.Graph{Nodes: nodes, Edges: edges}
 
-	result, err := s.optimizer.Optimize(ctx, g, startTimeMins)
+	var constraints routeopt.Constraints
+	if startTaskID != nil {
+		if idx, ok := taskIDToIdx[*startTaskID]; ok {
+			constraints.StartNodeIdx = &idx
+		}
+	}
+	if endTaskID != nil {
+		if idx, ok := taskIDToIdx[*endTaskID]; ok {
+			constraints.EndNodeIdx = &idx
+		}
+	}
+	for _, p := range precedences {
+		beforeIdx, bOk := taskIDToIdx[p.BeforeTaskID]
+		afterIdx, aOk := taskIDToIdx[p.AfterTaskID]
+		if bOk && aOk {
+			constraints.PrecedencePairs = append(constraints.PrecedencePairs, routeopt.PrecedencePair{
+				Before: beforeIdx,
+				After:  afterIdx,
+			})
+		}
+	}
+
+	result, err := s.optimizer.Optimize(ctx, g, startTimeMins, constraints)
 	if err != nil {
 		return route.Full{}, fmt.Errorf("optimise: %w", err)
 	}

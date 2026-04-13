@@ -129,24 +129,46 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
 
     if (validTasks.length === 0) return;
 
+    // Группируем задачи по координатам, чтобы не перекрывались маркеры
+    const tasksByCoord = new Map<string, { task: Task; index: number }[]>();
     validTasks.forEach((task, index) => {
-      const placemark = new window.ymaps.Placemark(
-        [task.latitude!, task.longitude!],
-        {
-          iconContent: String(index + 1),
-          balloonContentHeader: `#${index + 1} ${task.title}`,
-          balloonContentBody: [
+      const key = `${task.latitude}|${task.longitude}`;
+      if (!tasksByCoord.has(key)) tasksByCoord.set(key, []);
+      tasksByCoord.get(key)!.push({ task, index });
+    });
+
+    tasksByCoord.forEach((entries) => {
+      const isSingle = entries.length === 1;
+      const numbers = entries.map((e) => e.index + 1);
+      const iconContent = numbers.length > 2 ? '…' : numbers.join(',');
+
+      const balloonHeader = isSingle
+        ? `#${numbers[0]} ${entries[0].task.title}`
+        : `#${iconContent} — ${entries.length} задачи по одному адресу`;
+
+      const balloonBody = entries
+        .map(({ task, index }) =>
+          [
+            `<div style="font-weight:600;margin-top:8px">#${index + 1} ${task.title}</div>`,
             `<div style="color:#555">${task.address}</div>`,
-            `<div style="color:#555;margin-top:4px">Длительность: ${task.duration} мин</div>`,
+            `<div style="color:#555;margin-top:2px">Длительность: ${task.duration} мин</div>`,
             task.timeWindowStart && task.timeWindowEnd
               ? `<div style="color:#555">Окно: ${task.timeWindowStart} – ${task.timeWindowEnd}</div>`
               : '',
           ]
             .filter(Boolean)
             .join(''),
-          hintContent: task.title,
-        },
-        { preset: 'islands#blueCircleIcon' },
+        )
+        .join('<hr style="margin:6px 0;border-color:#ddd">');
+
+      const hintContent = isSingle
+        ? entries[0].task.title
+        : `Задачи ${iconContent}: ${entries.map((e) => e.task.title).join(', ')}`;
+
+      const placemark = new window.ymaps.Placemark(
+        [entries[0].task.latitude!, entries[0].task.longitude!],
+        { iconContent, balloonContentHeader: balloonHeader, balloonContentBody: balloonBody, hintContent },
+        { preset: isSingle ? 'islands#blueCircleIcon' : 'islands#orangeCircleIcon' },
       );
       map.geoObjects.add(placemark);
     });

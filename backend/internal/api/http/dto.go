@@ -65,11 +65,21 @@ type DistanceCellDTO struct {
 	DurationSec int `json:"durationSec"` // travel duration in seconds
 }
 
+// PrecedencePairDTO задаёт ограничение порядка: задача BeforeTaskId
+// должна быть выполнена строго до задачи AfterTaskId.
+type PrecedencePairDTO struct {
+	BeforeTaskID string `json:"beforeTaskId"`
+	AfterTaskID  string `json:"afterTaskId"`
+}
+
 // OptimizeRouteReq — тело POST /api/routes/optimize.
 // DistanceMatrix желательно передавать: тогда бэкенд не ходит в OSRM
 // и порядок задач будет согласован с маршрутом на карте (Яндекс).
 type OptimizeRouteReq struct {
-	TaskIDs        []string            `json:"taskIds"`
-	StartTimeMins  int                 `json:"startTimeMins"`   // минуты от полуночи, по умолчанию 540 (09:00)
-	DistanceMatrix [][]DistanceCellDTO `json:"distanceMatrix,omitempty"` // matrix[i][j] — стоимость TaskIDs[i]→TaskIDs[j]
+	TaskIDs               []string            `json:"taskIds"`
+	StartTimeMins         int                 `json:"startTimeMins"`             // минуты от полуночи, по умолчанию 540 (09:00)
+	DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`  // matrix[i][j] — стоимость TaskIDs[i]→TaskIDs[j]
+	StartTaskID           *string             `json:"startTaskId,omitempty"`     // фиксированная первая точка маршрута
+	EndTaskID             *string             `json:"endTaskId,omitempty"`       // фиксированная последняя точка маршрута
+	PrecedenceConstraints []PrecedencePairDTO `json:"precedenceConstraints,omitempty"` // ограничения порядка выполнения
 }

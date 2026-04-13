@@ -13,23 +13,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { Loader2, MapPin } from 'lucide-react';
+import { Loader2, MapPin, Flag, X } from 'lucide-react';
+import { cn } from './ui/utils';
+
+export type TaskRole = 'start' | 'end' | null;
 
 interface TaskFormProps {
   task: Task | null;
   isOpen: boolean;
   isSaving?: boolean;
+  initialRole?: TaskRole;
+  canSetStart?: boolean;
+  canSetEnd?: boolean;
   onClose: () => void;
-  onSave: (task: Task) => Promise<void>;
+  onSave: (task: Task, role: TaskRole) => Promise<void>;
   onGeocodeMultiple: (address: string) => Promise<GeocodeSuggestion[]>;
 }
 
-export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGeocodeMultiple }: TaskFormProps) {
+export function TaskForm({
+  task,
+  isOpen,
+  isSaving = false,
+  initialRole = null,
+  canSetStart = true,
+  canSetEnd = true,
+  onClose,
+  onSave,
+  onGeocodeMultiple,
+}: TaskFormProps) {
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('');
   const [duration, setDuration] = useState('30');
   const [timeWindowStart, setTimeWindowStart] = useState('');
   const [timeWindowEnd, setTimeWindowEnd] = useState('');
+  const [role, setRole] = useState<TaskRole>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [windowError, setWindowError] = useState<string | null>(null);
@@ -51,12 +68,17 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
       setTimeWindowStart('');
       setTimeWindowEnd('');
     }
+    setRole(initialRole);
     setSuggestions([]);
     setSelectedSuggestion(null);
     setGeocodeError(null);
     setWindowError(null);
     setPendingTask(null);
-  }, [task, isOpen]);
+  }, [task, isOpen, initialRole]);
+
+  const handleToggleRole = (toggled: 'start' | 'end') => {
+    setRole((current) => (current === toggled ? null : toggled));
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -89,14 +111,14 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
         latitude: task.latitude,
         longitude: task.longitude,
         duration: parseInt(duration, 10) || 30,
-        timeWindowStart: timeWindowStart || undefined,
-        timeWindowEnd: timeWindowEnd || undefined,
+        timeWindowStart: timeWindowStart,
+        timeWindowEnd: timeWindowEnd,
         completed: task.completed,
         order: task.order,
       };
       setIsGeocoding(true);
       try {
-        await onSave(updatedTask);
+        await onSave(updatedTask, role);
         onClose();
       } catch {
         // error shown via toast in parent
@@ -127,19 +149,18 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
         title,
         address,
         duration: parseInt(duration, 10) || 30,
-        timeWindowStart: timeWindowStart || undefined,
-        timeWindowEnd: timeWindowEnd || undefined,
+        timeWindowStart: timeWindowStart,
+        timeWindowEnd: timeWindowEnd,
         completed: task?.completed || false,
         order: task?.order,
       };
       setPendingTask(built);
 
       if (results.length === 1) {
-        // Only one result — use it directly
         const taskWithCoords: Task = { ...built, latitude: results[0].lat, longitude: results[0].lng, address: results[0].displayName };
         setIsGeocoding(true);
         try {
-          await onSave(taskWithCoords);
+          await onSave(taskWithCoords, role);
           onClose();
         } catch {
           // error shown via toast in parent
@@ -149,7 +170,6 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
         return;
       }
 
-      // Multiple results — let user pick
       setSuggestions(results);
     } finally {
       setIsGeocoding(false);
@@ -167,7 +187,7 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
     };
     setIsGeocoding(true);
     try {
-      await onSave(taskWithCoords);
+      await onSave(taskWithCoords, role);
       onClose();
     } catch {
       // error shown via toast in parent
@@ -274,22 +294,50 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="timeWindowStart">Начало окна</Label>
-                    <Input
-                      id="timeWindowStart"
-                      type="time"
-                      value={timeWindowStart}
-                      onChange={(e) => { setTimeWindowStart(e.target.value); setWindowError(null); }}
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        id="timeWindowStart"
+                        type="time"
+                        value={timeWindowStart}
+                        onChange={(e) => { setTimeWindowStart(e.target.value); setWindowError(null); }}
+                        onBlur={(e) => { if (!e.target.value) { setTimeWindowStart(''); setWindowError(null); } }}
+                        className="flex-1"
+                      />
+                      {timeWindowStart && (
+                        <button
+                          type="button"
+                          onClick={() => { setTimeWindowStart(''); setWindowError(null); }}
+                          className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                          aria-label="Очистить начало окна"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="timeWindowEnd">Конец окна</Label>
-                    <Input
-                      id="timeWindowEnd"
-                      type="time"
-                      value={timeWindowEnd}
-                      onChange={(e) => { setTimeWindowEnd(e.target.value); setWindowError(null); }}
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        id="timeWindowEnd"
+                        type="time"
+                        value={timeWindowEnd}
+                        onChange={(e) => { setTimeWindowEnd(e.target.value); setWindowError(null); }}
+                        onBlur={(e) => { if (!e.target.value) { setTimeWindowEnd(''); setWindowError(null); } }}
+                        className="flex-1"
+                      />
+                      {timeWindowEnd && (
+                        <button
+                          type="button"
+                          onClick={() => { setTimeWindowEnd(''); setWindowError(null); }}
+                          className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                          aria-label="Очистить конец окна"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {(() => {
@@ -314,6 +362,55 @@ export function TaskForm({ task, isOpen, isSaving = false, onClose, onSave, onGe
                   }
                   return null;
                 })()}
+                {windowError && <p className="text-sm text-destructive">{windowError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Роль в маршруте <span className="text-muted-foreground font-normal">(необязательно)</span></Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!canSetStart && role !== 'start'}
+                    onClick={() => handleToggleRole('start')}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors',
+                      role === 'start'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700',
+                      (!canSetStart && role !== 'start') && 'cursor-not-allowed opacity-40',
+                    )}
+                    title={!canSetStart && role !== 'start' ? 'Начальная точка уже задана для другой задачи' : undefined}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    Начальная точка
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canSetEnd && role !== 'end'}
+                    onClick={() => handleToggleRole('end')}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors',
+                      role === 'end'
+                        ? 'border-orange-400 bg-orange-50 text-orange-700'
+                        : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700',
+                      (!canSetEnd && role !== 'end') && 'cursor-not-allowed opacity-40',
+                    )}
+                    title={!canSetEnd && role !== 'end' ? 'Конечная точка уже задана для другой задачи' : undefined}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    Конечная точка
+                  </button>
+                </div>
+                {!canSetStart && role !== 'start' && (
+                  <p className="text-xs text-muted-foreground">
+                    Начальная точка уже задана. Снимите её с другой задачи, чтобы назначить эту.
+                  </p>
+                )}
+                {!canSetEnd && role !== 'end' && (
+                  <p className="text-xs text-muted-foreground">
+                    Конечная точка уже задана. Снимите её с другой задачи, чтобы назначить эту.
+                  </p>
+                )}
               </div>
             </div>
 

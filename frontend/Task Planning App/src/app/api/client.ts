@@ -224,6 +224,11 @@ export async function saveRoute(taskIds: string[], source: string, options: Auth
   return mapRouteSummary(route);
 }
 
+export interface PrecedenceConstraint {
+  beforeTaskId: string;
+  afterTaskId: string;
+}
+
 // optimizeRoute sends task IDs and a pre-computed Yandex distance matrix to
 // the backend.  The backend builds an in-memory graph, runs the optimisation
 // algorithm with time-window constraints, and returns the ordered stop list.
@@ -231,17 +236,30 @@ export async function saveRoute(taskIds: string[], source: string, options: Auth
 // Passing a matrix computed via buildYandexDistanceMatrix() ensures that the
 // distances used in optimisation are identical to those shown on the map.
 // When distanceMatrix is omitted the backend falls back to its own routing API.
+//
+// startTaskId and endTaskId pin the first and last stops respectively.
+// precedenceConstraints enforces that certain tasks are visited before others.
 export async function optimizeRoute(
   taskIds: string[],
   options: AuthorizedRequestOptions,
   startTimeMins = 540,
   distanceMatrix?: DistanceCell[][],
+  startTaskId?: string,
+  endTaskId?: string,
+  precedenceConstraints?: PrecedenceConstraint[],
 ): Promise<SavedRouteDetails> {
   const route = await requestWithAuth<ApiRouteFull>(
     '/routes/optimize',
     {
       method: 'POST',
-      body: JSON.stringify({ taskIds, startTimeMins, distanceMatrix }),
+      body: JSON.stringify({
+        taskIds,
+        startTimeMins,
+        distanceMatrix,
+        startTaskId: startTaskId ?? undefined,
+        endTaskId: endTaskId ?? undefined,
+        precedenceConstraints: precedenceConstraints?.length ? precedenceConstraints : undefined,
+      }),
     },
     options,
   );

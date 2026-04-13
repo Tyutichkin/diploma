@@ -27,13 +27,16 @@ func twoNodeGraph(dur0, dur1, travel01, travel10 int) *Graph {
 	return &Graph{Nodes: nodes, Edges: edges}
 }
 
+// noConstraints — вспомогательная переменная для вызовов без ограничений.
+var noConstraints = Constraints{}
+
 // ── NearestNeighborTW.Optimize tests ─────────────────────────────────────────
 
 // 4.1.1 2 узла без time windows — оба посещены
 func TestOptimize_TwoNodesNoWindows(t *testing.T) {
 	g := twoNodeGraph(30, 30, 600, 600)
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 2)
 	// Both nodes visited exactly once
@@ -61,7 +64,7 @@ func TestOptimize_ThreeNodesNearestNeighbor(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	require.Len(t, res.Order, 3)
 	// Starting node (no windows) = node 0
@@ -84,7 +87,7 @@ func TestOptimize_TimeWindowEarliestFirst(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 480) // start 08:00
+	res, err := a.Optimize(context.Background(), g, 480, noConstraints) // start 08:00
 	require.NoError(t, err)
 	require.Len(t, res.Order, 2)
 	// Node 1 has earlier window → should be visited first
@@ -107,7 +110,7 @@ func TestOptimize_WaitBeforeWindow(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 480)
+	res, err := a.Optimize(context.Background(), g, 480, noConstraints)
 	require.NoError(t, err)
 	assert.Greater(t, res.TotalWaitSec, 0, "should have wait time when arriving before window opens")
 }
@@ -126,7 +129,7 @@ func TestOptimize_AggregateStats(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Equal(t, distM, res.TotalDistanceM)
 	assert.Equal(t, travelSec, res.TotalTravelSec)
@@ -144,7 +147,7 @@ func TestOptimize_OneNode(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 1)
 }
@@ -161,7 +164,7 @@ func TestOptimize_StartTimeMins480(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 480)
+	res, err := a.Optimize(context.Background(), g, 480, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 2)
 }
@@ -184,7 +187,7 @@ func TestOptimize_SymmetricMatrix(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, n)
 	seen := map[int]int{}
@@ -211,7 +214,7 @@ func TestOptimize_UnreachablePairs(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 3, "all nodes must be visited even with unreachable pairs")
 }
@@ -231,7 +234,7 @@ func TestOptimize_FallbackPass(t *testing.T) {
 	a := NewNearestNeighborTW()
 	// Start at 09:00 → we arrive at t1 at 10:00, which is after window end (08:10)
 	// Pass 1 finds no feasible node → Pass 2 selects nearest regardless
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 2, "both nodes should still be visited via Pass 2 fallback")
 }
@@ -241,9 +244,147 @@ func TestOptimize_FallbackPass(t *testing.T) {
 func TestOptimize_EmptyGraph(t *testing.T) {
 	g := &Graph{Nodes: []Node{}, Edges: [][]Edge{}}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540)
+	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 0)
+}
+
+// ── Constraints tests ─────────────────────────────────────────────────────────
+
+// 4.3.1 Фиксированная стартовая точка
+func TestOptimize_FixedStartNode(t *testing.T) {
+	// Without constraint node 0 would be chosen (no windows).
+	// With StartNodeIdx=2 the algorithm must begin at node 2.
+	nodes := []Node{
+		{TaskID: "t0", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t1", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t2", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+	}
+	edges := [][]Edge{
+		{{}, {DistanceM: 100, DurationSec: 100}, {DistanceM: 100, DurationSec: 100}},
+		{{DistanceM: 100, DurationSec: 100}, {}, {DistanceM: 100, DurationSec: 100}},
+		{{DistanceM: 100, DurationSec: 100}, {DistanceM: 100, DurationSec: 100}, {}},
+	}
+	g := &Graph{Nodes: nodes, Edges: edges}
+	a := NewNearestNeighborTW()
+	startIdx := 2
+	res, err := a.Optimize(context.Background(), g, 540, Constraints{StartNodeIdx: &startIdx})
+	require.NoError(t, err)
+	require.Len(t, res.Order, 3)
+	assert.Equal(t, 2, res.Order[0], "first node must be the pinned start")
+}
+
+// 4.3.2 Фиксированная конечная точка
+func TestOptimize_FixedEndNode(t *testing.T) {
+	// 3 nodes; without constraint the nearest-neighbour order from node 0 would be 0→1→2.
+	// With EndNodeIdx=1 the algorithm must end at node 1, so expected order: 0→2→1.
+	nodes := []Node{
+		{TaskID: "t0", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t1", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t2", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+	}
+	edges := [][]Edge{
+		{{}, {DistanceM: 500, DurationSec: 100}, {DistanceM: 800, DurationSec: 200}},
+		{{DistanceM: 500, DurationSec: 100}, {}, {DistanceM: 500, DurationSec: 100}},
+		{{DistanceM: 800, DurationSec: 200}, {DistanceM: 500, DurationSec: 100}, {}},
+	}
+	g := &Graph{Nodes: nodes, Edges: edges}
+	a := NewNearestNeighborTW()
+	endIdx := 1
+	res, err := a.Optimize(context.Background(), g, 540, Constraints{EndNodeIdx: &endIdx})
+	require.NoError(t, err)
+	require.Len(t, res.Order, 3)
+	assert.Equal(t, 1, res.Order[len(res.Order)-1], "last node must be the pinned end")
+}
+
+// 4.3.3 Фиксированные начало и конец
+func TestOptimize_FixedStartAndEnd(t *testing.T) {
+	nodes := []Node{
+		{TaskID: "t0", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t1", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t2", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t3", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+	}
+	sym := Edge{DistanceM: 100, DurationSec: 60}
+	edges := [][]Edge{
+		{{}, sym, sym, sym},
+		{sym, {}, sym, sym},
+		{sym, sym, {}, sym},
+		{sym, sym, sym, {}},
+	}
+	g := &Graph{Nodes: nodes, Edges: edges}
+	a := NewNearestNeighborTW()
+	startIdx, endIdx := 0, 3
+	res, err := a.Optimize(context.Background(), g, 540, Constraints{StartNodeIdx: &startIdx, EndNodeIdx: &endIdx})
+	require.NoError(t, err)
+	require.Len(t, res.Order, 4)
+	assert.Equal(t, 0, res.Order[0], "first node must be the pinned start")
+	assert.Equal(t, 3, res.Order[3], "last node must be the pinned end")
+}
+
+// 4.3.4 Ограничение предшествования — A до B
+func TestOptimize_PrecedenceConstraint(t *testing.T) {
+	// 3 nodes; without constraint NNH picks nearest (node 1 from 0 is nearest).
+	// With precedence node2 before node1: after visiting node0, node2 must come before node1.
+	nodes := []Node{
+		{TaskID: "t0", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t1", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+		{TaskID: "t2", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
+	}
+	edges := [][]Edge{
+		// node1 is nearest from node0 (100 sec), but precedence forces node2 first
+		{{}, {DistanceM: 100, DurationSec: 100}, {DistanceM: 500, DurationSec: 500}},
+		{{DistanceM: 100, DurationSec: 100}, {}, {DistanceM: 100, DurationSec: 100}},
+		{{DistanceM: 500, DurationSec: 500}, {DistanceM: 100, DurationSec: 100}, {}},
+	}
+	g := &Graph{Nodes: nodes, Edges: edges}
+	a := NewNearestNeighborTW()
+	res, err := a.Optimize(context.Background(), g, 540, Constraints{
+		PrecedencePairs: []PrecedencePair{{Before: 2, After: 1}},
+	})
+	require.NoError(t, err)
+	require.Len(t, res.Order, 3)
+	// Find positions
+	pos := make(map[int]int, 3)
+	for i, idx := range res.Order {
+		pos[idx] = i
+	}
+	assert.Less(t, pos[2], pos[1], "node 2 must come before node 1 (precedence constraint)")
+}
+
+// 4.3.5 Все узлы посещены при наличии ограничений
+func TestOptimize_AllVisitedWithConstraints(t *testing.T) {
+	n := 5
+	nodes := make([]Node, n)
+	for i := range nodes {
+		nodes[i] = Node{TaskID: "t", DurationMin: 5, WindowStart: -1, WindowEnd: -1}
+	}
+	edges := make([][]Edge, n)
+	for i := range edges {
+		edges[i] = make([]Edge, n)
+		for j := range edges[i] {
+			if i != j {
+				edges[i][j] = Edge{DistanceM: 100, DurationSec: 60}
+			}
+		}
+	}
+	g := &Graph{Nodes: nodes, Edges: edges}
+	a := NewNearestNeighborTW()
+	startIdx, endIdx := 0, 4
+	res, err := a.Optimize(context.Background(), g, 540, Constraints{
+		StartNodeIdx:    &startIdx,
+		EndNodeIdx:      &endIdx,
+		PrecedencePairs: []PrecedencePair{{Before: 1, After: 3}},
+	})
+	require.NoError(t, err)
+	assert.Len(t, res.Order, n, "all nodes must be visited")
+	assert.Equal(t, 0, res.Order[0])
+	assert.Equal(t, 4, res.Order[n-1])
+	pos := make(map[int]int, n)
+	for i, idx := range res.Order {
+		pos[idx] = i
+	}
+	assert.Less(t, pos[1], pos[3], "precedence: node 1 before node 3")
 }
 
 // ── feasible() tests ──────────────────────────────────────────────────────────

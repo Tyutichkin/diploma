@@ -9,17 +9,19 @@ import (
 // Travelling Salesman Problem with Time Windows (NNH-TW).
 //
 // Algorithm:
-//  1. Choose the starting node: the one with the earliest time-window open
-//     time, or node 0 if no time windows are defined.
+//  1. Choose the starting node: pinned via Constraints.StartNodeIdx, or the
+//     node with the earliest time-window open time, or node 0 by default.
 //  2. Mark it visited; set current time = startTime + service duration.
 //  3. Repeat until all nodes are visited:
-//     a. Among unvisited nodes, find the one reachable within its time window
-//        that has the minimum travel duration from the current node (Pass 1).
+//     a. Among unvisited nodes (excluding any pinned end node), find the one
+//        reachable within its time window that has the minimum travel duration
+//        from the current node, respecting precedence constraints (Pass 1).
 //     b. If no such node exists, pick the globally nearest unvisited node
-//        regardless of its time window (Pass 2 — fallback).
+//        regardless of its time window, still respecting precedence (Pass 2).
 //     c. Compute wait time if we arrive before the window opens.
 //     d. Advance current time: arrival + wait + service duration.
-//  4. Return the ordered node indices and aggregate statistics.
+//  4. If an end node is pinned, append it last.
+//  5. Return the ordered node indices and aggregate statistics.
 //
 // Сложность: O(n²).
 type NearestNeighborTW struct{}
@@ -28,16 +30,28 @@ func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
 
 func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
 
-func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins int) (Result, error) {
+func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins int, c Constraints) (Result, error) {
 	n := len(g.Nodes)
 	if n == 0 {
 		return Result{}, nil
 	}
 
+	prereqs := buildPrereqs(n, c.PrecedencePairs)
+
+	endIdx := -1
+	if c.EndNodeIdx != nil {
+		endIdx = *c.EndNodeIdx
+	}
+
 	visited := make([]bool, n)
 	order := make([]int, 0, n)
 
-	cur := startNode(g)
+	var cur int
+	if c.StartNodeIdx != nil {
+		cur = *c.StartNodeIdx
+	} else {
+		cur = startNode(g)
+	}
 	visited[cur] = true
 	order = append(order, cur)
 
@@ -47,12 +61,33 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 	totalServiceSec = g.Nodes[cur].DurationMin * 60
 
 	for len(order) < n {
+		// If the only unvisited node is the pinned end node, place it and finish.
+		if endIdx >= 0 && !visited[endIdx] {
+			allOtherVisited := true
+			for i := 0; i < n; i++ {
+				if !visited[i] && i != endIdx {
+					allOtherVisited = false
+					break
+				}
+			}
+			if allOtherVisited {
+				currentTimeMins, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
+					appendNode(endIdx, cur, currentTimeMins, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+				visited[endIdx] = true
+				order = append(order, endIdx)
+				break
+			}
+		}
+
 		next := -1
 		nextDurSec := math.MaxInt
 
-		// Pass 1: nearest feasible node (respects time window).
+		// Pass 1: nearest feasible node (respects time window and precedence).
 		for i := 0; i < n; i++ {
-			if visited[i] {
+			if visited[i] || i == endIdx {
+				continue
+			}
+			if !prereqsMet(i, visited, prereqs) {
 				continue
 			}
 			e := g.Edges[cur][i]
@@ -63,11 +98,14 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 			}
 		}
 
-		// Pass 2: fallback — nearest node regardless of time window.
+		// Pass 2: fallback — nearest node regardless of time window (precedence still respected).
 		if next == -1 {
 			nextDurSec = math.MaxInt
 			for i := 0; i < n; i++ {
-				if visited[i] {
+				if visited[i] || i == endIdx {
+					continue
+				}
+				if !prereqsMet(i, visited, prereqs) {
 					continue
 				}
 				if e := g.Edges[cur][i]; e.DurationSec < nextDurSec {
@@ -78,24 +116,19 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 		}
 
 		if next == -1 {
+			// No selectable node: can only happen with a circular precedence graph.
+			// Place the pinned end node if it remains, then stop.
+			if endIdx >= 0 && !visited[endIdx] {
+				currentTimeMins, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
+					appendNode(endIdx, cur, currentTimeMins, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+				visited[endIdx] = true
+				order = append(order, endIdx)
+			}
 			break
 		}
 
-		e := g.Edges[cur][next]
-		node := g.Nodes[next]
-
-		arrivalMins := currentTimeMins + e.DurationSec/60
-		waitMins := 0
-		if node.WindowStart >= 0 && arrivalMins < node.WindowStart {
-			waitMins = node.WindowStart - arrivalMins
-		}
-
-		totalDistM += e.DistanceM
-		totalTravelSec += e.DurationSec
-		totalServiceSec += node.DurationMin * 60
-		totalWaitSec += waitMins * 60
-
-		currentTimeMins = arrivalMins + waitMins + node.DurationMin
+		currentTimeMins, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
+			appendNode(next, cur, currentTimeMins, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
 		visited[next] = true
 		order = append(order, next)
 		cur = next
@@ -108,6 +141,46 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 		TotalServiceSec: totalServiceSec,
 		TotalWaitSec:    totalWaitSec,
 	}, nil
+}
+
+// appendNode добавляет узел next к текущему состоянию обхода и возвращает
+// обновлённые значения currentTimeMins и агрегатов.
+func appendNode(next, cur, currentTimeMins int, g *Graph, distM, travelSec, serviceSec, waitSec int) (int, int, int, int, int) {
+	e := g.Edges[cur][next]
+	node := g.Nodes[next]
+
+	arrivalMins := currentTimeMins + e.DurationSec/60
+	waitMins := 0
+	if node.WindowStart >= 0 && arrivalMins < node.WindowStart {
+		waitMins = node.WindowStart - arrivalMins
+	}
+
+	distM += e.DistanceM
+	travelSec += e.DurationSec
+	serviceSec += node.DurationMin * 60
+	waitSec += waitMins * 60
+
+	return arrivalMins + waitMins + node.DurationMin, distM, travelSec, serviceSec, waitSec
+}
+
+// buildPrereqs строит для каждого узла i список узлов, которые должны быть
+// посещены до него согласно ограничениям PrecedencePairs.
+func buildPrereqs(n int, pairs []PrecedencePair) [][]int {
+	prereqs := make([][]int, n)
+	for _, p := range pairs {
+		prereqs[p.After] = append(prereqs[p.After], p.Before)
+	}
+	return prereqs
+}
+
+// prereqsMet возвращает true, если все узлы-предшественники узла i уже посещены.
+func prereqsMet(i int, visited []bool, prereqs [][]int) bool {
+	for _, pre := range prereqs[i] {
+		if !visited[pre] {
+			return false
+		}
+	}
+	return true
 }
 
 // startNode selects the starting node: the one with the earliest time-window
