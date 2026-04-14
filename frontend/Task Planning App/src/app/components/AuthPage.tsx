@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { LogIn, UserPlus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
-import { login, register } from '../api/client';
+import { ApiError, login, register } from '../api/client';
 import { useAuth } from '../context/auth-context';
 
 export function AuthPage() {
@@ -31,7 +31,14 @@ export function AuthPage() {
       setSession(session);
       toast.success('Вход выполнен');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Не удалось выполнить вход';
+      const message =
+        error instanceof ApiError
+          ? error.status === 401
+            ? 'Неверный email или пароль'
+            : 'Не удалось выполнить вход'
+          : error instanceof Error
+            ? error.message
+            : 'Не удалось выполнить вход';
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -51,7 +58,14 @@ export function AuthPage() {
       setSession(session);
       toast.success('Аккаунт создан');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Не удалось выполнить регистрацию';
+      const message =
+        error instanceof ApiError
+          ? error.status === 409
+            ? 'Пользователь с таким email уже существует'
+            : 'Не удалось выполнить регистрацию'
+          : error instanceof Error
+            ? error.message
+            : 'Не удалось выполнить регистрацию';
       toast.error(message);
     } finally {
       setIsSubmitting(false);

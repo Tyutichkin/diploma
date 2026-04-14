@@ -71,6 +71,15 @@ function normalizeTasksOrder(tasks: Task[]) {
   }));
 }
 
+// Сообщение пользователю на русском. Для ApiError (ошибка бэкенда) показываем
+// заготовленный фолбэк, чтобы не выводить сырой английский текст от сервера.
+// Для обычных Error используем их message — там уже русские сообщения фронта.
+function userErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return fallback;
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
+
 
 function validateStartEndConstraints(
   tasks: Task[],
@@ -228,8 +237,7 @@ export function MainPage() {
       setSavedRoutes(routes);
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        const message = error instanceof Error ? error.message : 'Не удалось загрузить данные';
-        toast.error(message);
+        toast.error(userErrorMessage(error, 'Не удалось загрузить данные'));
       }
     } finally {
       setIsLoading(false);
@@ -257,8 +265,7 @@ export function MainPage() {
         return true;
       } catch (error) {
         if (!(error instanceof ApiError && error.status === 401)) {
-          const message = error instanceof Error ? error.message : 'Не удалось сохранить порядок задач';
-          toast.error(message);
+          toast.error(userErrorMessage(error, 'Не удалось сохранить порядок задач'));
         }
 
         await loadData();
@@ -418,8 +425,7 @@ export function MainPage() {
     setRouteStops([]);
       setActiveRouteId(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Не удалось сохранить задачу';
-      toast.error(message);
+      toast.error(userErrorMessage(error, 'Не удалось сохранить задачу'));
       throw error;
     } finally {
       setIsSavingTask(false);
@@ -443,8 +449,7 @@ export function MainPage() {
       toast.success('Задача удалена');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        const message = error instanceof Error ? error.message : 'Не удалось удалить задачу';
-        toast.error(message);
+        toast.error(userErrorMessage(error, 'Не удалось удалить задачу'));
       }
     }
   };
@@ -474,8 +479,7 @@ export function MainPage() {
       toast.success('Задача клонирована');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        const message = error instanceof Error ? error.message : 'Не удалось клонировать задачу';
-        toast.error(message);
+        toast.error(userErrorMessage(error, 'Не удалось клонировать задачу'));
       }
     }
   };
@@ -606,8 +610,7 @@ export function MainPage() {
       toast.success('Маршрут оптимизирован и сохранён');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        const message = error instanceof Error ? error.message : 'Ошибка при оптимизации маршрута';
-        toast.error(message);
+        toast.error(userErrorMessage(error, 'Ошибка при оптимизации маршрута'));
       }
     } finally {
       setIsOptimizing(false);
@@ -658,8 +661,7 @@ export function MainPage() {
       toast.success('Сохранённый маршрут применён');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        const message = error instanceof Error ? error.message : 'Не удалось загрузить маршрут';
-        toast.error(message);
+        toast.error(userErrorMessage(error, 'Не удалось загрузить маршрут'));
       }
     } finally {
       setLoadingRouteId(null);
@@ -680,7 +682,7 @@ export function MainPage() {
       toast.success('Маршрут удалён');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(error instanceof Error ? error.message : 'Не удалось удалить маршрут');
+        toast.error(userErrorMessage(error, 'Не удалось удалить маршрут'));
       }
     }
   };
@@ -697,7 +699,7 @@ export function MainPage() {
       toast.success('Все маршруты удалены');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(error instanceof Error ? error.message : 'Не удалось очистить маршруты');
+        toast.error(userErrorMessage(error, 'Не удалось очистить маршруты'));
       }
     }
   };
@@ -721,7 +723,7 @@ export function MainPage() {
       );
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(error instanceof Error ? error.message : 'Не удалось переименовать маршрут');
+        toast.error(userErrorMessage(error, 'Не удалось переименовать маршрут'));
       }
     } finally {
       setEditingRouteId(null);
