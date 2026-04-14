@@ -113,6 +113,9 @@ func (s *Story) Optimize(
 		}
 	}
 
+	// Дата по умолчанию для задач с временем, но без даты (например, импорт из CSV).
+	fallbackDate := time.Unix(startTimeUnix, 0).UTC()
+
 	nodes := make([]routeopt.Node, len(tasks))
 	taskIDToIdx := make(map[string]int, len(tasks))
 	for i, t := range tasks {
@@ -120,8 +123,8 @@ func (s *Story) Optimize(
 			TaskID:      t.ID,
 			Lat:         derefF64(t.Latitude),
 			Lng:         derefF64(t.Longitude),
-			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime),
-			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime),
+			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime, fallbackDate),
+			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime, fallbackDate),
 			DurationMin: derefInt(t.DurationMin),
 		}
 		taskIDToIdx[t.ID] = i
@@ -135,6 +138,16 @@ func (s *Story) Optimize(
 				DistanceM:   matrix[i][j].DistanceM,
 				DurationSec: matrix[i][j].DurationSec,
 			}
+		}
+	}
+
+	// Если startTimeUnix позже самого раннего WindowStart среди задач, сдвигаем
+	// начало оптимизации к этому окну.  Это критично, когда фронтенд передаёт 0
+	// (бэкенд подставляет time.Now()), а задачи имеют утренние окна — иначе все
+	// утренние окна считались бы просроченными.
+	for _, nd := range nodes {
+		if nd.WindowStart >= 0 && nd.WindowStart < startTimeUnix {
+			startTimeUnix = nd.WindowStart
 		}
 	}
 
@@ -169,14 +182,21 @@ func (s *Story) Optimize(
 
 	stops := make([]routegate.StopInput, len(result.Order))
 	for pos, nodeIdx := range result.Order {
-		travelSec := 0
-		if pos > 0 {
-			travelSec = matrix[result.Order[pos-1]][nodeIdx].DurationSec
-		}
+		timing := result.Timings[pos]
+
+		arriveTime := time.Unix(timing.ArrivalSec, 0).UTC()
+		serviceStart := time.Unix(timing.ServiceStartSec, 0).UTC()
+		serviceEnd := time.Unix(timing.ServiceEndSec, 0).UTC()
+		waitSec := timing.WaitSec
+
 		stops[pos] = routegate.StopInput{
 			TaskID:            tasks[nodeIdx].ID,
 			Position:          pos,
-			TravelFromPrevSec: travelSec,
+			TravelFromPrevSec: timing.TravelFromPrevSec,
+			ArriveTime:        &arriveTime,
+			ServiceStartTime:  &serviceStart,
+			ServiceEndTime:    &serviceEnd,
+			WaitSec:           &waitSec,
 		}
 	}
 
@@ -199,6 +219,10 @@ func (s *Story) Optimize(
 			TaskID:            stop.TaskID,
 			Position:          stop.Position,
 			TravelFromPrevSec: &travel,
+			ArriveTime:        stop.ArriveTime,
+			ServiceStartTime:  stop.ServiceStartTime,
+			ServiceEndTime:    stop.ServiceEndTime,
+			WaitSec:           stop.WaitSec,
 		}
 	}
 
@@ -266,22 +290,38 @@ func derefF64(p *float64) float64 {
 }
 
 // buildUnixSec собирает Unix-секунды из раздельных даты ("YYYY-MM-DD") и времени ("HH:MM").
-// Если дата nil/пустая — возвращает -1 (нет ограничения).
-// Если дата есть, а время нет — возвращает начало дня (00:00) для start или конец дня (23:59) для end.
-// Для простоты: без времени возвращаем начало дня (00:00).
-func buildUnixSec(dateStr, timeStr *string) int64 {
-	if dateStr == nil || *dateStr == "" {
+//
+// fallbackDate используется как дата по умолчанию, если дата не задана, но время есть.
+// Это позволяет задачам, импортированным из CSV (где есть только время, без даты),
+// корректно участвовать в оптимизации с временными окнами.
+//
+// Возвращает -1 (нет ограничения) только если ни дата, ни время не заданы.
+func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time) int64 {
+	hasDate := dateStr != nil && *dateStr != ""
+	hasTime := timeStr != nil && *timeStr != ""
+
+	if !hasDate && !hasTime {
 		return -1
 	}
-	if timeStr == nil || *timeStr == "" {
-		// Дата без времени — начало дня
-		t, err := time.Parse("2006-01-02", *dateStr)
+
+	var datePart string
+	if hasDate {
+		datePart = *dateStr
+	} else {
+		// Время есть, даты нет — используем дату из fallbackDate (день оптимизации).
+		datePart = fallbackDate.Format("2006-01-02")
+	}
+
+	if !hasTime {
+		// Дата без времени — начало дня.
+		t, err := time.Parse("2006-01-02", datePart)
 		if err != nil {
 			return -1
 		}
 		return t.Unix()
 	}
-	t, err := time.Parse("2006-01-02 15:04", *dateStr+" "+*timeStr)
+
+	t, err := time.Parse("2006-01-02 15:04", datePart+" "+*timeStr)
 	if err != nil {
 		return -1
 	}

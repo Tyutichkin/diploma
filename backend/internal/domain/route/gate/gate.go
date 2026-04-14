@@ -2,6 +2,7 @@ package gate
 
 import (
 	"context"
+	"time"
 
 	"planner-backend/internal/domain/route"
 )
@@ -10,7 +11,11 @@ import (
 type StopInput struct {
 	TaskID            string
 	Position          int
-	TravelFromPrevSec int // 0 for the first stop
+	TravelFromPrevSec int        // 0 for the first stop
+	ArriveTime        *time.Time // when the vehicle arrives at this stop
+	ServiceStartTime  *time.Time // when service begins (after any wait)
+	ServiceEndTime    *time.Time // when service ends
+	WaitSec           *int       // seconds waiting for time window to open
 }
 
 type Repository interface {

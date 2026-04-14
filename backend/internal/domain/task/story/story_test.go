@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"planner-backend/internal/common/ptrs"
 	"planner-backend/internal/domain/task"
 )
 
@@ -19,6 +20,7 @@ type mockTaskRepo struct {
 	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
 	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
 	createFn      func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
+	batchCreateFn func(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
 	updateFn      func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
 	softDeleteFn  func(ctx context.Context, userID, taskID string) (bool, error)
 	bulkReorderFn func(ctx context.Context, userID string, in task.ReorderInput) error
@@ -33,6 +35,12 @@ func (m *mockTaskRepo) GetByIDs(ctx context.Context, userID string, ids []string
 func (m *mockTaskRepo) Create(ctx context.Context, userID string, in task.CreateInput) (task.Task, error) {
 	return m.createFn(ctx, userID, in)
 }
+func (m *mockTaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error) {
+	if m.batchCreateFn != nil {
+		return m.batchCreateFn(ctx, userID, inputs)
+	}
+	return nil, nil
+}
 func (m *mockTaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
 	return m.updateFn(ctx, userID, taskID, in)
 }
@@ -42,8 +50,6 @@ func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (b
 func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	return m.bulkReorderFn(ctx, userID, in)
 }
-
-func intPtr(v int) *int { return &v }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -57,7 +63,7 @@ func makeTask(id, userID, title string) task.Task {
 		AddressText: "Some Address",
 		Latitude:    &lat,
 		Longitude:   &lon,
-		DurationMin: intPtr(30),
+		DurationMin: ptrs.Ptr(30),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -72,7 +78,7 @@ func makeTaskNoAddr(id, userID, title string) task.Task {
 		AddressText: "",
 		Latitude:    nil,
 		Longitude:   nil,
-		DurationMin: intPtr(15),
+		DurationMin: ptrs.Ptr(15),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -86,7 +92,7 @@ func validCreateInput() task.CreateInput {
 		AddressText: "123 Main St",
 		Latitude:    &lat,
 		Longitude:   &lon,
-		DurationMin: intPtr(30),
+		DurationMin: ptrs.Ptr(30),
 	}
 }
 
@@ -134,7 +140,7 @@ func TestCreate_NoAddress(t *testing.T) {
 		AddressText: "",
 		Latitude:    nil,
 		Longitude:   nil,
-		DurationMin: intPtr(15),
+		DurationMin: ptrs.Ptr(15),
 	}
 	_, err := s.Create(context.Background(), uid, in)
 	require.NoError(t, err)
@@ -160,7 +166,7 @@ func TestCreate_NilDuration(t *testing.T) {
 func TestCreate_NegativeDuration(t *testing.T) {
 	s := New(&mockTaskRepo{})
 	in := validCreateInput()
-	in.DurationMin = intPtr(-1)
+	in.DurationMin = ptrs.Ptr(-1)
 	_, err := s.Create(context.Background(), "uid", in)
 	assert.Error(t, err)
 }
@@ -223,7 +229,81 @@ func TestCreate_TimeWindowEndBeforeStart(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// 2.1.9 Только начало окна без конца — допустимо
+// 2.1.9 Только времена без дат, конец раньше начала — story должна отклонять
+func TestCreate_TimeOnlyWindowEndBeforeStart(t *testing.T) {
+	s := New(&mockTaskRepo{})
+	wsTime := "12:00"
+	weTime := "11:00"
+	in := validCreateInput()
+	in.WindowStartTime = &wsTime
+	in.WindowEndTime = &weTime
+	_, err := s.Create(context.Background(), "uid", in)
+	assert.Error(t, err)
+}
+
+// 2.1.10 Только времена без дат, равное начало и конец — story должна отклонять
+func TestCreate_TimeOnlyWindowEqualStartEnd(t *testing.T) {
+	s := New(&mockTaskRepo{})
+	wsTime := "10:00"
+	weTime := "10:00"
+	in := validCreateInput()
+	in.WindowStartTime = &wsTime
+	in.WindowEndTime = &weTime
+	_, err := s.Create(context.Background(), "uid", in)
+	assert.Error(t, err)
+}
+
+// 2.1.11 Только времена без дат, начало раньше конца — задача создаётся успешно
+func TestCreate_TimeOnlyWindowValid(t *testing.T) {
+	uid := uuid.NewString()
+	repo := &mockTaskRepo{
+		createFn: func(_ context.Context, _ string, _ task.CreateInput) (task.Task, error) {
+			return makeTask(uuid.NewString(), uid, "task"), nil
+		},
+	}
+	s := New(repo)
+	wsTime := "09:00"
+	weTime := "18:00"
+	in := validCreateInput()
+	in.WindowStartTime = &wsTime
+	in.WindowEndTime = &weTime
+	_, err := s.Create(context.Background(), uid, in)
+	require.NoError(t, err)
+}
+
+// 2.2.9 Update: только времена без дат, конец раньше начала — story должна отклонять
+func TestUpdate_TimeOnlyWindowEndBeforeStart(t *testing.T) {
+	s := New(&mockTaskRepo{})
+	wsTime := "20:00"
+	weTime := "08:00"
+	_, _, err := s.Update(context.Background(), "uid", uuid.NewString(), task.UpdateInput{
+		WindowStartTime: &wsTime,
+		WindowEndTime:   &weTime,
+	})
+	assert.Error(t, err)
+}
+
+// 2.2.10 Update: только времена без дат, начало раньше конца — допустимо
+func TestUpdate_TimeOnlyWindowValid(t *testing.T) {
+	uid := uuid.NewString()
+	taskID := uuid.NewString()
+	repo := &mockTaskRepo{
+		updateFn: func(_ context.Context, _, _ string, _ task.UpdateInput) (task.Task, bool, error) {
+			return makeTask(taskID, uid, "task"), true, nil
+		},
+	}
+	s := New(repo)
+	wsTime := "09:00"
+	weTime := "17:00"
+	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
+		WindowStartTime: &wsTime,
+		WindowEndTime:   &weTime,
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+}
+
+// 2.1.12 Только начало окна без конца — допустимо
 func TestCreate_OnlyWindowStart(t *testing.T) {
 	uid := uuid.NewString()
 	wsDate := "2024-01-15"

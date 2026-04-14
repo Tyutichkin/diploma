@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Task, OptimizedRoute, taskHasAddress, windowBoundMs, formatWindowBound } from '../types/task';
-import { SavedRouteSummary } from '../types/route';
+import { SavedRouteSummary, RouteStopTiming } from '../types/route';
 import { TaskList } from './TaskList';
 import { TaskForm, TaskRole } from './TaskForm';
 import { TaskImport, ImportedTaskRow } from './TaskImport';
@@ -32,6 +32,7 @@ import {
   ApiError,
   PrecedenceConstraint,
   createTask,
+  createTasksBatch,
   deleteAllRoutes,
   deleteRoute,
   deleteTask,
@@ -167,6 +168,7 @@ export function MainPage() {
   const [editingRouteName, setEditingRouteName] = useState('');
   const [transportMode, setTransportMode] = useState<TransportMode>('auto');
   const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
+  const [routeStops, setRouteStops] = useState<RouteStopTiming[]>([]);
   const [startTaskId, setStartTaskId] = useState<string>('');
   const [endTaskId, setEndTaskId] = useState<string>('');
   const [precedences, setPrecedences] = useState<PrecedencePair[]>([]);
@@ -262,56 +264,47 @@ export function MainPage() {
   const handleImportTasks = async (rows: ImportedTaskRow[]) => {
     if (!requestOptions) return;
 
-    let created = 0;
-    let geocodeFailed = 0;
-
-    for (const row of rows) {
-      let lat: number | undefined;
-      let lng: number | undefined;
-      let resolvedAddress: string | undefined = row.address;
-
-      if (row.address) {
+    // Геокодируем все адреса параллельно
+    const geocodeResults = await Promise.all(
+      rows.map(async (row) => {
+        if (!row.address) return { lat: undefined, lng: undefined, address: undefined, failed: false };
         try {
           const suggestions = await geocodeAddressSuggestions(row.address);
           if (suggestions.length > 0) {
-            lat = suggestions[0].lat;
-            lng = suggestions[0].lng;
-            resolvedAddress = suggestions[0].displayName;
-          } else {
-            geocodeFailed++;
-            resolvedAddress = undefined;
+            return { lat: suggestions[0].lat, lng: suggestions[0].lng, address: suggestions[0].displayName, failed: false };
           }
+          return { lat: undefined, lng: undefined, address: undefined, failed: true };
         } catch {
-          geocodeFailed++;
-          resolvedAddress = undefined;
+          return { lat: undefined, lng: undefined, address: undefined, failed: true };
         }
-      }
+      }),
+    );
 
-      const savedTask = await createTask(
-        {
-          title: row.title,
-          address: resolvedAddress,
-          latitude: lat,
-          longitude: lng,
-          duration: row.duration,
-          windowStartTime: row.timeWindowStart,
-          windowEndTime: row.timeWindowEnd,
-          sortIndex: tasksRef.current.length + created,
-        },
-        requestOptions,
-      );
+    const geocodeFailed = geocodeResults.filter((r) => r.failed).length;
+    const baseIndex = tasksRef.current.length;
 
-      replaceTasks([...tasksRef.current, savedTask]);
-      created++;
-    }
+    const inputs = rows.map((row, i) => ({
+      title: row.title,
+      address: geocodeResults[i].address,
+      latitude: geocodeResults[i].lat,
+      longitude: geocodeResults[i].lng,
+      duration: row.duration,
+      windowStartTime: row.windowStartTime,
+      windowEndTime: row.windowEndTime,
+      sortIndex: baseIndex + i,
+    }));
+
+    const savedTasks = await createTasksBatch(inputs, requestOptions);
+    replaceTasks([...tasksRef.current, ...savedTasks]);
 
     toast.success(
       geocodeFailed > 0
-        ? `Импортировано ${created} задач. Геокодирование не удалось для ${geocodeFailed} адресов — они сохранены без координат.`
-        : `Импортировано ${created} задач`,
+        ? `Импортировано ${savedTasks.length} задач. Геокодирование не удалось для ${geocodeFailed} адресов — они сохранены без координат.`
+        : `Импортировано ${savedTasks.length} задач`,
     );
     setRouteOptimized(false);
     setOptimizedInfo(null);
+    setRouteStops([]);
     setActiveRouteId(null);
   };
 
@@ -407,6 +400,7 @@ export function MainPage() {
 
       setRouteOptimized(false);
       setOptimizedInfo(null);
+    setRouteStops([]);
       setActiveRouteId(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Не удалось сохранить задачу';
@@ -429,11 +423,43 @@ export function MainPage() {
       if (endTaskId === id) setEndTaskId('');
       setRouteOptimized(false);
       setOptimizedInfo(null);
+    setRouteStops([]);
       setActiveRouteId(null);
       toast.success('Задача удалена');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
         const message = error instanceof Error ? error.message : 'Не удалось удалить задачу';
+        toast.error(message);
+      }
+    }
+  };
+
+  const handleCloneTask = async (task: Task) => {
+    if (!requestOptions) {
+      return;
+    }
+
+    try {
+      const cloned = await createTask(
+        {
+          title: `${task.title} (копия)`,
+          address: task.address,
+          latitude: task.latitude,
+          longitude: task.longitude,
+          duration: task.duration,
+          windowStartDate: task.windowStartDate,
+          windowStartTime: task.windowStartTime,
+          windowEndDate: task.windowEndDate,
+          windowEndTime: task.windowEndTime,
+          sortIndex: tasksRef.current.length,
+        },
+        requestOptions,
+      );
+      replaceTasks([...tasksRef.current, cloned]);
+      toast.success('Задача клонирована');
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) {
+        const message = error instanceof Error ? error.message : 'Не удалось клонировать задачу';
         toast.error(message);
       }
     }
@@ -483,6 +509,7 @@ export function MainPage() {
     replaceTasks(reordered);
     setRouteOptimized(false);
     setOptimizedInfo(null);
+    setRouteStops([]);
     setActiveRouteId(null);
   };
 
@@ -490,7 +517,12 @@ export function MainPage() {
     await persistTaskOrder(tasksRef.current);
   };
 
-  const handleOptimizeRoute = async () => {
+  /**
+   * Запускает оптимизацию маршрута с указанным режимом транспорта.
+   * Используется как для первичной оптимизации, так и для переоптимизации
+   * при смене режима транспорта.
+   */
+  const runOptimization = async (mode: TransportMode) => {
     if (!requestOptions) {
       return;
     }
@@ -521,7 +553,7 @@ export function MainPage() {
 
     try {
       // Шаг 1: строим матрицу расстояний только для задач с адресом.
-      const distanceMatrix = await buildYandexDistanceMatrix(addressTasks, transportMode);
+      const distanceMatrix = await buildYandexDistanceMatrix(addressTasks, mode);
 
       toast.info('Оптимизация маршрута...');
 
@@ -562,6 +594,7 @@ export function MainPage() {
         totalDuration:
           result.totalDurationMin ?? orderedAddressTasks.reduce((sum, t) => sum + t.duration, 0),
       });
+      setRouteStops(result.stops ?? []);
       setRouteOptimized(true);
       setActiveRouteId(result.id);
       toast.success('Маршрут оптимизирован и сохранён');
@@ -572,6 +605,15 @@ export function MainPage() {
       }
     } finally {
       setIsOptimizing(false);
+    }
+  };
+
+  const handleOptimizeRoute = () => runOptimization(transportMode);
+
+  const handleTransportModeChange = (mode: TransportMode) => {
+    setTransportMode(mode);
+    if (routeOptimized) {
+      void runOptimization(mode);
     }
   };
 
@@ -594,6 +636,7 @@ export function MainPage() {
 
       setRouteOptimized(true);
       setActiveRouteId(routeId);
+      setRouteStops(route.stops ?? []);
       setOptimizedInfo(
         route.totalDurationMin !== undefined ||
           route.totalDistanceKm !== undefined ||
@@ -626,6 +669,7 @@ export function MainPage() {
         setActiveRouteId(null);
         setRouteOptimized(false);
         setOptimizedInfo(null);
+    setRouteStops([]);
       }
       toast.success('Маршрут удалён');
     } catch (error) {
@@ -643,6 +687,7 @@ export function MainPage() {
       setActiveRouteId(null);
       setRouteOptimized(false);
       setOptimizedInfo(null);
+    setRouteStops([]);
       toast.success('Все маршруты удалены');
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
@@ -1051,6 +1096,7 @@ export function MainPage() {
               onReorder={handleReorderTasks}
               onReorderEnd={handlePersistReorder}
               onSetRole={handleSetRole}
+              onClone={handleCloneTask}
             />
           </div>
 
@@ -1058,7 +1104,7 @@ export function MainPage() {
             <MapView
               tasks={tasks}
               routeOptimized={routeOptimized}
-              onTransportModeChange={setTransportMode}
+              onTransportModeChange={handleTransportModeChange}
               onRouteLegsChange={setRouteLegs}
             />
           </div>
@@ -1069,6 +1115,17 @@ export function MainPage() {
             tasks={tasks}
             transportMode={transportMode}
             routeLegs={routeLegs}
+            stops={routeStops}
+            onEditTask={(taskId) => {
+              const task = tasks.find((t) => t.id === taskId);
+              if (task) {
+                setEditingTask(task);
+                setIsFormOpen(true);
+              }
+            }}
+            onDeleteTask={(taskId) => {
+              void handleDeleteTask(taskId);
+            }}
           />
         )}
 

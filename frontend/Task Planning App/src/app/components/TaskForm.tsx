@@ -69,12 +69,13 @@ export function TaskForm({
       setWindowEndDate(task.windowEndDate || '');
       setWindowEndTime(task.windowEndTime || '');
     } else {
+      const today = new Date().toISOString().slice(0, 10);
       setTitle('');
       setAddress('');
       setDuration('');
-      setWindowStartDate('');
+      setWindowStartDate(today);
       setWindowStartTime('');
-      setWindowEndDate('');
+      setWindowEndDate(today);
       setWindowEndTime('');
     }
     setRole(initialRole);
@@ -124,6 +125,12 @@ export function TaskForm({
   /** Вычисляет размер окна в минутах, если обе границы заданы. */
   const computeWindowMins = (): number | null => {
     if (!windowStartDate && !windowStartTime && !windowEndDate && !windowEndTime) return null;
+    // Если даты не указаны, но оба времени заданы — сравниваем только по времени (тот же день)
+    if (!windowStartDate && !windowEndDate && windowStartTime && windowEndTime) {
+      const [sh, sm] = windowStartTime.split(':').map(Number);
+      const [eh, em] = windowEndTime.split(':').map(Number);
+      return (eh * 60 + em) - (sh * 60 + sm);
+    }
     // Нужна хотя бы одна дата для сравнения
     const sDate = windowStartDate || windowEndDate;
     const eDate = windowEndDate || windowStartDate;

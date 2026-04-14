@@ -101,6 +101,44 @@ func (r *TaskRepo) Create(ctx context.Context, userID string, in task.CreateInpu
 	return scanTaskRow(row)
 }
 
+func (r *TaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error) {
+	if len(inputs) == 0 {
+		return []task.Task{}, nil
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO tasks(user_id, title, address_text, latitude, longitude, duration_min,
+			window_start_date, window_start_time, window_end_date, window_end_time, sort_index)
+		VALUES ($1,$2,$3,$4,$5,$6,
+			$7::date, $8::time, $9::date, $10::time, $11)
+		RETURNING %s
+	`, taskColumns)
+
+	batch := &pgx.Batch{}
+	for _, in := range inputs {
+		batch.Queue(query,
+			userID, in.Title, in.AddressText, in.Latitude, in.Longitude, in.DurationMin,
+			nilIfEmpty(in.WindowStartDate), nilIfEmpty(in.WindowStartTime),
+			nilIfEmpty(in.WindowEndDate), nilIfEmpty(in.WindowEndTime),
+			in.SortIndex,
+		)
+	}
+
+	br := r.pool.SendBatch(ctx, batch)
+	defer br.Close()
+
+	out := make([]task.Task, 0, len(inputs))
+	for range inputs {
+		row := br.QueryRow()
+		t, err := scanTaskRow(row)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
 func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
 	// Каждое из 4 полей окна использует 3-state *string:
 	//   nil    → оставить текущее (COALESCE / CASE keeps existing)

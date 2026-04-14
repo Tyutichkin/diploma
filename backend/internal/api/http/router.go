@@ -42,6 +42,7 @@ func NewRouter(d Deps) *gin.Engine {
 
 	secured.GET("/tasks", taskH.List)
 	secured.POST("/tasks", taskH.Create)
+	secured.POST("/tasks/batch", taskH.BatchCreate)
 	secured.PATCH("/tasks/order", taskH.Reorder)
 	secured.PATCH("/tasks/:id", taskH.Update)
 	secured.DELETE("/tasks/:id", taskH.Delete)

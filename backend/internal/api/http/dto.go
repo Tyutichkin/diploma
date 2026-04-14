@@ -34,6 +34,10 @@ type CreateTaskReq struct {
 	SortIndex int `json:"sortIndex"`
 }
 
+type BatchCreateTasksReq struct {
+	Tasks []CreateTaskReq `json:"tasks"`
+}
+
 type UpdateTaskReq struct {
 	Title       *string  `json:"title"`
 	AddressText *string  `json:"addressText"`

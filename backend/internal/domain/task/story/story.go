@@ -57,10 +57,17 @@ func (s *Story) Update(ctx context.Context, userID, taskID string, in task.Updat
 // validateWindow проверяет, что если заданы обе даты+время, то start < end.
 // Если указана только дата без времени — это "весь день", не валидируем время.
 func validateWindow(startDate, startTime, endDate, endTime *string) error {
-	// Обе пустые/nil — ок
 	sDate := derefStr(startDate)
 	eDate := derefStr(endDate)
+	sTime := derefStr(startTime)
+	eTime := derefStr(endTime)
+
+	// Обе даты пусты
 	if sDate == "" && eDate == "" {
+		// Если указаны оба времени — проверяем порядок на одном дне (HH:MM сравнимы лексикографически)
+		if sTime != "" && eTime != "" && sTime >= eTime {
+			return &task.ValidationError{Message: "window_start must be before window_end"}
+		}
 		return nil
 	}
 
@@ -68,9 +75,6 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 	if sDate == "" || eDate == "" {
 		return nil
 	}
-
-	sTime := derefStr(startTime)
-	eTime := derefStr(endTime)
 
 	s, err := combineDatetime(sDate, sTime)
 	if err != nil {
@@ -128,6 +132,24 @@ func derefStr(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func (s *Story) CreateBatch(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error) {
+	for i := range inputs {
+		in := &inputs[i]
+		if in.Title == "" {
+			return nil, &task.ValidationError{Message: "title required"}
+		}
+		if in.DurationMin != nil && *in.DurationMin < 0 {
+			return nil, &task.ValidationError{Message: "duration_min must not be negative"}
+		}
+		if err := validateWindow(in.WindowStartDate, in.WindowStartTime, in.WindowEndDate, in.WindowEndTime); err != nil {
+			return nil, err
+		}
+		fillDefaultDate(&in.WindowStartDate, in.WindowStartTime)
+		fillDefaultDate(&in.WindowEndDate, in.WindowEndTime)
+	}
+	return s.tasks.BatchCreate(ctx, userID, inputs)
 }
 
 func (s *Story) Delete(ctx context.Context, userID, taskID string) (bool, error) {

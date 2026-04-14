@@ -13,11 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"planner-backend/internal/common/ptrs"
 	"planner-backend/internal/domain/task"
 	taskstory "planner-backend/internal/domain/task/story"
 )
-
-func intPtr(v int) *int { return &v }
 
 // ── mock task repository for handlers ─────────────────────────────────────────
 
@@ -66,6 +65,9 @@ func (m *handlerTaskRepo) BulkReorder(ctx context.Context, userID string, in tas
 	}
 	return nil
 }
+func (m *handlerTaskRepo) BatchCreate(ctx context.Context, _ string, _ []task.CreateInput) ([]task.Task, error) {
+	return nil, nil
+}
 
 // ── test router helper ────────────────────────────────────────────────────────
 
@@ -104,7 +106,7 @@ func makeTestTask(id, userID, title string) task.Task {
 		AddressText: "Test Address",
 		Latitude:    &lat,
 		Longitude:   &lon,
-		DurationMin: intPtr(30),
+		DurationMin: ptrs.Ptr(30),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -118,7 +120,7 @@ func makeTestTaskNoAddr(id, userID, title string) task.Task {
 		AddressText: "",
 		Latitude:    nil,
 		Longitude:   nil,
-		DurationMin: intPtr(15),
+		DurationMin: ptrs.Ptr(15),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}

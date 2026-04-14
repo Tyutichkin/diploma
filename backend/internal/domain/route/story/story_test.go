@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"planner-backend/internal/common/ptrs"
 	"planner-backend/internal/domain/route"
 	routegate "planner-backend/internal/domain/route/gate"
 	routeopt "planner-backend/internal/domain/route/optimizer"
@@ -88,6 +89,9 @@ func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (b
 func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	return m.bulkReorderFn(ctx, userID, in)
 }
+func (m *mockTaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error) {
+	return nil, nil
+}
 
 // ── mock distance provider ────────────────────────────────────────────────────
 
@@ -111,8 +115,6 @@ func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTi
 	return m.optimizeFn(ctx, g, startTimeUnix, c)
 }
 
-func intPtr(v int) *int { return &v }
-
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func makeRouteTask(id, userID string) task.Task {
@@ -125,7 +127,7 @@ func makeRouteTask(id, userID string) task.Task {
 		AddressText: "Some Address",
 		Latitude:    &lat,
 		Longitude:   &lon,
-		DurationMin: intPtr(30),
+		DurationMin: ptrs.Ptr(30),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -151,13 +153,26 @@ func makeRoute(id, userID, status string) route.Route {
 func defaultOptimizer() *mockOptimizer {
 	return &mockOptimizer{
 		nameFn: func() string { return "nearest-neighbor-tw" },
-		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int64, _ routeopt.Constraints) (routeopt.Result, error) {
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, startTime int64, _ routeopt.Constraints) (routeopt.Result, error) {
 			order := make([]int, len(g.Nodes))
+			timings := make([]routeopt.StopTiming, len(g.Nodes))
+			cur := startTime
 			for i := range order {
 				order[i] = i
+				timings[i] = routeopt.StopTiming{
+					NodeIdx:         i,
+					ArrivalSec:      cur,
+					ServiceStartSec: cur,
+					ServiceEndSec:   cur + int64(g.Nodes[i].DurationMin)*60,
+				}
+				cur = timings[i].ServiceEndSec + 600 // 10 min travel
+				if i > 0 {
+					timings[i].TravelFromPrevSec = 600
+				}
 			}
 			return routeopt.Result{
 				Order:           order,
+				Timings:         timings,
 				TotalDistanceM:  1000,
 				TotalTravelSec:  600,
 				TotalServiceSec: 1800,
@@ -387,13 +402,20 @@ func TestOptimize_ConstraintsPassedToOptimizer(t *testing.T) {
 	var capturedConstraints routeopt.Constraints
 	opt := &mockOptimizer{
 		nameFn: func() string { return "nearest-neighbor-tw" },
-		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int64, c routeopt.Constraints) (routeopt.Result, error) {
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, startTime int64, c routeopt.Constraints) (routeopt.Result, error) {
 			capturedConstraints = c
 			order := make([]int, len(g.Nodes))
+			timings := make([]routeopt.StopTiming, len(g.Nodes))
+			cur := startTime
 			for i := range order {
 				order[i] = i
+				timings[i] = routeopt.StopTiming{NodeIdx: i, ArrivalSec: cur, ServiceStartSec: cur, ServiceEndSec: cur + 600}
+				cur += 1200
+				if i > 0 {
+					timings[i].TravelFromPrevSec = 600
+				}
 			}
-			return routeopt.Result{Order: order, TotalDistanceM: 1000, TotalTravelSec: 600}, nil
+			return routeopt.Result{Order: order, Timings: timings, TotalDistanceM: 1000, TotalTravelSec: 600}, nil
 		},
 	}
 
@@ -574,35 +596,46 @@ func TestDelete_EmptyRouteID(t *testing.T) {
 
 // ── buildUnixSec tests ───────────────────────────────────────────────────────
 
+var fallbackDate = time.Date(2024, 6, 10, 9, 0, 0, 0, time.UTC)
+
 // 4.3.1 Дата + время
 func TestBuildUnixSec_DateAndTime(t *testing.T) {
 	d := "2024-01-15"
 	tm := "09:30"
 	expected := time.Date(2024, 1, 15, 9, 30, 0, 0, time.UTC).Unix()
-	assert.Equal(t, expected, buildUnixSec(&d, &tm))
+	assert.Equal(t, expected, buildUnixSec(&d, &tm, fallbackDate))
 }
 
 // 4.3.2 Только дата без времени — начало дня
 func TestBuildUnixSec_DateOnly(t *testing.T) {
 	d := "2024-01-15"
 	expected := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC).Unix()
-	assert.Equal(t, expected, buildUnixSec(&d, nil))
+	assert.Equal(t, expected, buildUnixSec(&d, nil, fallbackDate))
 }
 
-// 4.3.3 Пустая дата → -1
-func TestBuildUnixSec_EmptyDate(t *testing.T) {
+// 4.3.3 Время без даты → используется fallbackDate
+func TestBuildUnixSec_TimeOnly_UsesFallback(t *testing.T) {
 	empty := ""
 	tm := "09:30"
-	assert.Equal(t, int64(-1), buildUnixSec(&empty, &tm))
+	// fallbackDate = 2024-06-10 → результат: 2024-06-10 09:30 UTC
+	expected := time.Date(2024, 6, 10, 9, 30, 0, 0, time.UTC).Unix()
+	assert.Equal(t, expected, buildUnixSec(&empty, &tm, fallbackDate))
 }
 
-// 4.3.4 nil дата → -1
+// 4.3.4 nil дата + nil время → -1
 func TestBuildUnixSec_NilDate(t *testing.T) {
-	assert.Equal(t, int64(-1), buildUnixSec(nil, nil))
+	assert.Equal(t, int64(-1), buildUnixSec(nil, nil, fallbackDate))
 }
 
 // 4.3.5 Некорректный формат даты
 func TestBuildUnixSec_InvalidDate(t *testing.T) {
 	d := "not-a-date"
-	assert.Equal(t, int64(-1), buildUnixSec(&d, nil))
+	assert.Equal(t, int64(-1), buildUnixSec(&d, nil, fallbackDate))
+}
+
+// 4.3.6 nil дата + время → fallback
+func TestBuildUnixSec_NilDateWithTime(t *testing.T) {
+	tm := "14:00"
+	expected := time.Date(2024, 6, 10, 14, 0, 0, 0, time.UTC).Unix()
+	assert.Equal(t, expected, buildUnixSec(nil, &tm, fallbackDate))
 }

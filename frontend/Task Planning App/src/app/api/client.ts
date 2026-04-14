@@ -3,7 +3,7 @@ import { Task } from '../types/task';
 import { SavedRouteDetails, SavedRouteSummary } from '../types/route';
 import { DistanceCell } from '../utils/routeOptimizer';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
 const SESSION_STORAGE_KEY = 'planner.auth.session';
 let refreshSessionPromise: Promise<AuthSession> | null = null;
 
@@ -42,6 +42,11 @@ interface ApiRoute {
 interface ApiRouteStop {
   TaskID: string;
   Position: number;
+  TravelFromPrevSec?: number | null;
+  ArriveTime?: string | null;
+  ServiceStartTime?: string | null;
+  ServiceEndTime?: string | null;
+  WaitSec?: number | null;
 }
 
 interface ApiRouteStats {
@@ -181,6 +186,31 @@ export async function createTask(input: SaveTaskInput, options: AuthorizedReques
   );
 
   return mapTaskFromApi(task);
+}
+
+export async function createTasksBatch(inputs: SaveTaskInput[], options: AuthorizedRequestOptions) {
+  const tasks = await requestWithAuth<ApiTask[]>(
+    '/tasks/batch',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        tasks: inputs.map((input) => ({
+          title: input.title,
+          addressText: input.address ?? null,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+          durationMin: input.duration,
+          windowStartDate: input.windowStartDate || null,
+          windowStartTime: input.windowStartTime || null,
+          windowEndDate: input.windowEndDate || null,
+          windowEndTime: input.windowEndTime || null,
+          sortIndex: input.sortIndex,
+        })),
+      }),
+    },
+    options,
+  );
+  return tasks.map((task) => mapTaskFromApi(task));
 }
 
 export async function updateTask(taskId: string, input: Partial<SaveTaskInput>, options: AuthorizedRequestOptions) {
@@ -418,9 +448,19 @@ function mapRouteSummary(route: ApiRoute): SavedRouteSummary {
 }
 
 function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
-  const orderedTaskIds = [...(route.Stops ?? [])]
-    .sort((left, right) => left.Position - right.Position)
-    .map((stop) => stop.TaskID);
+  const sortedStops = [...(route.Stops ?? [])].sort((a, b) => a.Position - b.Position);
+
+  const orderedTaskIds = sortedStops.map((s) => s.TaskID);
+
+  const stops = sortedStops.map((s) => ({
+    taskId: s.TaskID,
+    position: s.Position,
+    travelFromPrevSec: s.TravelFromPrevSec ?? undefined,
+    arriveTime: s.ArriveTime ?? undefined,
+    serviceStartTime: s.ServiceStartTime ?? undefined,
+    serviceEndTime: s.ServiceEndTime ?? undefined,
+    waitSec: s.WaitSec ?? undefined,
+  }));
 
   const totalDistanceKm = route.Stats?.TotalDistanceM != null ? route.Stats.TotalDistanceM / 1000 : undefined;
   const totalTravelTimeMin = route.Stats?.TotalTravelSec != null ? Math.round(route.Stats.TotalTravelSec / 60) : undefined;
@@ -429,6 +469,7 @@ function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
   return {
     ...mapRouteSummary(route.Route),
     orderedTaskIds,
+    stops,
     totalDistanceKm,
     totalTravelTimeMin,
     totalDurationMin:

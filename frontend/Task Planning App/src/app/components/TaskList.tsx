@@ -14,6 +14,7 @@ interface TaskListProps {
   onReorder: (dragIndex: number, hoverIndex: number) => void;
   onReorderEnd: () => void | Promise<void>;
   onSetRole: (id: string, role: 'start' | 'end' | null) => void;
+  onClone: (task: Task) => void;
 }
 
 export function TaskList({
@@ -26,6 +27,7 @@ export function TaskList({
   onReorder,
   onReorderEnd,
   onSetRole,
+  onClone,
 }: TaskListProps) {
   const withAddress = tasks.filter(taskHasAddress);
   const withoutAddress = tasks.filter((t) => !taskHasAddress(t));
@@ -50,13 +52,14 @@ export function TaskList({
                     <MapPin className="h-3.5 w-3.5" />
                     С адресом ({withAddress.length})
                   </div>
-                  {withAddress.map((task) => {
+                  {withAddress.map((task, mapIdx) => {
                     const globalIndex = tasks.findIndex((t) => t.id === task.id);
                     return (
                       <TaskItem
                         key={task.id}
                         task={task}
                         index={globalIndex}
+                        mapNumber={mapIdx + 1}
                         isAddressless={false}
                         isStart={task.id === startTaskId}
                         isEnd={task.id === endTaskId}
@@ -68,6 +71,7 @@ export function TaskList({
                         onMove={onReorder}
                         onMoveEnd={onReorderEnd}
                         onSetRole={onSetRole}
+                        onClone={onClone}
                       />
                     );
                   })}
@@ -99,6 +103,7 @@ export function TaskList({
                         onMove={onReorder}
                         onMoveEnd={onReorderEnd}
                         onSetRole={onSetRole}
+                        onClone={onClone}
                       />
                     );
                   })}

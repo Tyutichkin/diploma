@@ -42,6 +42,8 @@ export type RouteSegment = {
 export type RouteLeg = {
   fromTitle: string;
   toTitle: string;
+  duration?: string;
+  distance?: string;
   segments: RouteSegment[];
 };
 
@@ -149,7 +151,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
       const balloonBody = entries
         .map(({ task, index }) =>
           [
-            `<div style="font-weight:600;margin-top:8px">#${index + 1} ${task.title}</div>`,
+            isSingle ? '' : `<div style="font-weight:600;margin-top:8px">#${index + 1} ${task.title}</div>`,
             `<div style="color:#555">${task.address}</div>`,
             `<div style="color:#555;margin-top:2px">Длительность: ${task.duration} мин</div>`,
             (task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime)
@@ -196,22 +198,57 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
         routeOptions,
       );
 
-      // Для режима masstransit разбираем сегменты после загрузки маршрута
-      if (transportMode === 'masstransit') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        multiRoute.model.events.add('requestsuccess', () => {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const routes: any[] = multiRoute.model.getRoutes();
-            if (!routes.length) return;
+      // Разбираем сегменты маршрута после загрузки — для ВСЕХ режимов транспорта
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      multiRoute.model.events.add('requestsuccess', () => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const routes: any[] = multiRoute.model.getRoutes();
+          if (!routes.length) return;
 
-            const legs: RouteLeg[] = [];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            routes[0].getLegs().forEach((leg: any, legIndex: number) => {
-              const fromTitle = validTasks[legIndex]?.title ?? `Точка ${legIndex + 1}`;
-              const toTitle = validTasks[legIndex + 1]?.title ?? `Точка ${legIndex + 2}`;
-              const segments: RouteSegment[] = [];
+          const legs: RouteLeg[] = [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          routes[0].getLegs().forEach((leg: any, legIndex: number) => {
+            const fromTitle = validTasks[legIndex]?.title ?? `Точка ${legIndex + 1}`;
+            const toTitle = validTasks[legIndex + 1]?.title ?? `Точка ${legIndex + 2}`;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const legProps = leg.properties as any;
+            const legDurationObj = legProps.get('duration');
+            const legDistanceObj = legProps.get('distance');
+            const legDuration: string | undefined =
+              typeof legDurationObj === 'object' ? legDurationObj?.text : legDurationObj;
+            const legDistance: string | undefined =
+              typeof legDistanceObj === 'object' ? legDistanceObj?.text : legDistanceObj;
+
+            // Метка на середине отрезка — показывает время в пути между точками
+            if (legIndex < validTasks.length - 1) {
+              const lat1 = validTasks[legIndex].latitude!;
+              const lon1 = validTasks[legIndex].longitude!;
+              const lat2 = validTasks[legIndex + 1].latitude!;
+              const lon2 = validTasks[legIndex + 1].longitude!;
+
+              const midPlacemark = new window.ymaps.Placemark(
+                [(lat1 + lat2) / 2, (lon1 + lon2) / 2],
+                {
+                  iconContent: legDuration || '',
+                  balloonContentHeader: `${fromTitle} &rarr; ${toTitle}`,
+                  balloonContentBody:
+                    `<div style="font-size:13px">` +
+                    `<div>Время в пути: <b>${legDuration || '\u2014'}</b></div>` +
+                    `<div>Расстояние: <b>${legDistance || '\u2014'}</b></div>` +
+                    `</div>`,
+                  hintContent: `${fromTitle} \u2192 ${toTitle}: ${legDuration || '\u2014'}`,
+                },
+                { preset: 'islands#grayStretchyIcon' },
+              );
+              map.geoObjects.add(midPlacemark);
+            }
+
+            const segments: RouteSegment[] = [];
+
+            if (transportMode === 'masstransit') {
+              // Для masstransit разбираем детальные сегменты (метро, автобус, пешком)
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               leg.getSegments().forEach((seg: any) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,18 +285,18 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
                   segments.push({ kind, duration, distance });
                 }
               });
+            }
 
-              legs.push({ fromTitle, toTitle, segments });
-            });
+            legs.push({ fromTitle, toTitle, duration: legDuration, distance: legDistance, segments });
+          });
 
-            setRouteLegs(legs);
-            onRouteLegsChange?.(legs);
-            setPanelOpen(true);
-          } catch {
-            // Не удалось распарсить — просто не показываем панель
-          }
-        });
-      }
+          setRouteLegs(legs);
+          onRouteLegsChange?.(legs);
+          if (transportMode === 'masstransit') setPanelOpen(true);
+        } catch {
+          // Не удалось распарсить — просто не показываем панель
+        }
+      });
 
       map.geoObjects.add(multiRoute);
     } else {

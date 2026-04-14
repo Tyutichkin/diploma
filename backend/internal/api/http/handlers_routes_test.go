@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"planner-backend/internal/common/ptrs"
 	"planner-backend/internal/domain/route"
 	routegate "planner-backend/internal/domain/route/gate"
 	routeopt "planner-backend/internal/domain/route/optimizer"
@@ -111,6 +112,9 @@ func (m *hTaskRepo) SoftDelete(ctx context.Context, _, _ string) (bool, error) {
 func (m *hTaskRepo) BulkReorder(ctx context.Context, _ string, _ task.ReorderInput) error {
 	return nil
 }
+func (m *hTaskRepo) BatchCreate(ctx context.Context, _ string, _ []task.CreateInput) ([]task.Task, error) {
+	return nil, nil
+}
 
 type hDistProvider struct {
 	getMatrixFn func(ctx context.Context, points []distancepkg.Point) ([][]distancepkg.Edge, error)
@@ -126,12 +130,19 @@ func (m *hDistProvider) GetMatrix(ctx context.Context, points []distancepkg.Poin
 type hOptimizer struct{}
 
 func (o *hOptimizer) Name() string { return "nearest-neighbor-tw" }
-func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, _ int64, _ routeopt.Constraints) (routeopt.Result, error) {
+func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, startTime int64, _ routeopt.Constraints) (routeopt.Result, error) {
 	order := make([]int, len(g.Nodes))
+	timings := make([]routeopt.StopTiming, len(g.Nodes))
+	cur := startTime
 	for i := range order {
 		order[i] = i
+		timings[i] = routeopt.StopTiming{NodeIdx: i, ArrivalSec: cur, ServiceStartSec: cur, ServiceEndSec: cur + 600}
+		cur += 1200
+		if i > 0 {
+			timings[i].TravelFromPrevSec = 600
+		}
 	}
-	return routeopt.Result{Order: order, TotalDistanceM: 1000, TotalTravelSec: 600, TotalServiceSec: 1800}, nil
+	return routeopt.Result{Order: order, Timings: timings, TotalDistanceM: 1000, TotalTravelSec: 600, TotalServiceSec: 1800}, nil
 }
 
 // ── test router for routes ────────────────────────────────────────────────────
@@ -179,7 +190,7 @@ func makeTestTask2(id, userID string) task.Task {
 		AddressText: "Addr",
 		Latitude:    &lat,
 		Longitude:   &lon,
-		DurationMin: intPtr(30),
+		DurationMin: ptrs.Ptr(30),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}

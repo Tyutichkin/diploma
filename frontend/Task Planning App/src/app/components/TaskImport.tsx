@@ -11,14 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { ScrollArea } from './ui/scroll-area';
 
 // ─── Публичный интерфейс ──────────────────────────────────────────────────────
 
 export interface ImportedTaskRow {
   title: string;
   address?: string;
-  duration: number;
+  duration?: number;
   windowStartTime?: string;
   windowEndTime?: string;
 }
@@ -40,7 +39,7 @@ interface TaskImportProps {
 const COLUMN_INFO = [
   { name: 'title', label: 'Название', required: true, hint: 'Текст, например: "Встреча с клиентом"' },
   { name: 'address', label: 'Адрес', required: false, hint: 'Полный адрес для геокодирования. Если пусто — задача без карты.' },
-  { name: 'duration', label: 'Длительность (мин)', required: true, hint: 'Целое число ≥ 1, например: 30' },
+  { name: 'duration', label: 'Длительность (мин)', required: false, hint: 'Целое число ≥ 1, например: 30. Если пусто — без длительности.' },
   { name: 'window_start', label: 'Начало окна', required: false, hint: 'Формат ЧЧ:ММ, например: 09:00' },
   { name: 'window_end', label: 'Конец окна', required: false, hint: 'Формат ЧЧ:ММ, например: 17:30' },
 ];
@@ -76,9 +75,9 @@ function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
     if (!title) errors.push('Поле title обязательно');
 
     const durationRaw = normalized['duration'] ?? '';
-    const duration = parseInt(durationRaw, 10);
-    if (!durationRaw || isNaN(duration) || duration < 1) {
-      errors.push('Поле duration должно быть целым числом ≥ 1');
+    const duration = durationRaw ? parseInt(durationRaw, 10) : undefined;
+    if (durationRaw && (isNaN(duration!) || duration! < 1)) {
+      errors.push('duration должно быть целым числом ≥ 1');
     }
 
     const windowStart = normalized['window_start'] ?? '';
@@ -102,7 +101,7 @@ function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
       raw: {
         title,
         address: normalized['address'] || undefined,
-        duration: isNaN(duration) ? 0 : duration,
+        duration,
         windowStartTime: windowStart || undefined,
         windowEndTime: windowEnd || undefined,
       },
@@ -245,16 +244,16 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl w-[96vw] flex flex-col max-h-[90vh] overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Импорт задач из файла</DialogTitle>
           <DialogDescription>
             Загрузите CSV или Excel-файл. Задачи с адресом будут геокодированы автоматически.
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[65vh]">
-          <div className="space-y-5 pr-2">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="space-y-5 pr-1">
             {/* ── Инструкция по формату ── */}
             <div className="rounded-lg border bg-gray-50 p-4 text-sm">
               <p className="mb-3 font-semibold text-gray-800">Формат файла</p>
@@ -363,8 +362,8 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
                     )}
                   </div>
                 </div>
-                <div className="overflow-x-auto rounded-lg border text-xs">
-                  <table className="w-full min-w-[500px]">
+                <div className="rounded-lg border text-xs overflow-auto max-h-64">
+                  <table className="w-full min-w-[560px]">
                     <thead className="bg-gray-50 text-left text-gray-500">
                       <tr>
                         <th className="px-3 py-2">#</th>
@@ -391,7 +390,7 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
                               {row.raw.address || <span className="text-gray-400">—</span>}
                             </td>
                             <td className="px-3 py-1.5">
-                              {row.raw.duration > 0 ? row.raw.duration : <span className="text-gray-400">—</span>}
+                              {row.raw.duration != null ? row.raw.duration : <span className="text-gray-400">—</span>}
                             </td>
                             <td className="whitespace-nowrap px-3 py-1.5 text-gray-600">
                               {row.raw.windowStartTime || row.raw.windowEndTime
@@ -422,9 +421,9 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="mt-2">
+        <DialogFooter className="shrink-0 mt-2 pt-3 border-t">
           <Button variant="outline" onClick={handleClose} disabled={isImporting}>
             Отмена
           </Button>

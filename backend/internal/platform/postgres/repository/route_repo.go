@@ -211,9 +211,11 @@ func (r *RouteRepo) SaveOptimizedRoute(
 
 	for _, s := range stops {
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO route_stops(route_id, task_id, position, travel_from_prev_sec)
-			VALUES ($1, $2, $3, $4)
-		`, rt.ID, s.TaskID, s.Position, s.TravelFromPrevSec); err != nil {
+			INSERT INTO route_stops(route_id, task_id, position, travel_from_prev_sec,
+				arrive_time, service_start_time, service_end_time, wait_sec)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		`, rt.ID, s.TaskID, s.Position, s.TravelFromPrevSec,
+			s.ArriveTime, s.ServiceStartTime, s.ServiceEndTime, s.WaitSec); err != nil {
 			return route.Route{}, err
 		}
 	}

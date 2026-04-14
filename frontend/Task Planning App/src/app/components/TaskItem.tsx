@@ -2,7 +2,7 @@ import { Task } from '../types/task';
 import { useDrag, useDrop } from 'react-dnd';
 import { Card, CardContent } from './ui/card';
 import { Button, buttonVariants } from './ui/button';
-import { GripVertical, Clock, MapPin, Edit2, Trash2, CheckCircle2, Flag, MoreHorizontal } from 'lucide-react';
+import { GripVertical, Clock, MapPin, Edit2, Trash2, CheckCircle2, Flag, MoreHorizontal, Copy } from 'lucide-react';
 import { cn } from './ui/utils';
 import {
   DropdownMenu,
@@ -22,6 +22,7 @@ import {
 interface TaskItemProps {
   task: Task;
   index: number;
+  mapNumber?: number;
   isAddressless?: boolean;
   isStart?: boolean;
   isEnd?: boolean;
@@ -33,6 +34,7 @@ interface TaskItemProps {
   onMove: (dragIndex: number, hoverIndex: number) => void;
   onMoveEnd: () => void | Promise<void>;
   onSetRole?: (id: string, role: 'start' | 'end' | null) => void;
+  onClone?: (task: Task) => void;
 }
 
 // Раздельные типы DnD предотвращают перетаскивание между группами.
@@ -42,6 +44,7 @@ const ITEM_TYPE_NO_ADDR = 'TASK_NO_ADDR';
 export function TaskItem({
   task,
   index,
+  mapNumber,
   isAddressless = false,
   isStart,
   isEnd,
@@ -53,6 +56,7 @@ export function TaskItem({
   onMove,
   onMoveEnd,
   onSetRole,
+  onClone,
 }: TaskItemProps) {
   const itemType = isAddressless ? ITEM_TYPE_NO_ADDR : ITEM_TYPE_WITH_ADDR;
 
@@ -107,6 +111,10 @@ export function TaskItem({
         <Edit2 className="mr-2 h-3.5 w-3.5 text-gray-400" />
         Редактировать
       </Item>
+      <Item onClick={() => onClone?.(task)}>
+        <Copy className="mr-2 h-3.5 w-3.5 text-gray-400" />
+        Клонировать
+      </Item>
       <Item onClick={() => void onDelete(task.id)} className="text-destructive focus:text-destructive">
         <Trash2 className="mr-2 h-3.5 w-3.5" />
         Удалить
@@ -134,6 +142,11 @@ export function TaskItem({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      {mapNumber !== undefined && (
+                        <span className="inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-xs font-bold w-5 h-5 flex-shrink-0">
+                          {mapNumber}
+                        </span>
+                      )}
                       {isStart && (
                         <span className="inline-flex items-center gap-1 rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 flex-shrink-0">
                           <Flag className="h-3 w-3" />

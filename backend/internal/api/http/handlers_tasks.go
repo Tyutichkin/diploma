@@ -68,6 +68,52 @@ func (h *TaskHandlers) Create(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (h *TaskHandlers) BatchCreate(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+
+	var req BatchCreateTasksReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
+	}
+
+	if len(req.Tasks) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tasks must not be empty"})
+		return
+	}
+
+	inputs := make([]task.CreateInput, len(req.Tasks))
+	for i, t := range req.Tasks {
+		var addressText string
+		if t.AddressText != nil {
+			addressText = *t.AddressText
+		}
+		inputs[i] = task.CreateInput{
+			Title:           t.Title,
+			AddressText:     addressText,
+			Latitude:        t.Latitude,
+			Longitude:       t.Longitude,
+			DurationMin:     t.DurationMin,
+			WindowStartDate: t.WindowStartDate,
+			WindowStartTime: t.WindowStartTime,
+			WindowEndDate:   t.WindowEndDate,
+			WindowEndTime:   t.WindowEndTime,
+			SortIndex:       t.SortIndex,
+		}
+	}
+
+	out, err := h.story.CreateBatch(c.Request.Context(), userID, inputs)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (h *TaskHandlers) Update(c *gin.Context) {
 	userID, ok := userIDFromCtx(c)
 	if !ok {

@@ -45,6 +45,67 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+describe('TaskForm — валидация временного окна: только времена без дат', () => {
+  it('показывает ошибку, если время начала позже времени конца (без дат)', () => {
+    render(<TaskForm {...defaultProps} />);
+
+    const startTimeInput = screen.getByLabelText('Время начала окна');
+    const endTimeInput = screen.getByLabelText('Время конца окна');
+
+    fireEvent.change(startTimeInput, { target: { value: '12:00' } });
+    fireEvent.change(endTimeInput, { target: { value: '11:00' } });
+
+    expect(screen.getByText(/конец окна должен быть позже начала/i)).toBeTruthy();
+  });
+
+  it('кнопка сохранения заблокирована при инвертированном временном окне (без дат)', () => {
+    render(<TaskForm {...defaultProps} />);
+
+    const startTimeInput = screen.getByLabelText('Время начала окна');
+    const endTimeInput = screen.getByLabelText('Время конца окна');
+
+    fireEvent.change(startTimeInput, { target: { value: '15:00' } });
+    fireEvent.change(endTimeInput, { target: { value: '10:00' } });
+
+    const submitBtn = screen.getByRole('button', { name: /добавить/i });
+    expect(submitBtn).toBeDisabled();
+  });
+
+  it('кнопка сохранения активна при корректном временном окне (только времена)', () => {
+    render(<TaskForm {...defaultProps} />);
+
+    const startTimeInput = screen.getByLabelText('Время начала окна');
+    const endTimeInput = screen.getByLabelText('Время конца окна');
+
+    fireEvent.change(startTimeInput, { target: { value: '09:00' } });
+    fireEvent.change(endTimeInput, { target: { value: '18:00' } });
+
+    const submitBtn = screen.getByRole('button', { name: /добавить/i });
+    expect(submitBtn).not.toBeDisabled();
+  });
+
+  it('показывает ошибку при равных времени начала и конца (без дат)', () => {
+    render(<TaskForm {...defaultProps} />);
+
+    const startTimeInput = screen.getByLabelText('Время начала окна');
+    const endTimeInput = screen.getByLabelText('Время конца окна');
+
+    fireEvent.change(startTimeInput, { target: { value: '10:00' } });
+    fireEvent.change(endTimeInput, { target: { value: '10:00' } });
+
+    expect(screen.getByText(/конец окна должен быть позже начала/i)).toBeTruthy();
+  });
+
+  it('не показывает ошибку, если задано только время начала (без конца и дат)', () => {
+    render(<TaskForm {...defaultProps} />);
+
+    const startTimeInput = screen.getByLabelText('Время начала окна');
+    fireEvent.change(startTimeInput, { target: { value: '12:00' } });
+
+    expect(screen.queryByText(/конец окна должен быть позже начала/i)).toBeNull();
+  });
+});
+
 describe('TaskForm — раздельные поля дата/время для временного окна', () => {
   it('кнопки очистки не отображаются, если поля пусты', () => {
     render(<TaskForm {...defaultProps} />);
