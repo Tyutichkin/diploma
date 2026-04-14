@@ -15,8 +15,6 @@ import (
 	"planner-backend/internal/domain/user"
 )
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 func newSecuredRouter(auth *authstory.Story) *gin.Engine {
 	r := gin.New()
 	secured := r.Group("/api")
@@ -59,7 +57,7 @@ func buildExpiredToken(t *testing.T, secret string) string {
 		},
 	}
 	rRepo := &testRefreshRepo{}
-	s := authstory.New(uRepo, rRepo, secret, -1, 30) // -1 min TTL = expired
+	s := authstory.New(uRepo, rRepo, secret, -1, 30)
 	pair, err := s.Register(context.Background(), "test@test.com", "password")
 	if err != nil {
 		t.Fatalf("failed to build expired token: %v", err)
@@ -68,8 +66,6 @@ func buildExpiredToken(t *testing.T, secret string) string {
 }
 
 const middlewareSecret = "middleware-test-secret"
-
-// ── Auth Middleware tests ──────────────────────────────────────────────────────
 
 // 5.2.1 Без заголовка Authorization → 401
 func TestMiddleware_NoAuthHeader(t *testing.T) {
@@ -112,7 +108,6 @@ func TestMiddleware_TamperedToken(t *testing.T) {
 	auth := authstory.New(&testUserRepo{}, &testRefreshRepo{}, middlewareSecret, 15, 30)
 	r := newSecuredRouter(auth)
 
-	// Token signed with different secret
 	fakeToken := buildValidToken(t, "totally-different-secret")
 	req := httptest.NewRequest("GET", "/api/protected", nil)
 	req.Header.Set("Authorization", "Bearer "+fakeToken)
@@ -146,8 +141,6 @@ func TestMiddleware_ValidToken(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	// UID might differ because auth uses different story, but token is valid for same secret
-	// We just verify the request passes through (no 401)
 	assert.NotEqual(t, http.StatusUnauthorized, w.Code)
 }
 
@@ -163,12 +156,9 @@ func TestMiddleware_RandomStringToken(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-// ── Middleware blocks request but not auth endpoints ─────────────────────────
-
 func TestMiddleware_OnlyAppliedToSecuredRoutes(t *testing.T) {
 	auth := authstory.New(&testUserRepo{}, &testRefreshRepo{}, middlewareSecret, 15, 30)
 
-	// Full router with both public and secured routes
 	r := gin.New()
 	authH := NewAuthHandlers(auth)
 	api := r.Group("/api")
@@ -180,21 +170,18 @@ func TestMiddleware_OnlyAppliedToSecuredRoutes(t *testing.T) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
-	// Public route — no auth needed
 	req := httptest.NewRequest("POST", "/api/auth/register", nil)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.NotEqual(t, http.StatusUnauthorized, w.Code)
 
-	// Secured route — no token → 401
 	req2 := httptest.NewRequest("GET", "/api/tasks", nil)
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 	assert.Equal(t, http.StatusUnauthorized, w2.Code)
 }
 
-// Ensure expired token was created recently (sanity check for test helper)
 func TestBuildExpiredToken_IsActuallyExpired(t *testing.T) {
 	token := buildExpiredToken(t, middlewareSecret)
 	auth := authstory.New(&testUserRepo{}, &testRefreshRepo{}, middlewareSecret, 15, 30)

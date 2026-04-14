@@ -23,8 +23,6 @@ import {
 } from './client';
 import type { AuthSession } from '../types/auth';
 
-// ── MSW server ────────────────────────────────────────────────────────────────
-
 const BASE = 'http://localhost:8080/api';
 
 const makeTokenPair = () => ({
@@ -93,8 +91,6 @@ const server = setupServer(
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
-
-// ── Test helpers ──────────────────────────────────────────────────────────────
 
 function makeSession(overrides?: Partial<AuthSession>): AuthSession {
   return {
@@ -414,8 +410,6 @@ describe('Token refresh', () => {
     ).rejects.toBeTruthy();
   });
 });
-
-// ── ApiError class ────────────────────────────────────────────────────────────
 
 describe('ApiError', () => {
   it('has correct name and status', () => {

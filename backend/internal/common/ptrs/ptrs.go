@@ -1,4 +1,4 @@
 package ptrs
 
-// Ptr returns a pointer to v.
+// Ptr возвращает указатель на v.
 func Ptr[T any](v T) *T { return &v }

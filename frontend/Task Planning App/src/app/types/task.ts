@@ -17,12 +17,10 @@ export interface Task {
   order?: number;
 }
 
-/** Возвращает true, если задача имеет привязанный адрес и координаты. */
 export function taskHasAddress(task: Task): boolean {
   return Boolean(task.address) && task.latitude !== undefined && task.longitude !== undefined;
 }
 
-/** Собирает дату+время в "YYYY-MM-DD HH:mm" строку для отображения. */
 export function formatWindowBound(date?: string, time?: string): string | undefined {
   if (!date && !time) return undefined;
   if (date && time) return `${date} ${time}`;
@@ -30,7 +28,6 @@ export function formatWindowBound(date?: string, time?: string): string | undefi
   return time;
 }
 
-/** Собирает datetime в миллисекунды для сравнения. */
 export function windowBoundMs(date?: string, time?: string): number | null {
   if (!date) return null;
   const str = time ? `${date}T${time}` : date;

@@ -72,10 +72,10 @@ type RenameRouteReq struct {
 	Name string `json:"name"`
 }
 
-// DistanceCellDTO is one cell of the client-supplied distance matrix.
+// DistanceCellDTO — ячейка матрицы расстояний от клиента.
 type DistanceCellDTO struct {
-	DistanceM   int `json:"distanceM"`   // travel distance in metres
-	DurationSec int `json:"durationSec"` // travel duration in seconds
+	DistanceM   int `json:"distanceM"`
+	DurationSec int `json:"durationSec"`
 }
 
 // PrecedencePairDTO задаёт ограничение порядка: задача BeforeTaskId
@@ -83,6 +83,19 @@ type DistanceCellDTO struct {
 type PrecedencePairDTO struct {
 	BeforeTaskID string `json:"beforeTaskId"`
 	AfterTaskID  string `json:"afterTaskId"`
+}
+
+// ImportRowErrorDTO — ошибки отдельной строки файла импорта.
+type ImportRowErrorDTO struct {
+	Row    int      `json:"row"`
+	Title  string   `json:"title"`
+	Errors []string `json:"errors"`
+}
+
+// ImportTasksResp — ответ POST /api/tasks/import.
+type ImportTasksResp struct {
+	Imported any                 `json:"imported"` // []task.Task; any чтобы не тащить domain в dto
+	Errors   []ImportRowErrorDTO `json:"errors"`
 }
 
 // OptimizeRouteReq — тело POST /api/routes/optimize.

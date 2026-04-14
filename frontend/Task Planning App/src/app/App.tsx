@@ -20,7 +20,7 @@ export default function App() {
       try {
         await logoutRequest(session.refreshToken);
       } catch {
-        // Local cleanup is still required even if the backend is unavailable.
+        // локальную сессию всё равно нужно очистить, даже если бэкенд недоступен
       }
     }
 

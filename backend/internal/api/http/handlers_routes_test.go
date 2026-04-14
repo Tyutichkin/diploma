@@ -22,8 +22,6 @@ import (
 	distancepkg "planner-backend/internal/platform/distance"
 )
 
-// ── mock repos for route handler tests ───────────────────────────────────────
-
 type hRouteRepo struct {
 	createDraftFn        func(ctx context.Context, userID, source string) (route.Route, error)
 	listByUserFn         func(ctx context.Context, userID string) ([]route.Route, error)
@@ -145,8 +143,6 @@ func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, startTime in
 	return routeopt.Result{Order: order, Timings: timings, TotalDistanceM: 1000, TotalTravelSec: 600, TotalServiceSec: 1800}, nil
 }
 
-// ── test router for routes ────────────────────────────────────────────────────
-
 const routeTestUserID = "route-test-user-id"
 
 func newRouteTestRouter(rRepo *hRouteRepo, tRepo *hTaskRepo, dist *hDistProvider) *gin.Engine {
@@ -195,8 +191,6 @@ func makeTestTask2(id, userID string) task.Task {
 		UpdatedAt:   time.Now(),
 	}
 }
-
-// ── Route handler tests ───────────────────────────────────────────────────────
 
 // 5.4.1 POST /api/routes — успех
 func TestRouteHandler_Create_Success(t *testing.T) {

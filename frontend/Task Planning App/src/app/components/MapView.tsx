@@ -12,7 +12,6 @@ const TRANSPORT_MODES: { value: TransportMode; label: string }[] = [
   { value: 'auto', label: 'Авто' },
 ];
 
-// Иконка и цвет для типа транспорта
 export const TRANSPORT_TYPE_META: Record<string, { icon: string; label: string; bg: string; text: string }> = {
   subway:      { icon: 'М', label: 'Метро',        bg: 'bg-red-600',    text: 'text-white' },
   underground: { icon: 'М', label: 'Метро',        bg: 'bg-red-600',    text: 'text-white' },
@@ -64,7 +63,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
   const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
   const [panelOpen, setPanelOpen] = useState(true);
 
-  // Рефы для дедупликации и дебаунса — предотвращают лишние запросы к Яндекс API
+  // дедупликация и дебаунс — лимиты Yandex API
   const lastRouteKeyRef = useRef('');
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -72,7 +71,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
     (t) => t.latitude !== undefined && t.longitude !== undefined,
   );
 
-  // Инициализация карты — один раз
   useEffect(() => {
     let destroyed = false;
 
@@ -105,11 +103,9 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
     };
   }, []);
 
-  // Обновление меток и маршрута при изменении задач / режима транспорта
   useEffect(() => {
     if (!mapRef.current || isLoading) return;
 
-    // Ключ из фактических данных — если ничего не изменилось, пропускаем
     const newKey = [
       routeOptimized,
       transportMode,
@@ -118,7 +114,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
 
     if (newKey === lastRouteKeyRef.current) return;
 
-    // Дебаунс 400 мс — батчим быстрые изменения (набор адреса, сортировка и т.п.)
+    // дебаунс 400 мс — батчим быстрые изменения
     clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       if (!mapRef.current) return;
@@ -131,7 +127,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
 
     if (validTasks.length === 0) return;
 
-    // Группируем задачи по координатам, чтобы не перекрывались маркеры
+    // группируем по координатам, чтобы маркеры не перекрывались
     const tasksByCoord = new Map<string, { task: Task; index: number }[]>();
     validTasks.forEach((task, index) => {
       const key = `${task.latitude}|${task.longitude}`;
@@ -153,7 +149,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
           [
             isSingle ? '' : `<div style="font-weight:600;margin-top:8px">#${index + 1} ${task.title}</div>`,
             `<div style="color:#555">${task.address}</div>`,
-            `<div style="color:#555;margin-top:2px">Длительность: ${task.duration} мин</div>`,
+            task.duration != null ? `<div style="color:#555;margin-top:2px">Длительность: ${task.duration} мин</div>` : '',
             (task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime)
               ? `<div style="color:#555">Окно: ${[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'} – ${[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}</div>`
               : '',
@@ -178,8 +174,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
     if (routeOptimized && validTasks.length > 1) {
       const referencePoints = validTasks.map((t) => [t.latitude!, t.longitude!]);
 
-      // Опции отображения — в режиме masstransit не переопределяем цвета,
-      // чтобы каждая линия отображалась своим цветом (метро, автобус и т.д.)
+      // в masstransit цвета линий задаются ymaps (метро, автобус и т.д.) — не переопределяем
       const routeOptions =
         transportMode === 'masstransit'
           ? { boundsAutoApply: true, wayPointVisible: false }
@@ -198,7 +193,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
         routeOptions,
       );
 
-      // Разбираем сегменты маршрута после загрузки — для ВСЕХ режимов транспорта
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       multiRoute.model.events.add('requestsuccess', () => {
         try {
@@ -221,7 +215,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
             const legDistance: string | undefined =
               typeof legDistanceObj === 'object' ? legDistanceObj?.text : legDistanceObj;
 
-            // Метка на середине отрезка — показывает время в пути между точками
+            // метка на середине отрезка — показывает время в пути
             if (legIndex < validTasks.length - 1) {
               const lat1 = validTasks[legIndex].latitude!;
               const lon1 = validTasks[legIndex].longitude!;
@@ -248,7 +242,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
             const segments: RouteSegment[] = [];
 
             if (transportMode === 'masstransit') {
-              // Для masstransit разбираем детальные сегменты (метро, автобус, пешком)
+              // детальные сегменты: метро, автобус, пешком
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               leg.getSegments().forEach((seg: any) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -294,7 +288,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
           onRouteLegsChange?.(legs);
           if (transportMode === 'masstransit') setPanelOpen(true);
         } catch {
-          // Не удалось распарсить — просто не показываем панель
+          // не распарсили — панель просто не показываем
         }
       });
 
@@ -305,7 +299,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
         map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 60 });
       }
     }
-    }, 400); // конец debounce
+    }, 400);
 
     return () => clearTimeout(debounceTimerRef.current);
   }, [validTasks, routeOptimized, transportMode, isLoading]);
@@ -358,7 +352,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
           </div>
         ) : (
           <>
-            {/* Карта */}
             <div className="relative flex-1 rounded-lg overflow-hidden min-h-0">
               <div ref={containerRef} className="h-full w-full" />
 
@@ -381,10 +374,8 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
               )}
             </div>
 
-            {/* Панель общественного транспорта */}
             {showTransitPanel && (
               <div className="flex-shrink-0 border border-blue-200 rounded-lg bg-blue-50 overflow-hidden">
-                {/* Заголовок панели */}
                 <button
                   onClick={() => setPanelOpen((v) => !v)}
                   className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100 transition-colors"
@@ -401,12 +392,10 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
                   <div className="max-h-52 overflow-y-auto px-4 pb-3 space-y-4">
                     {routeLegs.map((leg, li) => (
                       <div key={li}>
-                        {/* Заголовок ноги маршрута */}
                         <div className="text-xs font-semibold text-blue-700 mb-1 pt-2">
                           {leg.fromTitle} → {leg.toTitle}
                         </div>
 
-                        {/* Сегменты */}
                         <div className="space-y-1">
                           {leg.segments.map((seg, si) => (
                             <div key={si} className="flex items-start gap-2">
@@ -425,7 +414,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
                                 </>
                               ) : (
                                 <>
-                                  {/* Бейджи транспорта */}
                                   <div className="flex flex-wrap gap-1 mt-0.5">
                                     {(seg.transports ?? []).map((tr, ti) => {
                                       const meta =

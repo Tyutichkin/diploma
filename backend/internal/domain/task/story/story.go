@@ -34,7 +34,6 @@ func (s *Story) Create(ctx context.Context, userID string, in task.CreateInput) 
 	); err != nil {
 		return task.Task{}, err
 	}
-	// Если дата не указана — проставляем сегодня.
 	fillDefaultDate(&in.WindowStartDate, in.WindowStartTime)
 	fillDefaultDate(&in.WindowEndDate, in.WindowEndTime)
 	return s.tasks.Create(ctx, userID, in)
@@ -47,8 +46,7 @@ func (s *Story) Update(ctx context.Context, userID, taskID string, in task.Updat
 	); err != nil {
 		return task.Task{}, false, err
 	}
-	// Для update: заполняем дефолтную дату только если поле присутствует (не nil)
-	// и не является сбросом (не "").
+	// Для Update: дефолтную дату подставляем только если поле не nil и не "" (не сброс).
 	fillDefaultDateUpdate(&in.WindowStartDate, in.WindowStartTime)
 	fillDefaultDateUpdate(&in.WindowEndDate, in.WindowEndTime)
 	return s.tasks.Update(ctx, userID, taskID, in)
@@ -62,25 +60,30 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 	sTime := derefStr(startTime)
 	eTime := derefStr(endTime)
 
-	// Обе даты пусты
 	if sDate == "" && eDate == "" {
-		// Если указаны оба времени — проверяем порядок на одном дне (HH:MM сравнимы лексикографически)
+		// HH:MM сравнимы лексикографически.
 		if sTime != "" && eTime != "" && sTime >= eTime {
 			return &task.ValidationError{Message: "window_start must be before window_end"}
 		}
 		return nil
 	}
 
-	// Если только одна граница — допустимо, не валидируем перекрытие
 	if sDate == "" || eDate == "" {
 		return nil
 	}
 
-	s, err := combineDatetime(sDate, sTime)
+	// Пустое конечное время = конец дня 23:59 (согласовано с фронтом).
+	sTimeEff := sTime
+	eTimeEff := eTime
+	if eTimeEff == "" {
+		eTimeEff = "23:59"
+	}
+
+	s, err := combineDatetime(sDate, sTimeEff)
 	if err != nil {
 		return nil // непарсимое — пусть БД отклонит
 	}
-	e, err := combineDatetime(eDate, eTime)
+	e, err := combineDatetime(eDate, eTimeEff)
 	if err != nil {
 		return nil
 	}
@@ -91,8 +94,7 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 	return nil
 }
 
-// combineDatetime собирает time.Time из строки даты "YYYY-MM-DD" и времени "HH:MM".
-// Если время пустое — считаем начало дня (00:00).
+// combineDatetime парсит "YYYY-MM-DD" + "HH:MM"; пустое время = 00:00.
 func combineDatetime(dateStr, timeStr string) (time.Time, error) {
 	if timeStr == "" {
 		return time.Parse("2006-01-02", dateStr)
@@ -105,20 +107,17 @@ func fillDefaultDate(datePtr **string, timePtr *string) {
 	if datePtr == nil || timePtr == nil {
 		return
 	}
-	// Время задано, дата пуста → ставим сегодня
 	if *timePtr != "" && (*datePtr == nil || **datePtr == "") {
 		today := time.Now().Format("2006-01-02")
 		*datePtr = &today
 	}
 }
 
-// fillDefaultDateUpdate: для UpdateInput (3-state *string).
-// Ставим дефолтную дату, если время присутствует (не nil, не ""), а дата нет.
+// fillDefaultDateUpdate — то же для UpdateInput (3-state *string).
 func fillDefaultDateUpdate(datePtr **string, timePtr *string) {
 	if timePtr == nil {
 		return
 	}
-	// Время задано — убеждаемся, что дата тоже задана
 	if *timePtr != "" {
 		if datePtr != nil && (*datePtr == nil || **datePtr == "") {
 			today := time.Now().Format("2006-01-02")

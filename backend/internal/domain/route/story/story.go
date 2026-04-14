@@ -34,7 +34,7 @@ func New(
 	}
 }
 
-// CreateDraft saves a manually ordered list of task IDs as a draft route.
+// CreateDraft сохраняет вручную упорядоченный список задач как черновой маршрут.
 func (s *Story) CreateDraft(ctx context.Context, userID, source string, orderedTaskIDs []string) (route.Route, error) {
 	if source == "" {
 		source = "manual"
@@ -273,7 +273,6 @@ func (s *Story) Rename(ctx context.Context, userID, routeID, name string) (bool,
 	return s.routes.RenameRoute(ctx, userID, routeID, name)
 }
 
-// derefInt safely dereferences a *int, returning 0 for nil.
 func derefInt(p *int) int {
 	if p == nil {
 		return 0
@@ -281,7 +280,6 @@ func derefInt(p *int) int {
 	return *p
 }
 
-// derefF64 safely dereferences a *float64, returning 0 for nil.
 func derefF64(p *float64) float64 {
 	if p == nil {
 		return 0
@@ -289,13 +287,9 @@ func derefF64(p *float64) float64 {
 	return *p
 }
 
-// buildUnixSec собирает Unix-секунды из раздельных даты ("YYYY-MM-DD") и времени ("HH:MM").
-//
-// fallbackDate используется как дата по умолчанию, если дата не задана, но время есть.
-// Это позволяет задачам, импортированным из CSV (где есть только время, без даты),
-// корректно участвовать в оптимизации с временными окнами.
-//
-// Возвращает -1 (нет ограничения) только если ни дата, ни время не заданы.
+// buildUnixSec собирает Unix-секунды из даты ("YYYY-MM-DD") и времени ("HH:MM").
+// Если дата не задана, но время есть — подставляет fallbackDate (для CSV-импорта
+// с одним только временем). Возвращает -1, если ни дата, ни время не заданы.
 func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time) int64 {
 	hasDate := dateStr != nil && *dateStr != ""
 	hasTime := timeStr != nil && *timeStr != ""
@@ -308,12 +302,10 @@ func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time) int64 {
 	if hasDate {
 		datePart = *dateStr
 	} else {
-		// Время есть, даты нет — используем дату из fallbackDate (день оптимизации).
 		datePart = fallbackDate.Format("2006-01-02")
 	}
 
 	if !hasTime {
-		// Дата без времени — начало дня.
 		t, err := time.Parse("2006-01-02", datePart)
 		if err != nil {
 			return -1

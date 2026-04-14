@@ -5,8 +5,6 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TaskList } from './TaskList';
 import { Task, taskHasAddress } from '../types/task';
 
-// ── helpers ────────────────────────────────────────────────────────────────────
-
 function makeTask(overrides: Partial<Task> & Pick<Task, 'id' | 'title'>): Task {
   return {
     duration: 30,
@@ -46,8 +44,6 @@ function renderTaskList(tasks: Task[]) {
   );
 }
 
-// ── taskHasAddress unit tests ──────────────────────────────────────────────────
-
 describe('taskHasAddress', () => {
   it('returns true when task has address, lat and lon', () => {
     expect(taskHasAddress({ id: '1', title: 't', address: 'ул. А', latitude: 55, longitude: 37, duration: 10 })).toBe(true);
@@ -69,8 +65,6 @@ describe('taskHasAddress', () => {
     expect(taskHasAddress({ id: '1', title: 't', address: 'ул. А', latitude: 55, duration: 10 })).toBe(false);
   });
 });
-
-// ── TaskList grouping tests ────────────────────────────────────────────────────
 
 describe('TaskList — пустой список', () => {
   it('показывает заглушку при отсутствии задач', () => {
@@ -98,10 +92,8 @@ describe('TaskList — группировка', () => {
       makeNoAddressTask('n1', 'Звонок'),
     ];
     renderTaskList(tasks);
-    // Заголовки групп
     expect(screen.getByText(/С адресом \(1\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Без адреса \(1\)/i)).toBeInTheDocument();
-    // Названия задач
     expect(screen.getByText('Встреча')).toBeInTheDocument();
     expect(screen.getByText('Звонок')).toBeInTheDocument();
   });

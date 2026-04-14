@@ -5,28 +5,8 @@ import (
 	"math"
 )
 
-// NearestNeighborTW implements the Nearest Neighbour Heuristic for the
-// Travelling Salesman Problem with Time Windows (NNH-TW).
-//
-// Algorithm:
-//  1. Choose the starting node: pinned via Constraints.StartNodeIdx, or the
-//     node with the earliest time-window open time, or node 0 by default.
-//  2. Mark it visited; set current time = startTime + service duration.
-//  3. Repeat until all nodes are visited:
-//     a. Among unvisited feasible nodes, find the one with the earliest
-//        completion time (arrival + wait + service) that does NOT cause any
-//        other unvisited time-windowed node to become unreachable (look-ahead).
-//        If all candidates are "risky", pick the best completion time anyway.
-//        Ties broken by deadline urgency. Precedence constraints are respected.
-//     b. If no feasible node exists, pick the globally nearest unvisited node
-//        regardless of its time window, still respecting precedence (Pass 2).
-//     c. Compute wait time if we arrive before the window opens.
-//     d. Advance current time: arrival + wait + service duration.
-//  4. If an end node is pinned, append it last.
-//  5. Return the ordered node indices and aggregate statistics.
-//
-// Все временны́е величины хранятся в секундах Unix.
-// Сложность: O(n³) (look-ahead adds O(n) per candidate check).
+// NearestNeighborTW — эвристика ближайшего соседа с учётом временных окон (NNH-TW).
+// Все временные величины хранятся в секундах Unix. Сложность — O(n³).
 type NearestNeighborTW struct{}
 
 func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
@@ -53,12 +33,11 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 	if c.StartNodeIdx != nil {
 		cur = *c.StartNodeIdx
 	} else {
-		cur = startNode(g)
+		cur = startNode(g, prereqs, endIdx)
 	}
 	visited[cur] = true
 	order = append(order, cur)
 
-	// Timing for the start node: arrival = startTime, no travel, no wait.
 	startServiceEnd := startTimeUnix + int64(g.Nodes[cur].DurationMin)*60
 	timings := []StopTiming{{
 		NodeIdx:           cur,
@@ -75,7 +54,7 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 	totalServiceSec = g.Nodes[cur].DurationMin * 60
 
 	for len(order) < n {
-		// If the only unvisited node is the pinned end node, place it and finish.
+		// Если остался только закреплённый конечный узел — ставим его и выходим.
 		if endIdx >= 0 && !visited[endIdx] {
 			allOtherVisited := true
 			for i := 0; i < n; i++ {
@@ -98,13 +77,12 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 		next := -1
 		var bestCompletionSec int64 = math.MaxInt64
 		var bestDeadline int64 = math.MaxInt64
-		bestSafe := false // whether the current best candidate is "safe" (no window miss)
+		bestSafe := false
 
-		// Pass 1: feasible node with earliest completion time + one-step look-ahead.
-		// A candidate is "safe" if visiting it does not make any other unvisited
-		// time-windowed node unreachable.  Safe candidates are always preferred
-		// over risky ones.  Within the same safety class, pick earliest completion
-		// time; break ties by earliest deadline (most urgent).
+		// Проход 1: допустимый узел с наименьшим временем завершения + look-ahead.
+		// Кандидат "безопасен", если его посещение не делает недостижимым ни один
+		// другой узел с окном. Безопасные всегда предпочитаются рискованным;
+		// внутри одного класса — меньшее время завершения, затем более срочный дедлайн.
 		for i := 0; i < n; i++ {
 			if visited[i] || i == endIdx {
 				continue
@@ -128,10 +106,8 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 			better := false
 			switch {
 			case safe && !bestSafe:
-				// Safe always beats risky.
 				better = true
 			case safe == bestSafe:
-				// Same safety class: prefer earlier completion, then tighter deadline.
 				better = comp < bestCompletionSec ||
 					(comp == bestCompletionSec && deadline < bestDeadline)
 			}
@@ -144,7 +120,7 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 			}
 		}
 
-		// Pass 2: fallback — earliest completion regardless of time window (precedence still respected).
+		// Проход 2: fallback — минимальное completion, окно игнорируется, предшествование сохраняется.
 		if next == -1 {
 			bestCompletionSec = math.MaxInt64
 			for i := 0; i < n; i++ {
@@ -165,8 +141,7 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 		}
 
 		if next == -1 {
-			// No selectable node: can only happen with a circular precedence graph.
-			// Place the pinned end node if it remains, then stop.
+			// Узел не выбрать — возможно только при циклическом графе предшествования.
 			if endIdx >= 0 && !visited[endIdx] {
 				var st StopTiming
 				currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec, st =
@@ -249,34 +224,51 @@ func prereqsMet(i int, visited []bool, prereqs [][]int) bool {
 	return true
 }
 
-// startNode selects the starting node: the one with the earliest time-window
-// open time (Unix seconds), or node 0 if no time windows are defined.
-func startNode(g *Graph) int {
-	best := 0
+// startNode выбирает стартовый узел среди допустимых (нет неудовлетворённых
+// предшественников и узел не закреплён как конечный) по самому раннему окну.
+func startNode(g *Graph, prereqs [][]int, endIdx int) int {
+	eligible := func(i int) bool {
+		if i == endIdx {
+			return false
+		}
+		return len(prereqs[i]) == 0
+	}
+
+	best := -1
 	for i, node := range g.Nodes {
-		if node.WindowStart < 0 {
+		if !eligible(i) {
 			continue
 		}
-		if g.Nodes[best].WindowStart < 0 || node.WindowStart < g.Nodes[best].WindowStart {
+		if best == -1 {
+			best = i
+			continue
+		}
+		// Предпочитаем узел с более ранним открытием окна; узел без окна проигрывает узлу с окном.
+		bestHasWin := g.Nodes[best].WindowStart >= 0
+		curHasWin := node.WindowStart >= 0
+		switch {
+		case curHasWin && !bestHasWin:
+			best = i
+		case curHasWin && bestHasWin && node.WindowStart < g.Nodes[best].WindowStart:
 			best = i
 		}
+	}
+	if best == -1 {
+		return 0
 	}
 	return best
 }
 
-// causesWindowMiss returns true if, after finishing service at candidate node
-// (whose completion time is afterCandSec), at least one other unvisited
-// time-windowed node would become unreachable (infeasible in the best case —
-// i.e. travelling directly from candidate to that node).
-// This is the one-step look-ahead that prevents the greedy heuristic from
-// "wasting time" on flexible tasks while urgent windows close.
+// causesWindowMiss — look-ahead на один шаг: возвращает true, если после завершения
+// обслуживания в cand хотя бы один другой узел с окном становится недостижимым
+// даже при прямом переезде cand→j.
 func causesWindowMiss(cand int, afterCandSec int64, g *Graph, visited []bool, endIdx int) bool {
 	for j := 0; j < len(g.Nodes); j++ {
 		if visited[j] || j == cand || j == endIdx {
 			continue
 		}
 		if g.Nodes[j].WindowEnd < 0 {
-			continue // no deadline — cannot miss
+			continue
 		}
 		arrivalAtJ := afterCandSec + int64(g.Edges[cand][j].DurationSec)
 		if !feasible(g.Nodes[j], arrivalAtJ) {
@@ -286,9 +278,8 @@ func causesWindowMiss(cand int, afterCandSec int64, g *Graph, visited []bool, en
 	return false
 }
 
-// nodeCompletionTime returns the earliest time at which service at node would
-// finish, given that the vehicle arrives at arrivalSec.  If a time window is
-// defined the vehicle waits until WindowStart before beginning service.
+// nodeCompletionTime возвращает время завершения обслуживания в узле
+// при прибытии в arrivalSec (с учётом возможного ожидания открытия окна).
 func nodeCompletionTime(node Node, arrivalSec int64) int64 {
 	start := arrivalSec
 	if node.WindowStart >= 0 && start < node.WindowStart {
@@ -297,8 +288,7 @@ func nodeCompletionTime(node Node, arrivalSec int64) int64 {
 	return start + int64(node.DurationMin)*60
 }
 
-// feasible returns true when service at node can begin by arrivalSec
-// (i.e. we can complete service before the window closes).
+// feasible возвращает true, если обслуживание можно успеть до закрытия окна.
 func feasible(node Node, arrivalSec int64) bool {
 	if node.WindowEnd < 0 {
 		return true

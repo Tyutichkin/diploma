@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { Task, OptimizedRoute, taskHasAddress, windowBoundMs, formatWindowBound } from '../types/task';
 import { SavedRouteSummary, RouteStopTiming } from '../types/route';
 import { TaskList } from './TaskList';
@@ -11,6 +13,13 @@ import { RouteStepList } from './RouteStepList';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from './ui/dialog';
 import {
   Plus,
   Route,
@@ -50,6 +59,10 @@ interface PrecedencePair {
   beforeId: string;
   afterId: string;
 }
+
+// Скрываем блок «Сохранённые маршруты» в UI. Бэкенд продолжает сохранять маршрут
+// при оптимизации — это нужно для восстановления активного маршрута.
+const SHOW_SAVED_ROUTES = false;
 
 function normalizeTasksOrder(tasks: Task[]) {
   return tasks.map((task, index) => ({
@@ -173,6 +186,7 @@ export function MainPage() {
   const [endTaskId, setEndTaskId] = useState<string>('');
   const [precedences, setPrecedences] = useState<PrecedencePair[]>([]);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const handleUnauthorized = useCallback(async () => {
     toast.error('Сессия истекла. Выполните вход заново.');
@@ -207,7 +221,7 @@ export function MainPage() {
     try {
       const [serverTasks, routes] = await Promise.all([
         listTasks(requestOptions),
-        listRoutes(requestOptions),
+        SHOW_SAVED_ROUTES ? listRoutes(requestOptions) : Promise.resolve([] as SavedRouteSummary[]),
       ]);
 
       replaceTasks(serverTasks);
@@ -264,7 +278,6 @@ export function MainPage() {
   const handleImportTasks = async (rows: ImportedTaskRow[]) => {
     if (!requestOptions) return;
 
-    // Геокодируем все адреса параллельно
     const geocodeResults = await Promise.all(
       rows.map(async (row) => {
         if (!row.address) return { lat: undefined, lng: undefined, address: undefined, failed: false };
@@ -289,7 +302,9 @@ export function MainPage() {
       latitude: geocodeResults[i].lat,
       longitude: geocodeResults[i].lng,
       duration: row.duration,
+      windowStartDate: row.windowDate,
       windowStartTime: row.windowStartTime,
+      windowEndDate: row.windowDate,
       windowEndTime: row.windowEndTime,
       sortIndex: baseIndex + i,
     }));
@@ -331,7 +346,7 @@ export function MainPage() {
       return;
     }
 
-    // Задача с адресом должна иметь координаты (геокодирование в TaskForm гарантирует это)
+    // TaskForm гарантирует координаты для задач с адресом — защита от гонок
     if (task.address && (task.latitude === undefined || task.longitude === undefined)) {
       throw new Error('Не удалось определить координаты адреса.');
     }
@@ -517,17 +532,11 @@ export function MainPage() {
     await persistTaskOrder(tasksRef.current);
   };
 
-  /**
-   * Запускает оптимизацию маршрута с указанным режимом транспорта.
-   * Используется как для первичной оптимизации, так и для переоптимизации
-   * при смене режима транспорта.
-   */
   const runOptimization = async (mode: TransportMode) => {
     if (!requestOptions) {
       return;
     }
 
-    // Оптимизируем только задачи с адресом; задачи без адреса остаются в своей группе.
     const addressTasks = tasksRef.current.filter(taskHasAddress);
     const addresslessTasks = tasksRef.current.filter((t) => !taskHasAddress(t));
 
@@ -552,13 +561,10 @@ export function MainPage() {
     toast.info('Построение матрицы расстояний через Яндекс...');
 
     try {
-      // Шаг 1: строим матрицу расстояний только для задач с адресом.
       const distanceMatrix = await buildYandexDistanceMatrix(addressTasks, mode);
 
       toast.info('Оптимизация маршрута...');
 
-      // Шаг 2: бэкенд строит граф из матрицы, запускает алгоритм NNH-TW
-      // и возвращает оптимальный порядок задач с адресом.
       const constraintPairs: PrecedenceConstraint[] = precedences
         .filter((p) => p.beforeId && p.afterId && p.beforeId !== p.afterId)
         .map((p) => ({ beforeTaskId: p.beforeId, afterTaskId: p.afterId }));
@@ -573,7 +579,7 @@ export function MainPage() {
         constraintPairs.length > 0 ? constraintPairs : undefined,
       );
 
-      // Переупорядочиваем задачи с адресом; задачи без адреса идут в конец.
+      // задачи без адреса уходят в конец списка
       const orderedAddressTasks = reorderTasksByIds(addressTasks, result.orderedTaskIds);
       const orderedTasks = normalizeTasksOrder([...orderedAddressTasks, ...addresslessTasks]);
       replaceTasks(orderedTasks);
@@ -766,6 +772,51 @@ export function MainPage() {
     toast.success('Маршрут экспортирован');
   };
 
+  function buildExportRows() {
+    return tasks.map((task) => ({
+      title: task.title,
+      address: task.address ?? '',
+      duration: task.duration ?? '',
+      date: task.windowStartDate ?? '',
+      window_start: task.windowStartTime ?? '',
+      window_end: task.windowEndTime ?? '',
+    }));
+  }
+
+  const handleExportCSV = () => {
+    if (tasks.length === 0) return;
+    const csv = Papa.unparse(buildExportRows(), {
+      columns: ['title', 'address', 'duration', 'date', 'window_start', 'window_end'],
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tasks-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Задачи экспортированы в CSV');
+  };
+
+  const handleExportXLSX = () => {
+    if (tasks.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(buildExportRows(), {
+      header: ['title', 'address', 'duration', 'date', 'window_start', 'window_end'],
+    });
+    ws['!cols'] = [
+      { wch: 30 }, // title
+      { wch: 35 }, // address
+      { wch: 18 }, // duration
+      { wch: 14 }, // date
+      { wch: 15 }, // window_start
+      { wch: 15 }, // window_end
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Задачи');
+    XLSX.writeFile(wb, `tasks-${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success('Задачи экспортированы в Excel');
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-10">
@@ -828,16 +879,16 @@ export function MainPage() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={handleExportRoute}
+                onClick={() => setIsExportOpen(true)}
                 disabled={tasks.length === 0}
                 variant="outline"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Экспорт в JSON
+                Экспорт
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Скачать текущий маршрут в формате JSON</p>
+              <p>Скачать задачи в выбранном формате</p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -899,6 +950,7 @@ export function MainPage() {
           </Card>
         )}
 
+        {SHOW_SAVED_ROUTES && (
         <Card className="mb-6">
           <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
             <CardTitle className="flex items-center gap-2">
@@ -1003,6 +1055,7 @@ export function MainPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {tasks.length >= 2 && (
           <Card className="mb-6 border-gray-200">
@@ -1153,6 +1206,46 @@ export function MainPage() {
           onOpenChange={setIsImportOpen}
           onImport={handleImportTasks}
         />
+
+        <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Экспорт задач</DialogTitle>
+              <DialogDescription>
+                Выберите формат файла для скачивания
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="justify-start"
+                onClick={() => { handleExportCSV(); setIsExportOpen(false); }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                CSV
+                <span className="ml-auto text-xs text-gray-400">совместим с импортом</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start"
+                onClick={() => { handleExportXLSX(); setIsExportOpen(false); }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Excel (.xlsx)
+                <span className="ml-auto text-xs text-gray-400">совместим с импортом</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start"
+                onClick={() => { handleExportRoute(); setIsExportOpen(false); }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                JSON
+                <span className="ml-auto text-xs text-gray-400">полные данные маршрута</span>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DndProvider>
   );

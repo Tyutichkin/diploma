@@ -12,12 +12,11 @@ import {
   DialogTitle,
 } from './ui/dialog';
 
-// ─── Публичный интерфейс ──────────────────────────────────────────────────────
-
 export interface ImportedTaskRow {
   title: string;
   address?: string;
   duration?: number;
+  windowDate?: string;       // "YYYY-MM-DD"; если не указано — сегодня
   windowStartTime?: string;
   windowEndTime?: string;
 }
@@ -30,29 +29,24 @@ interface ParsedRow {
 interface TaskImportProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Вызывается с валидными строками — MainPage выполняет геокодирование и создание задач. */
   onImport: (rows: ImportedTaskRow[]) => Promise<void>;
 }
-
-// ─── Константы формата ────────────────────────────────────────────────────────
 
 const COLUMN_INFO = [
   { name: 'title', label: 'Название', required: true, hint: 'Текст, например: "Встреча с клиентом"' },
   { name: 'address', label: 'Адрес', required: false, hint: 'Полный адрес для геокодирования. Если пусто — задача без карты.' },
   { name: 'duration', label: 'Длительность (мин)', required: false, hint: 'Целое число ≥ 1, например: 30. Если пусто — без длительности.' },
+  { name: 'date', label: 'Дата', required: false, hint: 'ДД.ММ.ГГГГ или ГГГГ-ММ-ДД, например: 25.12.2025. Если пусто — задача на сегодня.' },
   { name: 'window_start', label: 'Начало окна', required: false, hint: 'Формат ЧЧ:ММ, например: 09:00' },
   { name: 'window_end', label: 'Конец окна', required: false, hint: 'Формат ЧЧ:ММ, например: 17:30' },
 ];
 
-const SAMPLE_CSV = `title,address,duration,window_start,window_end
-Встреча с клиентом,"Москва, ул. Арбат, 1",45,10:00,12:00
-Доставка документов,"Москва, Тверская, 10",20,14:00,
-Подготовка отчёта,,60,,
+const SAMPLE_CSV = `title,address,duration,date,window_start,window_end
+Встреча с клиентом,"Москва, ул. Арбат, 1",45,25.12.2025,10:00,12:00
+Доставка документов,"Москва, Тверская, 10",20,25.12.2025,14:00,
+Подготовка отчёта,,60,,,
 `;
 
-// ─── Вспомогательные функции ─────────────────────────────────────────────────
-
-/** Нормализует заголовок CSV: убирает пробелы и приводит к нижнему регистру. */
 function normalizeHeader(h: string) {
   return h.trim().toLowerCase().replace(/\s+/g, '_');
 }
@@ -61,11 +55,33 @@ function isValidTime(value: string): boolean {
   return /^\d{1,2}:\d{2}$/.test(value);
 }
 
+function todayISO(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// принимает ДД.ММ.ГГГГ или ГГГГ-ММ-ДД, возвращает ISO или null
+function parseDateValue(value: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : value;
+  }
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
+    const [day, month, year] = value.split('.');
+    const iso = `${year}-${month}-${day}`;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : iso;
+  }
+  return null;
+}
+
 function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
   return rawRows.map((row) => {
     const errors: string[] = [];
 
-    // Нормализуем ключи
     const normalized: Record<string, string> = {};
     for (const [k, v] of Object.entries(row)) {
       normalized[normalizeHeader(k)] = (v ?? '').toString().trim();
@@ -78,6 +94,20 @@ function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
     const duration = durationRaw ? parseInt(durationRaw, 10) : undefined;
     if (durationRaw && (isNaN(duration!) || duration! < 1)) {
       errors.push('duration должно быть целым числом ≥ 1');
+    }
+
+    const dateRaw = normalized['date'] ?? '';
+    let windowDate: string;
+    if (!dateRaw) {
+      windowDate = todayISO();
+    } else {
+      const parsed = parseDateValue(dateRaw);
+      if (!parsed) {
+        errors.push(`date не соответствует формату ДД.ММ.ГГГГ или ГГГГ-ММ-ДД (получено: "${dateRaw}")`);
+        windowDate = todayISO();
+      } else {
+        windowDate = parsed;
+      }
     }
 
     const windowStart = normalized['window_start'] ?? '';
@@ -102,6 +132,7 @@ function parseRows(rawRows: Record<string, string>[]): ParsedRow[] {
         title,
         address: normalized['address'] || undefined,
         duration,
+        windowDate,
         windowStartTime: windowStart || undefined,
         windowEndTime: windowEnd || undefined,
       },
@@ -142,20 +173,20 @@ function downloadSampleCSV() {
 
 function downloadSampleXLSX() {
   const rows = [
-    { title: 'Встреча с клиентом', address: 'Москва, ул. Арбат, 1', duration: 45, window_start: '10:00', window_end: '12:00' },
-    { title: 'Доставка документов', address: 'Москва, Тверская, 10', duration: 20, window_start: '14:00', window_end: '' },
-    { title: 'Подготовка отчёта', address: '', duration: 60, window_start: '', window_end: '' },
+    { title: 'Встреча с клиентом', address: 'Москва, ул. Арбат, 1', duration: 45, date: '25.12.2025', window_start: '10:00', window_end: '12:00' },
+    { title: 'Доставка документов', address: 'Москва, Тверская, 10', duration: 20, date: '25.12.2025', window_start: '14:00', window_end: '' },
+    { title: 'Подготовка отчёта', address: '', duration: 60, date: '', window_start: '', window_end: '' },
   ];
 
   const ws = XLSX.utils.json_to_sheet(rows, {
-    header: ['title', 'address', 'duration', 'window_start', 'window_end'],
+    header: ['title', 'address', 'duration', 'date', 'window_start', 'window_end'],
   });
 
-  // Задаём ширину столбцов для читаемости
   ws['!cols'] = [
     { wch: 30 }, // title
     { wch: 35 }, // address
     { wch: 18 }, // duration
+    { wch: 14 }, // date
     { wch: 15 }, // window_start
     { wch: 15 }, // window_end
   ];
@@ -165,8 +196,6 @@ function downloadSampleXLSX() {
 
   XLSX.writeFile(wb, 'tasks_template.xlsx');
 }
-
-// ─── Компонент ────────────────────────────────────────────────────────────────
 
 export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -254,7 +283,6 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="space-y-5 pr-1">
-            {/* ── Инструкция по формату ── */}
             <div className="rounded-lg border bg-gray-50 p-4 text-sm">
               <p className="mb-3 font-semibold text-gray-800">Формат файла</p>
               <p className="mb-3 text-gray-600">
@@ -286,10 +314,6 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
                   ))}
                 </tbody>
               </table>
-              <div className="mt-3 rounded border border-blue-100 bg-blue-50 p-3">
-                <p className="mb-1 text-xs font-medium text-blue-800">Пример CSV:</p>
-                <pre className="overflow-x-auto text-xs text-blue-900">{SAMPLE_CSV.trim()}</pre>
-              </div>
               <div className="mt-3 flex gap-2">
                 <Button
                   variant="outline"
@@ -310,7 +334,6 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
               </div>
             </div>
 
-            {/* ── Зона загрузки файла ── */}
             <div
               className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-8 text-center transition-colors hover:border-blue-400 hover:bg-blue-50"
               onDragOver={(e) => e.preventDefault()}
@@ -342,7 +365,6 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
               />
             </div>
 
-            {/* ── Предпросмотр результатов парсинга ── */}
             {parsedRows.length > 0 && (
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -370,6 +392,7 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
                         <th className="px-3 py-2">Название</th>
                         <th className="px-3 py-2">Адрес</th>
                         <th className="px-3 py-2">Длит., мин</th>
+                        <th className="px-3 py-2">Дата</th>
                         <th className="px-3 py-2">Окно</th>
                         <th className="px-3 py-2">Статус</th>
                       </tr>
@@ -391,6 +414,9 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
                             </td>
                             <td className="px-3 py-1.5">
                               {row.raw.duration != null ? row.raw.duration : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-1.5 text-gray-600">
+                              {row.raw.windowDate ?? <span className="text-gray-400">—</span>}
                             </td>
                             <td className="whitespace-nowrap px-3 py-1.5 text-gray-600">
                               {row.raw.windowStartTime || row.raw.windowEndTime

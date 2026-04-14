@@ -12,23 +12,9 @@ export interface DistanceCell {
   durationSec: number;
 }
 
-/**
- * Строит матрицу расстояний n×n для списка задач через Яндекс Маршруты JS API.
- *
- * Используется тот же Yandex Maps JS API 2.1 что и для визуализации маршрута
- * на карте, поэтому данные оптимизации (порядок задач) согласованы с тем,
- * что пользователь видит на экране (учёт пробок, реальная дорожная сеть,
- * выбранный режим транспорта).
- *
- * matrix[i][j] = стоимость проезда от tasks[i] до tasks[j].
- * Диагональные элементы (i === j) равны нулю.
- *
- * @param tasks        Список задач с заполненными координатами.
- * @param routingMode  Режим маршрутизации: 'auto' | 'pedestrian' | 'masstransit'.
- *                     Для masstransit используется 'auto' как приближение,
- *                     поскольку ymaps.route не возвращает надёжные данные
- *                     по времени для общественного транспорта.
- */
+// Матрица n×n через ymaps multiRouter. matrix[i][j] — стоимость i→j, диагональ = 0.
+// Берём тот же движок, что рисует маршрут на карте, чтобы оптимизация и отображение совпадали.
+// masstransit не даёт надёжных времён — подменяется на 'auto'.
 export async function buildYandexDistanceMatrix(
   tasks: Task[],
   routingMode: 'auto' | 'pedestrian' | 'masstransit' = 'auto',
@@ -38,11 +24,8 @@ export async function buildYandexDistanceMatrix(
 
   await loadYandexMaps();
 
-  // masstransit через multiRouter.MultiRoute не возвращает надёжные данные
-  // по времени для построения матрицы — используем 'auto' как приближение.
   const mode = routingMode === 'masstransit' ? 'auto' : routingMode;
 
-  // Инициализируем матрицу нулями на диагонали и заглушками для остальных.
   const fallbackSec = 99_999;
   const matrix: DistanceCell[][] = Array.from({ length: n }, (_, i) =>
     Array.from({ length: n }, (__, j) =>
@@ -50,7 +33,6 @@ export async function buildYandexDistanceMatrix(
     ),
   );
 
-  // Запрашиваем все пары параллельно (n*(n-1) запросов).
   const pairs: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
@@ -70,9 +52,6 @@ export async function buildYandexDistanceMatrix(
           distanceM: number;
           durationSec: number;
         }>((resolve, reject) => {
-          // Используем multiRouter.MultiRoute — тот же движок, что рисует
-          // маршрут на карте, поэтому данные оптимизации согласованы
-          // с отображением.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mr = new (window.ymaps as any).multiRouter.MultiRoute(
             {
@@ -87,9 +66,6 @@ export async function buildYandexDistanceMatrix(
 
           mr.model.events.once('requestsuccess', () => {
             try {
-              // getActiveRoute() возвращает активный маршрут с полями:
-              //   properties.get('distance').value — метры
-              //   properties.get('duration').value  — секунды
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const activeRoute: any = mr.getActiveRoute();
               if (activeRoute) {
@@ -106,7 +82,7 @@ export async function buildYandexDistanceMatrix(
                 return;
               }
 
-              // Запасной путь: читаем из модельных маршрутов напрямую
+              // fallback: читаем модельные маршруты напрямую
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const modelRoutes: any[] = mr.model.getRoutes();
               if (modelRoutes.length > 0) {
@@ -143,8 +119,7 @@ export async function buildYandexDistanceMatrix(
 
         matrix[i][j] = { distanceM, durationSec };
       } catch {
-        // Оставляем fallback-значение; алгоритм использует большое время,
-        // чтобы избегать этой пары.
+        // fallback-время оставляет пару «дорогой», алгоритм её избегает
       }
     }),
   );
@@ -152,10 +127,7 @@ export async function buildYandexDistanceMatrix(
   return matrix;
 }
 
-/**
- * Геокодирование через Yandex Maps JS API 2.1 (ymaps.geocode).
- * Возвращает до 5 вариантов адреса с координатами.
- */
+// Геокодирование через ymaps.geocode — до 5 вариантов адреса с координатами.
 export async function geocodeAddressSuggestions(address: string): Promise<GeocodeSuggestion[]> {
   const trimmedAddress = address.trim();
   if (!trimmedAddress) return [];
@@ -187,10 +159,8 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
   return { lat: suggestions[0].lat, lng: suggestions[0].lng };
 }
 
-/**
- * Возвращает подсказки адресов через Yandex Geocoder REST API.
- * Возвращает до 5 вариантов с координатами — ymaps.suggest недоступен на бесплатном тарифе.
- */
+// Подсказки адресов через Yandex Geocoder REST API (до 5 вариантов).
+// ymaps.suggest недоступен на бесплатном тарифе, поэтому используется REST.
 export async function suggestAddresses(query: string): Promise<GeocodeSuggestion[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];

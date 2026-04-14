@@ -233,8 +233,6 @@ func (r *TaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool,
 	return ct.RowsAffected() > 0, nil
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
 // scanTask сканирует строку из pgx.Rows в task.Task.
 func scanTask(rows pgx.Rows) (task.Task, error) {
 	var t task.Task

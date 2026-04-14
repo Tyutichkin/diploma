@@ -270,17 +270,9 @@ export interface PrecedenceConstraint {
   afterTaskId: string;
 }
 
-// optimizeRoute sends task IDs and a pre-computed Yandex distance matrix to
-// the backend.  The backend builds an in-memory graph, runs the optimisation
-// algorithm with time-window constraints, and returns the ordered stop list.
-//
-// Passing a matrix computed via buildYandexDistanceMatrix() ensures that the
-// distances used in optimisation are identical to those shown on the map.
-// When distanceMatrix is omitted the backend falls back to its own routing API.
-//
-// startTaskId and endTaskId pin the first and last stops respectively.
-// precedenceConstraints enforces that certain tasks are visited before others.
-// startTimeUnix — Unix seconds (0 → backend defaults to today 09:00 UTC).
+// startTimeUnix: 0 — бэкенд подставит сегодня 09:00 UTC.
+// distanceMatrix, посчитанная через buildYandexDistanceMatrix, синхронизирует
+// расстояния оптимизатора с теми, что показываются на карте.
 export async function optimizeRoute(
   taskIds: string[],
   options: AuthorizedRequestOptions,

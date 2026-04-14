@@ -52,10 +52,9 @@ export function TaskForm({
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [windowError, setWindowError] = useState<string | null>(null);
 
-  // Автодополнение адреса
   const [autoSuggestions, setAutoSuggestions] = useState<GeocodeSuggestion[]>([]);
   const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
-  // Координаты, полученные при выборе из дропдауна — не нужно геокодировать повторно
+  // координаты из выбранной подсказки — чтобы не геокодировать повторно
   const [preselectedCoords, setPreselectedCoords] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,16 +121,14 @@ export function TaskForm({
     setPreselectedCoords({ lat: suggestion.lat, lng: suggestion.lng, address: suggestion.displayName });
   };
 
-  /** Вычисляет размер окна в минутах, если обе границы заданы. */
   const computeWindowMins = (): number | null => {
     if (!windowStartDate && !windowStartTime && !windowEndDate && !windowEndTime) return null;
-    // Если даты не указаны, но оба времени заданы — сравниваем только по времени (тот же день)
+    // без дат, но с обоими временами — сравниваем в рамках одного дня
     if (!windowStartDate && !windowEndDate && windowStartTime && windowEndTime) {
       const [sh, sm] = windowStartTime.split(':').map(Number);
       const [eh, em] = windowEndTime.split(':').map(Number);
       return (eh * 60 + em) - (sh * 60 + sm);
     }
-    // Нужна хотя бы одна дата для сравнения
     const sDate = windowStartDate || windowEndDate;
     const eDate = windowEndDate || windowStartDate;
     if (!sDate || !eDate) return null;
@@ -163,7 +160,6 @@ export function TaskForm({
 
     const windowMins = computeWindowMins();
     if (windowMins !== null && windowMins <= 0) {
-      setWindowError('Конец окна должен быть позже начала.');
       return;
     }
     if (windowMins !== null) {

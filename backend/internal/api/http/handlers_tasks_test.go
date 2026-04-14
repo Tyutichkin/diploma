@@ -18,8 +18,6 @@ import (
 	taskstory "planner-backend/internal/domain/task/story"
 )
 
-// ── mock task repository for handlers ─────────────────────────────────────────
-
 type handlerTaskRepo struct {
 	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
 	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
@@ -69,12 +67,9 @@ func (m *handlerTaskRepo) BatchCreate(ctx context.Context, _ string, _ []task.Cr
 	return nil, nil
 }
 
-// ── test router helper ────────────────────────────────────────────────────────
-
 const taskTestUserID = "test-user-id"
 
-// newTaskTestRouter builds a Gin router with task routes.
-// Auth is bypassed by pre-setting userID in context via a middleware.
+// newTaskTestRouter собирает роутер с подставленным userID вместо JWT-middleware.
 func newTaskTestRouter(repo *handlerTaskRepo) *gin.Engine {
 	story := taskstory.New(repo)
 	taskH := NewTaskHandlers(story)
@@ -82,7 +77,6 @@ func newTaskTestRouter(repo *handlerTaskRepo) *gin.Engine {
 	r := gin.New()
 	api := r.Group("/api")
 
-	// Inject userID into context to bypass JWT middleware
 	api.Use(func(c *gin.Context) {
 		c.Set(ctxUserIDKey, taskTestUserID)
 		c.Next()
@@ -126,8 +120,6 @@ func makeTestTaskNoAddr(id, userID, title string) task.Task {
 	}
 }
 
-// ── Task handler tests ────────────────────────────────────────────────────────
-
 // 5.3.1 GET /api/tasks — успех
 func TestTaskHandler_List_Success(t *testing.T) {
 	tasks := []task.Task{
@@ -151,7 +143,6 @@ func TestTaskHandler_List_Success(t *testing.T) {
 
 // 5.3.2 GET /api/tasks — без авторизации → 401
 func TestTaskHandler_List_Unauthorized(t *testing.T) {
-	// Router without userID injection
 	repo := &handlerTaskRepo{}
 	story := taskstory.New(repo)
 	taskH := NewTaskHandlers(story)
@@ -215,7 +206,6 @@ func TestTaskHandler_Create_NullAddressText(t *testing.T) {
 		},
 	}
 	r := newTaskTestRouter(repo)
-	// Симулируем {"title":"...", "addressText": null, "durationMin": 15}
 	w := doJSON(t, r, "POST", "/api/tasks", map[string]any{
 		"title": "Звонок", "addressText": nil, "durationMin": 15,
 	})
@@ -237,10 +227,8 @@ func TestTaskHandler_Create_BrokenJSON(t *testing.T) {
 	r := newTaskTestRouter(&handlerTaskRepo{})
 	req := httptest.NewRequest("POST", "/api/tasks", nil)
 	req.Header.Set("Content-Type", "application/json")
-	// Body is missing but Content-Type set → bind error
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	// Empty body with no JSON binding → bad request or story validates empty fields
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 

@@ -51,11 +51,7 @@ func (h *RouteHandlers) List(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// Optimize handles POST /api/routes/optimize.
-// It fetches real road distances between all task pairs, builds an in-memory
-// graph, runs the optimisation algorithm with time-window constraints, and
-// saves the resulting route.  The response is the full route with ordered
-// stops and aggregate statistics — the same shape as GET /api/routes/:id.
+// Optimize — POST /api/routes/optimize. Ответ такой же, как у GET /api/routes/:id.
 func (h *RouteHandlers) Optimize(c *gin.Context) {
 	userID, ok := userIDFromCtx(c)
 	if !ok {
@@ -70,11 +66,9 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
 
 	startTime := req.StartTimeUnix
 	if startTime <= 0 {
-		// default: текущее время
 		startTime = time.Now().Unix()
 	}
 
-	// Convert client-supplied distance matrix (if any) to the domain type.
 	var matrix [][]distance.Edge
 	if len(req.DistanceMatrix) > 0 {
 		matrix = make([][]distance.Edge, len(req.DistanceMatrix))

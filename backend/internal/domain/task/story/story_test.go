@@ -14,7 +14,6 @@ import (
 	"planner-backend/internal/domain/task"
 )
 
-// ── mock repository ───────────────────────────────────────────────────────────
 
 type mockTaskRepo struct {
 	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
@@ -51,7 +50,6 @@ func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.R
 	return m.bulkReorderFn(ctx, userID, in)
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 func makeTask(id, userID, title string) task.Task {
 	lat := 55.75
@@ -96,7 +94,6 @@ func validCreateInput() task.CreateInput {
 	}
 }
 
-// ── Create tests ──────────────────────────────────────────────────────────────
 
 // 2.1.1 Успешное создание
 func TestCreate_Success(t *testing.T) {
@@ -429,7 +426,6 @@ func TestUpdate_ClearBothWindows(t *testing.T) {
 	assert.True(t, found)
 }
 
-// ── Update tests ──────────────────────────────────────────────────────────────
 
 // 2.2.1 Частичное обновление
 func TestUpdate_PartialUpdate(t *testing.T) {
@@ -477,7 +473,6 @@ func TestUpdate_AnotherUsersTask(t *testing.T) {
 	assert.False(t, found)
 }
 
-// ── Delete (SoftDelete) tests ─────────────────────────────────────────────────
 
 // 2.3.1 Успешное удаление
 func TestDelete_Success(t *testing.T) {
@@ -538,7 +533,6 @@ func TestDelete_Twice(t *testing.T) {
 	assert.False(t, found2)
 }
 
-// ── Reorder tests ─────────────────────────────────────────────────────────────
 
 // 2.4.1 Успешная перестановка
 func TestReorder_Success(t *testing.T) {
@@ -585,7 +579,6 @@ func TestReorder_RepoError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── List tests ────────────────────────────────────────────────────────────────
 
 // 2.5.1 Возвращает только задачи текущего пользователя
 func TestList_ReturnsOnlyUserTasks(t *testing.T) {
@@ -643,7 +636,6 @@ func TestList_SortedBySortIndex(t *testing.T) {
 	assert.Equal(t, 2, got[2].SortIndex)
 }
 
-// ── Error propagation ─────────────────────────────────────────────────────────
 
 func TestList_RepoError(t *testing.T) {
 	repo := &mockTaskRepo{
@@ -665,4 +657,115 @@ func TestCreate_RepoError(t *testing.T) {
 	s := New(repo)
 	_, err := s.Create(context.Background(), "uid", validCreateInput())
 	assert.Error(t, err)
+}
+
+
+// Баг: клиент отправляет windowStartDate=today, windowEndDate=today,
+// но оба времени пустые/не указаны → combineDatetime даёт 00:00 для обеих
+// границ, и проверка s.Before(e) падает. Ожидаем: такая задача валидна.
+func TestCreate_WindowSameDayNoTimes_Accepted(t *testing.T) {
+	today := time.Now().Format("2006-01-02")
+	in := validCreateInput()
+	in.WindowStartDate = &today
+	in.WindowEndDate = &today
+	// Времена не заданы — оставляем nil
+
+	repo := &mockTaskRepo{
+		createFn: func(_ context.Context, _ string, got task.CreateInput) (task.Task, error) {
+			return task.Task{ID: uuid.NewString(), Title: got.Title}, nil
+		},
+	}
+	_, err := New(repo).Create(context.Background(), "uid", in)
+	require.NoError(t, err)
+}
+
+// Случай из демо-импорта: задана только дата и одно начало окна,
+// конец окна не указан. Должна быть принята как валидная.
+func TestCreate_WindowStartTimeOnly_Accepted(t *testing.T) {
+	today := time.Now().Format("2006-01-02")
+	startTime := "09:30"
+	in := validCreateInput()
+	in.WindowStartDate = &today
+	in.WindowStartTime = &startTime
+	in.WindowEndDate = &today
+	// WindowEndTime остаётся nil
+
+	repo := &mockTaskRepo{
+		createFn: func(_ context.Context, _ string, _ task.CreateInput) (task.Task, error) {
+			return task.Task{ID: uuid.NewString(), Title: "ok"}, nil
+		},
+	}
+	_, err := New(repo).Create(context.Background(), "uid", in)
+	require.NoError(t, err)
+}
+
+// Симметричный случай: указан только конец окна.
+func TestCreate_WindowEndTimeOnly_Accepted(t *testing.T) {
+	today := time.Now().Format("2006-01-02")
+	endTime := "17:00"
+	in := validCreateInput()
+	in.WindowStartDate = &today
+	in.WindowEndDate = &today
+	in.WindowEndTime = &endTime
+
+	repo := &mockTaskRepo{
+		createFn: func(_ context.Context, _ string, _ task.CreateInput) (task.Task, error) {
+			return task.Task{ID: uuid.NewString(), Title: "ok"}, nil
+		},
+	}
+	_, err := New(repo).Create(context.Background(), "uid", in)
+	require.NoError(t, err)
+}
+
+// Настоящая ошибка — обе даты одного дня, время начала позже времени конца.
+func TestCreate_WindowSameDayReversedTimes_Rejected(t *testing.T) {
+	today := time.Now().Format("2006-01-02")
+	st := "15:00"
+	et := "10:00"
+	in := validCreateInput()
+	in.WindowStartDate = &today
+	in.WindowStartTime = &st
+	in.WindowEndDate = &today
+	in.WindowEndTime = &et
+
+	_, err := New(&mockTaskRepo{}).Create(context.Background(), "uid", in)
+	require.Error(t, err)
+	var valErr *task.ValidationError
+	require.ErrorAs(t, err, &valErr)
+	assert.Contains(t, valErr.Message, "window_start must be before window_end")
+}
+
+// Пакетный импорт тоже должен принимать задачи без времени.
+func TestCreateBatch_DemoCSVImport_Accepted(t *testing.T) {
+	today := time.Now().Format("2006-01-02")
+	mk := func(title string, sTime, eTime *string) task.CreateInput {
+		return task.CreateInput{
+			Title:           title,
+			DurationMin:     ptrs.Ptr(20),
+			WindowStartDate: &today,
+			WindowStartTime: sTime,
+			WindowEndDate:   &today,
+			WindowEndTime:   eTime,
+		}
+	}
+	t1 := "09:30"
+	t2 := "11:00"
+	inputs := []task.CreateInput{
+		mk("с окном", &t1, &t2),
+		mk("без времени", nil, nil), // именно этот вариант падал на бэкенде
+	}
+
+	repo := &mockTaskRepo{
+		batchCreateFn: func(_ context.Context, _ string, got []task.CreateInput) ([]task.Task, error) {
+			out := make([]task.Task, len(got))
+			for i, in := range got {
+				out[i] = task.Task{ID: uuid.NewString(), Title: in.Title}
+			}
+			return out, nil
+		},
+	}
+
+	got, err := New(repo).CreateBatch(context.Background(), "uid", inputs)
+	require.NoError(t, err)
+	assert.Len(t, got, 2)
 }

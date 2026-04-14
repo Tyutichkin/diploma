@@ -17,7 +17,6 @@ import (
 	"planner-backend/internal/domain/user"
 )
 
-// ── mock repositories ────────────────────────────────────────────────────────
 
 type mockUserRepo struct {
 	createFn     func(ctx context.Context, email, passwordHash string) (user.User, error)
@@ -51,7 +50,6 @@ func (m *mockRefreshRepo) RevokeByHash(ctx context.Context, tokenHash string) er
 	return m.revokeByHashFn(ctx, tokenHash)
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
 
 const testSecret = "super-test-secret-key"
 
@@ -84,7 +82,6 @@ func okRefreshRecord(userID, tokenHash string) dauth.RefreshTokenRecord {
 	}
 }
 
-// ── Register tests ───────────────────────────────────────────────────────────
 
 // 1.1.1 Успешная регистрация
 func TestRegister_Success(t *testing.T) {
@@ -158,7 +155,6 @@ func TestRegister_PasswordHashedWithBcrypt(t *testing.T) {
 	assert.NoError(t, err, "captured hash must be bcrypt of the password")
 }
 
-// ── Login tests ──────────────────────────────────────────────────────────────
 
 // 1.2.1 Успешный вход
 func TestLogin_Success(t *testing.T) {
@@ -230,7 +226,6 @@ func TestLogin_EmptyEmail(t *testing.T) {
 func TestLogin_SQLInjectionEmail(t *testing.T) {
 	uRepo := &mockUserRepo{
 		getByEmailFn: func(_ context.Context, _ string) (user.User, bool, error) {
-			// Repository would normally query DB safely; mock returns not found
 			return user.User{}, false, nil
 		},
 	}
@@ -240,7 +235,6 @@ func TestLogin_SQLInjectionEmail(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid credentials")
 }
 
-// ── Refresh tests ─────────────────────────────────────────────────────────────
 
 // 1.3.1 Успешное обновление токена
 func TestRefresh_Success(t *testing.T) {
@@ -333,7 +327,6 @@ func TestRefresh_AfterLogout(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── Logout tests ──────────────────────────────────────────────────────────────
 
 // 1.4.1 Успешный выход
 func TestLogout_Success(t *testing.T) {
@@ -367,7 +360,6 @@ func TestLogout_Idempotent(t *testing.T) {
 	assert.NoError(t, err2)
 }
 
-// ── VerifyAccessToken tests ───────────────────────────────────────────────────
 
 // 1.5.1 Валидный токен
 func TestVerifyAccessToken_Valid(t *testing.T) {
@@ -399,13 +391,10 @@ func TestVerifyAccessToken_Valid(t *testing.T) {
 	assert.True(t, claims.Exp.After(time.Now()))
 }
 
-// 1.5.2 Истёкший токен (expired exp claim)
+// 1.5.2 истёкший токен.
 func TestVerifyAccessToken_Expired(t *testing.T) {
-	// Create story with -1 minute TTL to get immediately expired token
+	// TTL = -1 мин → токен протух мгновенно.
 	s := New(&mockUserRepo{}, &mockRefreshRepo{}, testSecret, -1, 30)
-	// Build a token manually with past exp via issueTokens trick:
-	// Since we can't call issueTokens directly, use a pre-built expired token
-	// We call makeJWT indirectly through Register with a story that has -1 TTL
 	uRepo := &mockUserRepo{
 		getByEmailFn: func(_ context.Context, _ string) (user.User, bool, error) {
 			return user.User{}, false, nil
@@ -423,7 +412,6 @@ func TestVerifyAccessToken_Expired(t *testing.T) {
 	pair, err := s2.Register(context.Background(), "a@b.com", "pass")
 	require.NoError(t, err)
 
-	// The token was issued with -1 minute TTL so it's already expired
 	_, err = s.VerifyAccessToken(pair.AccessToken)
 	assert.Error(t, err)
 }
@@ -431,7 +419,7 @@ func TestVerifyAccessToken_Expired(t *testing.T) {
 // 1.5.3 Поддельная подпись
 func TestVerifyAccessToken_TamperedSignature(t *testing.T) {
 	s := newTestStory(&mockUserRepo{}, &mockRefreshRepo{})
-	// A JWT signed with a different secret
+	// JWT, подписанный другим секретом.
 	otherStory := New(&mockUserRepo{}, &mockRefreshRepo{}, "other-secret", 15, 30)
 	uRepo := &mockUserRepo{
 		getByEmailFn: func(_ context.Context, _ string) (user.User, bool, error) {
@@ -495,7 +483,6 @@ func TestVerifyAccessToken_DifferentSecret(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── Repository error propagation ─────────────────────────────────────────────
 
 func TestRegister_RepoError(t *testing.T) {
 	uRepo := &mockUserRepo{

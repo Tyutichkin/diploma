@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// OSRMProvider fetches distance/duration matrices from the OSRM HTTP API.
-// See: http://project-osrm.org/docs/v5.24.0/api/#table-service
+// OSRMProvider — клиент к OSRM Table API
+// (http://project-osrm.org/docs/v5.24.0/api/#table-service).
 type OSRMProvider struct {
 	baseURL    string
 	httpClient *http.Client
@@ -30,20 +30,19 @@ func NewOSRMProvider(baseURL string) *OSRMProvider {
 
 type osrmTableResp struct {
 	Code      string      `json:"code"`
-	Durations [][]float64 `json:"durations"` // seconds; null cell = unreachable
-	Distances [][]float64 `json:"distances"` // metres;  null cell = unreachable
+	Durations [][]float64 `json:"durations"` // секунды; null — недостижимо
+	Distances [][]float64 `json:"distances"` // метры; null — недостижимо
 }
 
-// GetMatrix calls the OSRM Table service and returns an n×n matrix of
-// travel costs.  Unreachable pairs receive a large fallback duration so
-// the optimizer can still produce a route rather than failing hard.
+// GetMatrix — вызов OSRM Table и построение n×n матрицы. Недостижимым парам
+// ставится большое значение, чтобы оптимизатор мог построить маршрут.
 func (p *OSRMProvider) GetMatrix(ctx context.Context, points []Point) ([][]Edge, error) {
 	n := len(points)
 	if n == 0 {
 		return nil, nil
 	}
 
-	// OSRM expects coordinates in "longitude,latitude" order.
+	// OSRM ждёт координаты в порядке "lng,lat".
 	coords := make([]string, n)
 	for i, pt := range points {
 		coords[i] = fmt.Sprintf("%.6f,%.6f", pt.Lng, pt.Lat)
@@ -86,7 +85,7 @@ func (p *OSRMProvider) GetMatrix(ctx context.Context, points []Point) ([][]Edge,
 
 // edgeFromOSRM — NaN и отрицательные значения (недостижимые пары) заменяются большим fallback.
 func edgeFromOSRM(durations, distances [][]float64, i, j int) Edge {
-	const unreachableDurSec = 99_999 // ~27 h — large enough to be avoided
+	const unreachableDurSec = 99_999 // ~27 часов — заведомо избегается оптимизатором
 
 	durSec := unreachableDurSec
 	if durations != nil && i < len(durations) && j < len(durations[i]) {

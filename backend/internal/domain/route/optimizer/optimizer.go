@@ -2,28 +2,25 @@ package optimizer
 
 import "context"
 
-// StopTiming holds computed timing for one stop in visit order.
+// StopTiming — тайминги одной остановки маршрута.
 type StopTiming struct {
-	NodeIdx           int   // index into Graph.Nodes
-	ArrivalSec        int64 // Unix seconds: when the vehicle arrives
-	WaitSec           int   // seconds waiting for window to open (0 if no wait)
-	ServiceStartSec   int64 // Unix seconds: arrival + wait
-	ServiceEndSec     int64 // Unix seconds: service start + DurationMin*60
-	TravelFromPrevSec int   // seconds of travel from previous stop (0 for first)
+	NodeIdx           int
+	ArrivalSec        int64
+	WaitSec           int
+	ServiceStartSec   int64
+	ServiceEndSec     int64
+	TravelFromPrevSec int
 }
 
-// Result holds the output of a route optimization run.
+// Result — результат запуска оптимизатора.
 type Result struct {
-	// Order contains indices into Graph.Nodes in the recommended visit sequence.
-	Order []int
-
-	// Timings holds per-stop timing data, one entry per element of Order (same length).
+	Order   []int
 	Timings []StopTiming
 
-	TotalDistanceM  int // sum of edge distances along the route, metres
-	TotalTravelSec  int // sum of edge durations along the route, seconds
-	TotalServiceSec int // sum of DurationMin*60 for all visited nodes
-	TotalWaitSec    int // time spent waiting for time windows to open, seconds
+	TotalDistanceM  int
+	TotalTravelSec  int
+	TotalServiceSec int
+	TotalWaitSec    int
 }
 
 // PrecedencePair задаёт ограничение порядка: узел Before должен быть посещён
@@ -48,14 +45,13 @@ type Constraints struct {
 	PrecedencePairs []PrecedencePair
 }
 
-// Optimizer finds an optimised visit order for nodes in a graph.
-// Implementations must be safe for concurrent use.
+// Optimizer ищет оптимальный порядок обхода узлов графа.
+// Реализации должны быть безопасны для конкурентного использования.
 type Optimizer interface {
 	// Name — короткий идентификатор алгоритма, сохраняется в БД рядом с маршрутом.
 	Name() string
 
 	// Optimize возвращает индексы узлов в оптимальном порядке обхода.
-	// startTimeUnix — время выезда в секундах Unix (например, 1704085200 = 2024-01-01T09:00:00Z).
-	// c — дополнительные ограничения; нулевое значение означает их отсутствие.
+	// startTimeUnix — время выезда в секундах Unix.
 	Optimize(ctx context.Context, g *Graph, startTimeUnix int64, c Constraints) (Result, error)
 }

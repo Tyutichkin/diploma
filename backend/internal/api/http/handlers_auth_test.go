@@ -25,8 +25,6 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
-// ── mock repos shared across handler tests ────────────────────────────────────
-
 type testUserRepo struct {
 	createFn     func(ctx context.Context, email, passwordHash string) (user.User, error)
 	getByEmailFn func(ctx context.Context, email string) (user.User, bool, error)
@@ -77,8 +75,6 @@ func (m *testRefreshRepo) RevokeByHash(ctx context.Context, tokenHash string) er
 	return nil
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 const handlerTestSecret = "handler-test-secret"
 
 func newTestAuthStory(u *testUserRepo, r *testRefreshRepo) *authstory.Story {
@@ -116,8 +112,6 @@ func makeBcryptHashH(t *testing.T, password string) string {
 	require.NoError(t, err)
 	return string(h)
 }
-
-// ── Register handler tests ────────────────────────────────────────────────────
 
 // 5.1.1 POST /api/auth/register — успех
 func TestHandler_Register_Success(t *testing.T) {
@@ -292,8 +286,6 @@ func TestHandler_Logout_Success(t *testing.T) {
 	assert.Equal(t, true, resp["ok"])
 }
 
-// ── Register with repo error ─────────────────────────────────────────────────
-
 func TestHandler_Register_RepoCreateError(t *testing.T) {
 	uRepo := &testUserRepo{
 		getByEmailFn: func(_ context.Context, _ string) (user.User, bool, error) {
@@ -307,6 +299,5 @@ func TestHandler_Register_RepoCreateError(t *testing.T) {
 	w := doJSON(t, router, "POST", "/api/auth/register", map[string]string{
 		"email": "a@b.com", "password": "pass",
 	})
-	// Story returns error → handler returns 409 (current behavior maps all Register errors to 409)
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }

@@ -18,7 +18,18 @@ func NewRouteRepo(pool *pgxpool.Pool) *RouteRepo {
 }
 
 func (r *RouteRepo) CreateDraft(ctx context.Context, userID, source string) (route.Route, error) {
-	row := r.pool.QueryRow(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return route.Route{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Храним только последний маршрут пользователя — предыдущие удаляем.
+	if _, err := tx.Exec(ctx, `DELETE FROM routes WHERE user_id=$1`, userID); err != nil {
+		return route.Route{}, err
+	}
+
+	row := tx.QueryRow(ctx, `
 		INSERT INTO routes(user_id, status, source)
 		VALUES ($1, 'draft', $2)
 		RETURNING id, user_id, status, source, name, algorithm, started_at, finished_at, created_at
@@ -26,6 +37,9 @@ func (r *RouteRepo) CreateDraft(ctx context.Context, userID, source string) (rou
 
 	var rt route.Route
 	if err := row.Scan(&rt.ID, &rt.UserID, &rt.Status, &rt.Source, &rt.Name, &rt.Algorithm, &rt.StartedAt, &rt.FinishedAt, &rt.CreatedAt); err != nil {
+		return route.Route{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return route.Route{}, err
 	}
 	return rt, nil
@@ -180,8 +194,7 @@ func (r *RouteRepo) RenameRoute(ctx context.Context, userID, routeID, name strin
 	return ct.RowsAffected() > 0, nil
 }
 
-// SaveOptimizedRoute creates a fully optimised route (record + stops + stats)
-// inside a single transaction and returns the created route.
+// SaveOptimizedRoute сохраняет маршрут целиком (запись + остановки + статистика) в одной транзакции.
 func (r *RouteRepo) SaveOptimizedRoute(
 	ctx context.Context,
 	userID, algorithm string,
@@ -193,6 +206,11 @@ func (r *RouteRepo) SaveOptimizedRoute(
 		return route.Route{}, err
 	}
 	defer tx.Rollback(ctx)
+
+	// Храним только последний маршрут пользователя — предыдущие удаляем.
+	if _, err := tx.Exec(ctx, `DELETE FROM routes WHERE user_id=$1`, userID); err != nil {
+		return route.Route{}, err
+	}
 
 	now := time.Now()
 	row := tx.QueryRow(ctx, `

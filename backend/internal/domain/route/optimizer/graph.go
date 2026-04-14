@@ -1,31 +1,24 @@
 package optimizer
 
-// Node represents a task location in the routing graph.
+// Node — узел графа маршрутизации (точка задачи).
+// WindowStart/WindowEnd хранятся в Unix-секундах; -1 означает отсутствие ограничения.
+// Обслуживание должно начаться не позднее WindowEnd - DurationMin*60.
 type Node struct {
-	TaskID string
-	Lat    float64
-	Lng    float64
-
-	// WindowStart is the earliest allowed service-start time,
-	// expressed as Unix seconds.  -1 means no constraint.
+	TaskID      string
+	Lat         float64
+	Lng         float64
 	WindowStart int64
-
-	// WindowEnd is the latest allowed service-start time,
-	// expressed as Unix seconds.  -1 means no constraint.
-	// The service must begin no later than WindowEnd - DurationMin*60.
-	WindowEnd int64
-
-	DurationMin int // service duration at this stop, in minutes
+	WindowEnd   int64
+	DurationMin int
 }
 
-// Edge holds the directed travel cost between two nodes.
+// Edge — стоимость переезда между двумя узлами (метры, секунды).
 type Edge struct {
-	DistanceM   int // metres
-	DurationSec int // seconds
+	DistanceM   int
+	DurationSec int
 }
 
-// Graph is a complete directed weighted graph of task nodes.
-// Edges[i][j] is the cost to travel from Nodes[i] to Nodes[j].
+// Graph — полный ориентированный взвешенный граф. Edges[i][j] — стоимость Nodes[i]→Nodes[j].
 type Graph struct {
 	Nodes []Node
 	Edges [][]Edge

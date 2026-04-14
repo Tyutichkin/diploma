@@ -15,7 +15,7 @@ type Config struct {
 	AccessTTLMin   int
 	RefreshTTLDays int
 	CORSOrigins    []string
-	OSRMBaseURL    string // base URL for the OSRM routing API
+	OSRMBaseURL    string
 }
 
 func MustLoad() Config {

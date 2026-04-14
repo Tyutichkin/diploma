@@ -11,6 +11,7 @@ import (
 	routeopt "planner-backend/internal/domain/route/optimizer"
 	routestory "planner-backend/internal/domain/route/story"
 	taskstory "planner-backend/internal/domain/task/story"
+	importstory "planner-backend/internal/domain/taskimport/story"
 	"planner-backend/internal/platform/distance"
 	"planner-backend/internal/platform/postgres/db"
 	"planner-backend/internal/platform/postgres/repository"
@@ -41,9 +42,10 @@ func New(cfg config.Config) (*App, error) {
 	authStory := authstory.New(userRepo, refreshRepo, cfg.JWTSecret, cfg.AccessTTLMin, cfg.RefreshTTLDays)
 	taskStory := taskstory.New(taskRepo)
 	routeStory := routestory.New(routeRepo, taskRepo, distProvider, optimizer)
+	importStory := importstory.New(taskStory)
 
 	router := apihttp.NewRouter(apihttp.Deps{
-		Auth: authStory, Task: taskStory, Route: routeStory,
+		Auth: authStory, Task: taskStory, Route: routeStory, Import: importStory,
 		CORSOrigins: cfg.CORSOrigins,
 	})
 

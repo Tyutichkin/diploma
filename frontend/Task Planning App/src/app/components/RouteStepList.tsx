@@ -14,14 +14,12 @@ interface RouteStepListProps {
   onDeleteTask?: (taskId: string) => void;
 }
 
-/** Format ISO date string to HH:mm */
 function fmtTime(iso: string | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
-/** Format seconds as human-readable duration */
 function fmtDuration(sec: number | undefined): string {
   if (sec == null || sec <= 0) return '';
   if (sec < 60) return `${sec} сек`;
@@ -32,13 +30,11 @@ function fmtDuration(sec: number | undefined): string {
   return rm > 0 ? `${h} ч ${rm} мин` : `${h} ч`;
 }
 
-/** Check if the stop timing conflicts with the task's time window */
 function isConflict(stop: RouteStopTiming | undefined, task: Task): boolean {
   if (!stop?.arriveTime) return false;
   if (!task.windowEndDate && !task.windowEndTime) return false;
 
   const arrivalMs = new Date(stop.arriveTime).getTime();
-  // Build deadline from task window end
   const endParts = [task.windowEndDate, task.windowEndTime].filter(Boolean).join('T');
   if (!endParts) return false;
   const deadlineMs = new Date(
@@ -46,7 +42,7 @@ function isConflict(stop: RouteStopTiming | undefined, task: Task): boolean {
       ? `${task.windowEndDate}T${task.windowEndTime}:00Z`
       : task.windowEndDate
         ? `${task.windowEndDate}T23:59:59Z`
-        : stop.arriveTime, // fallback — no date means can't compare
+        : stop.arriveTime, // без даты сравнивать не с чем
   ).getTime();
   if (isNaN(deadlineMs)) return false;
 
@@ -77,7 +73,7 @@ function TransitBadge({ name, type, color }: { name: string; type: string; color
 function TransportSegmentCard({ seg }: { seg: RouteSegment & { kind: 'transport' } }) {
   const transports = seg.transports ?? [];
 
-  // Определяем тип первого транспорта (все в сегменте обычно одного типа)
+  // в пределах одного сегмента транспорт обычно одного типа
   const primaryType = transports[0]?.type ?? 'bus';
   const meta = TRANSPORT_TYPE_META[primaryType] ?? TRANSPORT_TYPE_META['bus'];
   const isSubway = primaryType === 'subway' || primaryType === 'underground';
@@ -88,7 +84,6 @@ function TransportSegmentCard({ seg }: { seg: RouteSegment & { kind: 'transport'
 
   return (
     <div className="rounded-md border border-blue-100 bg-blue-50 px-2.5 py-2 space-y-1.5">
-      {/* Заголовок: тип транспорта + маршруты */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-sm font-semibold text-gray-800">{isSubway ? 'Метро' : meta.label}:</span>
         {transports.map((tr, ti) => (
@@ -96,7 +91,6 @@ function TransportSegmentCard({ seg }: { seg: RouteSegment & { kind: 'transport'
         ))}
       </div>
 
-      {/* Посадка */}
       {seg.stopFrom && (
         <div className="flex items-start gap-1.5 text-xs text-gray-600">
           <span className="mt-0.5 text-green-600 font-bold leading-none">▶</span>
@@ -107,7 +101,6 @@ function TransportSegmentCard({ seg }: { seg: RouteSegment & { kind: 'transport'
         </div>
       )}
 
-      {/* Высадка */}
       {seg.stopTo && (
         <div className="flex items-start gap-1.5 text-xs text-gray-600">
           <span className="mt-0.5 text-red-500 font-bold leading-none">■</span>
@@ -118,7 +111,6 @@ function TransportSegmentCard({ seg }: { seg: RouteSegment & { kind: 'transport'
         </div>
       )}
 
-      {/* Время и количество остановок */}
       {(seg.duration || stopsText) && (
         <div className="flex items-center gap-2 text-xs text-gray-500">
           {seg.duration && <span>⏱ {seg.duration}</span>}
@@ -138,7 +130,6 @@ function LegConnector({ leg, transportMode }: { leg: RouteLeg | undefined; trans
     );
   }
 
-  // Для auto/pedestrian показываем время и расстояние из данных маршрута Яндекс
   if (transportMode !== 'masstransit') {
     if (!leg.duration && !leg.distance) {
       return (
@@ -204,7 +195,6 @@ export function RouteStepList({ tasks, transportMode, routeLegs, stops, onEditTa
 
   if (validTasks.length === 0) return null;
 
-  // Build lookup: taskId → stop timing
   const stopMap = new Map<string, RouteStopTiming>();
   if (stops) {
     for (const s of stops) stopMap.set(s.taskId, s);
@@ -243,9 +233,7 @@ export function RouteStepList({ tasks, transportMode, routeLegs, stops, onEditTa
 
             return (
               <li key={task.id}>
-                {/* Карточка задачи */}
                 <div className={`flex items-start gap-3 rounded-md px-2 py-1.5 ${conflict ? 'bg-red-50 border border-red-200' : ''}`}>
-                  {/* Номер-кружок */}
                   <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center mt-0.5 ${conflict ? 'bg-red-500' : 'bg-blue-600'}`}>
                     {index + 1}
                   </div>
@@ -257,7 +245,6 @@ export function RouteStepList({ tasks, transportMode, routeLegs, stops, onEditTa
                       <span className="truncate">{task.address}</span>
                     </div>
 
-                    {/* Timing info */}
                     {hasTimingData && stop && (
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs">
                         {index > 0 && stop.travelFromPrevSec != null && stop.travelFromPrevSec > 0 && (
@@ -287,7 +274,6 @@ export function RouteStepList({ tasks, transportMode, routeLegs, stops, onEditTa
                       )}
                     </div>
 
-                    {/* Conflict actions */}
                     {conflict && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs font-medium text-red-600 flex items-center gap-1">

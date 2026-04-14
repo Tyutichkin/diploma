@@ -6,7 +6,6 @@ export interface SavedRouteSummary {
   name?: string;
 }
 
-/** Per-stop timing data returned by the optimizer. */
 export interface RouteStopTiming {
   taskId: string;
   position: number;

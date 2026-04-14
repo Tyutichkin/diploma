@@ -18,7 +18,6 @@ import (
 	distancepkg "planner-backend/internal/platform/distance"
 )
 
-// ── mock route repository ─────────────────────────────────────────────────────
 
 type mockRouteRepo struct {
 	createDraftFn        func(ctx context.Context, userID, source string) (route.Route, error)
@@ -60,7 +59,6 @@ func (m *mockRouteRepo) RenameRoute(ctx context.Context, userID, routeID, name s
 	return m.renameRouteFn(ctx, userID, routeID, name)
 }
 
-// ── mock task repository ──────────────────────────────────────────────────────
 
 type mockTaskRepo struct {
 	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
@@ -93,7 +91,6 @@ func (m *mockTaskRepo) BatchCreate(ctx context.Context, userID string, inputs []
 	return nil, nil
 }
 
-// ── mock distance provider ────────────────────────────────────────────────────
 
 type mockDistProvider struct {
 	getMatrixFn func(ctx context.Context, points []distancepkg.Point) ([][]distancepkg.Edge, error)
@@ -103,7 +100,6 @@ func (m *mockDistProvider) GetMatrix(ctx context.Context, points []distancepkg.P
 	return m.getMatrixFn(ctx, points)
 }
 
-// ── mock optimizer ────────────────────────────────────────────────────────────
 
 type mockOptimizer struct {
 	nameFn     func() string
@@ -115,7 +111,6 @@ func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTi
 	return m.optimizeFn(ctx, g, startTimeUnix, c)
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 func makeRouteTask(id, userID string) task.Task {
 	lat := 55.75
@@ -181,7 +176,6 @@ func defaultOptimizer() *mockOptimizer {
 	}
 }
 
-// ── CreateDraft tests ─────────────────────────────────────────────────────────
 
 // 3.1.1 Создание черновика с задачами
 func TestCreateDraft_WithTasks(t *testing.T) {
@@ -229,7 +223,6 @@ func TestCreateDraft_EmptyTaskList(t *testing.T) {
 	assert.False(t, replaceStopsCalled, "ReplaceStops should not be called for empty task list")
 }
 
-// ── Optimize tests ────────────────────────────────────────────────────────────
 
 // 3.2.1 Успешная оптимизация
 func TestOptimize_Success(t *testing.T) {
@@ -454,7 +447,6 @@ func TestOptimize_SameStartAndEnd(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── List / Get / Delete / Rename tests ───────────────────────────────────────
 
 // 3.3.1 List возвращает только маршруты пользователя
 func TestList_ReturnsUserRoutes(t *testing.T) {
@@ -594,7 +586,6 @@ func TestDelete_EmptyRouteID(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── buildUnixSec tests ───────────────────────────────────────────────────────
 
 var fallbackDate = time.Date(2024, 6, 10, 9, 0, 0, 0, time.UTC)
 

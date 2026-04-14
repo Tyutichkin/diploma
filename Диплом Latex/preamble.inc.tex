@@ -122,21 +122,17 @@
       rightmargin=0pt
 }
 
-% tcolorbox is used for code listings because mdframed with roundcorner
-% relies on TikZ and TikZ-based mdframed frames cannot break across pages.
-% tcolorbox with breakable=true supports both rounded corners and page breaks.
+% tcolorbox: поддерживает breakable и скругленные углы одновременно (mdframed с roundcorner на TikZ не переносится через страницу).
 \usepackage[breakable,skins]{tcolorbox}
 
 \usepackage[chapter]{minted}
 
-% Configure captions for minted's listing environment
 \captionsetup[listing]{
       position=top,
       justification=RaggedRight,
       singlelinecheck=false
 }
 
-% Alternative: Force all float captions to top
 \floatstyle{plaintop}
 \restylefloat{listing}
 
@@ -155,13 +151,7 @@
 \renewcommand{\listingscaption}{Листинг}
 \renewcommand{\listoflistingscaption}{Листинги}
 
-% Breakable code listing environment (non-float, page-breaking).
-% Uses tcolorbox instead of mdframed: tcolorbox with breakable=true supports
-% both rounded corners and page breaks. mdframed with roundcorner uses TikZ
-% which cannot break across pages.
-% Usage: \begin{codelisting}{Caption text}{label}
-%          \begin{minted}{lang} ... \end{minted}
-%        \end{codelisting}
+% codelisting: листинг с переносом через страницу. Использование: \begin{codelisting}{подпись}{label} \begin{minted}{lang}...\end{minted} \end{codelisting}
 \newenvironment{codelisting}[2]{%
       \par\vspace{5pt}%
       \noindent\captionof{listing}{#1}\label{#2}%

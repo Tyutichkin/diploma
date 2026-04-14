@@ -7,15 +7,15 @@ import (
 	"planner-backend/internal/domain/route"
 )
 
-// StopInput carries the data needed to persist one route stop.
+// StopInput — данные для сохранения одной остановки маршрута.
 type StopInput struct {
 	TaskID            string
 	Position          int
-	TravelFromPrevSec int        // 0 for the first stop
-	ArriveTime        *time.Time // when the vehicle arrives at this stop
-	ServiceStartTime  *time.Time // when service begins (after any wait)
-	ServiceEndTime    *time.Time // when service ends
-	WaitSec           *int       // seconds waiting for time window to open
+	TravelFromPrevSec int
+	ArriveTime        *time.Time
+	ServiceStartTime  *time.Time
+	ServiceEndTime    *time.Time
+	WaitSec           *int // секунды ожидания открытия окна
 }
 
 type Repository interface {

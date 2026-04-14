@@ -6,12 +6,14 @@ import (
 	authstory "planner-backend/internal/domain/auth/story"
 	routestory "planner-backend/internal/domain/route/story"
 	taskstory "planner-backend/internal/domain/task/story"
+	importstory "planner-backend/internal/domain/taskimport/story"
 )
 
 type Deps struct {
 	Auth        *authstory.Story
 	Task        *taskstory.Story
 	Route       *routestory.Story
+	Import      *importstory.Story
 	CORSOrigins []string
 }
 
@@ -29,6 +31,7 @@ func NewRouter(d Deps) *gin.Engine {
 	authH := NewAuthHandlers(d.Auth)
 	taskH := NewTaskHandlers(d.Task)
 	routeH := NewRouteHandlers(d.Route)
+	importH := NewImportHandlers(d.Import)
 
 	api := r.Group("/api")
 
@@ -43,6 +46,7 @@ func NewRouter(d Deps) *gin.Engine {
 	secured.GET("/tasks", taskH.List)
 	secured.POST("/tasks", taskH.Create)
 	secured.POST("/tasks/batch", taskH.BatchCreate)
+	secured.POST("/tasks/import", importH.Import)
 	secured.PATCH("/tasks/order", taskH.Reorder)
 	secured.PATCH("/tasks/:id", taskH.Update)
 	secured.DELETE("/tasks/:id", taskH.Delete)
