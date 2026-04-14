@@ -161,8 +161,8 @@ export function RouteStepList({ tasks, transportMode, routeLegs }: RouteStepList
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
                     <span>Длительность: {task.duration} мин</span>
-                    {task.timeWindowStart && task.timeWindowEnd && (
-                      <span>Окно: {task.timeWindowStart}–{task.timeWindowEnd}</span>
+                    {(task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime) && (
+                      <span>Окно: {[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'}–{[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}</span>
                     )}
                   </div>
                 </div>

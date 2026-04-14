@@ -1,0 +1,143 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TaskList } from './TaskList';
+import { Task, taskHasAddress } from '../types/task';
+
+// ── helpers ────────────────────────────────────────────────────────────────────
+
+function makeTask(overrides: Partial<Task> & Pick<Task, 'id' | 'title'>): Task {
+  return {
+    duration: 30,
+    ...overrides,
+  };
+}
+
+function makeAddressTask(id: string, title: string): Task {
+  return makeTask({
+    id,
+    title,
+    address: `ул. Тестовая, ${id}`,
+    latitude: 55.75,
+    longitude: 37.61,
+  });
+}
+
+function makeNoAddressTask(id: string, title: string): Task {
+  return makeTask({ id, title });
+}
+
+const noop = vi.fn();
+
+function renderTaskList(tasks: Task[]) {
+  return render(
+    <DndProvider backend={HTML5Backend}>
+      <TaskList
+        tasks={tasks}
+        onEdit={noop}
+        onDelete={noop}
+        onToggleComplete={noop}
+        onReorder={noop}
+        onReorderEnd={noop}
+        onSetRole={noop}
+      />
+    </DndProvider>,
+  );
+}
+
+// ── taskHasAddress unit tests ──────────────────────────────────────────────────
+
+describe('taskHasAddress', () => {
+  it('returns true when task has address, lat and lon', () => {
+    expect(taskHasAddress({ id: '1', title: 't', address: 'ул. А', latitude: 55, longitude: 37, duration: 10 })).toBe(true);
+  });
+
+  it('returns false when address is empty string', () => {
+    expect(taskHasAddress({ id: '1', title: 't', address: '', latitude: 55, longitude: 37, duration: 10 })).toBe(false);
+  });
+
+  it('returns false when address is undefined', () => {
+    expect(taskHasAddress({ id: '1', title: 't', duration: 10 })).toBe(false);
+  });
+
+  it('returns false when latitude is undefined', () => {
+    expect(taskHasAddress({ id: '1', title: 't', address: 'ул. А', longitude: 37, duration: 10 })).toBe(false);
+  });
+
+  it('returns false when longitude is undefined', () => {
+    expect(taskHasAddress({ id: '1', title: 't', address: 'ул. А', latitude: 55, duration: 10 })).toBe(false);
+  });
+});
+
+// ── TaskList grouping tests ────────────────────────────────────────────────────
+
+describe('TaskList — пустой список', () => {
+  it('показывает заглушку при отсутствии задач', () => {
+    renderTaskList([]);
+    expect(screen.getByText(/Нет задач/)).toBeInTheDocument();
+  });
+});
+
+describe('TaskList — группировка', () => {
+  it('отображает заголовок группы «С адресом» при наличии таких задач', () => {
+    const tasks = [makeAddressTask('a1', 'Задача А')];
+    renderTaskList(tasks);
+    expect(screen.getByText(/С адресом/i)).toBeInTheDocument();
+  });
+
+  it('отображает заголовок группы «Без адреса» при наличии таких задач', () => {
+    const tasks = [makeNoAddressTask('n1', 'Звонок клиенту')];
+    renderTaskList(tasks);
+    expect(screen.getByText(/Без адреса \(1\)/i)).toBeInTheDocument();
+  });
+
+  it('отображает обе группы одновременно', () => {
+    const tasks = [
+      makeAddressTask('a1', 'Встреча'),
+      makeNoAddressTask('n1', 'Звонок'),
+    ];
+    renderTaskList(tasks);
+    // Заголовки групп
+    expect(screen.getByText(/С адресом \(1\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Без адреса \(1\)/i)).toBeInTheDocument();
+    // Названия задач
+    expect(screen.getByText('Встреча')).toBeInTheDocument();
+    expect(screen.getByText('Звонок')).toBeInTheDocument();
+  });
+
+  it('не показывает заголовок «Без адреса», если все задачи имеют адрес', () => {
+    const tasks = [makeAddressTask('a1', 'Задача А'), makeAddressTask('a2', 'Задача Б')];
+    renderTaskList(tasks);
+    expect(screen.queryByText(/Без адреса/i)).not.toBeInTheDocument();
+  });
+
+  it('не показывает заголовок «С адресом», если ни одна задача не имеет адреса', () => {
+    const tasks = [makeNoAddressTask('n1', 'Звонок'), makeNoAddressTask('n2', 'Email')];
+    renderTaskList(tasks);
+    expect(screen.queryByText(/С адресом/i)).not.toBeInTheDocument();
+  });
+
+  it('показывает количество задач в каждой группе', () => {
+    const tasks = [
+      makeAddressTask('a1', 'A1'),
+      makeAddressTask('a2', 'A2'),
+      makeNoAddressTask('n1', 'N1'),
+    ];
+    renderTaskList(tasks);
+    expect(screen.getByText(/С адресом \(2\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Без адреса \(1\)/i)).toBeInTheDocument();
+  });
+
+  it('задачи без адреса отображают метку «Без адреса» вместо адреса', () => {
+    const tasks = [makeNoAddressTask('n1', 'Звонок клиенту')];
+    renderTaskList(tasks);
+    expect(screen.getByText('Без адреса')).toBeInTheDocument();
+  });
+
+  it('итоговый счётчик в заголовке отражает все задачи', () => {
+    const tasks = [makeAddressTask('a1', 'A'), makeNoAddressTask('n1', 'N')];
+    renderTaskList(tasks);
+    expect(screen.getByText(/Список задач \(2\)/i)).toBeInTheDocument();
+  });
+});

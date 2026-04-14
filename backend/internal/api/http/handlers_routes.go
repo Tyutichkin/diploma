@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	routestory "planner-backend/internal/domain/route/story"
@@ -67,9 +68,10 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
 		return
 	}
 
-	startTime := req.StartTimeMins
+	startTime := req.StartTimeUnix
 	if startTime <= 0 {
-		startTime = 540 // default: 09:00
+		// default: текущее время
+		startTime = time.Now().Unix()
 	}
 
 	// Convert client-supplied distance matrix (if any) to the domain type.

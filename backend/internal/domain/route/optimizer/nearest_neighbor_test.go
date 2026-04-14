@@ -3,12 +3,21 @@ package optimizer
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+// testRef — 2024-01-01T00:00:00Z, используется как базовая дата для тестов.
+var testRef = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+
+// hhmm конвертирует часы и минуты в Unix-секунды, используя 2024-01-01 как базовую дату.
+func hhmm(h, m int) int64 {
+	return testRef + int64(h*3600+m*60)
+}
 
 func makeGraph(nodes []Node, edges [][]Edge) *Graph {
 	return &Graph{Nodes: nodes, Edges: edges}
@@ -36,7 +45,7 @@ var noConstraints = Constraints{}
 func TestOptimize_TwoNodesNoWindows(t *testing.T) {
 	g := twoNodeGraph(30, 30, 600, 600)
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 2)
 	// Both nodes visited exactly once
@@ -64,7 +73,7 @@ func TestOptimize_ThreeNodesNearestNeighbor(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	require.Len(t, res.Order, 3)
 	// Starting node (no windows) = node 0
@@ -78,8 +87,8 @@ func TestOptimize_TimeWindowEarliestFirst(t *testing.T) {
 	// Node 0 window 10:00-12:00, Node 1 window 08:00-09:00
 	// Should visit node 1 first (earlier window)
 	nodes := []Node{
-		{TaskID: "t0", DurationMin: 30, WindowStart: 600, WindowEnd: 720}, // 10:00-12:00
-		{TaskID: "t1", DurationMin: 30, WindowStart: 480, WindowEnd: 540}, // 08:00-09:00
+		{TaskID: "t0", DurationMin: 30, WindowStart: hhmm(10, 0), WindowEnd: hhmm(12, 0)},
+		{TaskID: "t1", DurationMin: 30, WindowStart: hhmm(8, 0), WindowEnd: hhmm(9, 0)},
 	}
 	edges := [][]Edge{
 		{{}, {DistanceM: 1000, DurationSec: 300}},
@@ -87,7 +96,7 @@ func TestOptimize_TimeWindowEarliestFirst(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 480, noConstraints) // start 08:00
+	res, err := a.Optimize(context.Background(), g, hhmm(8, 0), noConstraints) // start 08:00
 	require.NoError(t, err)
 	require.Len(t, res.Order, 2)
 	// Node 1 has earlier window → should be visited first
@@ -96,13 +105,13 @@ func TestOptimize_TimeWindowEarliestFirst(t *testing.T) {
 
 // 4.1.4 Ожидание перед time window
 func TestOptimize_WaitBeforeWindow(t *testing.T) {
-	// Node 0: window [08:00=480, 09:00=540], DurationMin=30 → startNode picks node 0 (earliest)
-	// Node 1: window [11:00=660, 12:00=720], DurationMin=0
-	// Start 480. After node 0: currentTimeMins=480+30=510.
-	// Travel 0→1 = 10 sec → arrival=510. Window opens 660 → wait=150 min → waitSec=9000>0.
+	// Node 0: window [08:00, 09:00], DurationMin=30 → startNode picks node 0 (earliest)
+	// Node 1: window [11:00, 12:00], DurationMin=0
+	// Start 08:00. After node 0: currentTimeSec=08:00+30min=08:30.
+	// Travel 0→1 = 10 sec → arrival=08:30. Window opens 11:00 → wait>0.
 	nodes := []Node{
-		{TaskID: "t0", DurationMin: 30, WindowStart: 480, WindowEnd: 540},
-		{TaskID: "t1", DurationMin: 0, WindowStart: 660, WindowEnd: 720},
+		{TaskID: "t0", DurationMin: 30, WindowStart: hhmm(8, 0), WindowEnd: hhmm(9, 0)},
+		{TaskID: "t1", DurationMin: 0, WindowStart: hhmm(11, 0), WindowEnd: hhmm(12, 0)},
 	}
 	edges := [][]Edge{
 		{{}, {DistanceM: 100, DurationSec: 10}},
@@ -110,7 +119,7 @@ func TestOptimize_WaitBeforeWindow(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 480, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(8, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Greater(t, res.TotalWaitSec, 0, "should have wait time when arriving before window opens")
 }
@@ -129,7 +138,7 @@ func TestOptimize_AggregateStats(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Equal(t, distM, res.TotalDistanceM)
 	assert.Equal(t, travelSec, res.TotalTravelSec)
@@ -147,16 +156,16 @@ func TestOptimize_OneNode(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 1)
 }
 
-// 4.1.8 startTimeMins = 480 (08:00)
-func TestOptimize_StartTimeMins480(t *testing.T) {
+// 4.1.8 startTimeUnix = 08:00
+func TestOptimize_StartTime0800(t *testing.T) {
 	nodes := []Node{
-		{TaskID: "t0", DurationMin: 0, WindowStart: 480, WindowEnd: 540},
-		{TaskID: "t1", DurationMin: 0, WindowStart: 480, WindowEnd: 540},
+		{TaskID: "t0", DurationMin: 0, WindowStart: hhmm(8, 0), WindowEnd: hhmm(9, 0)},
+		{TaskID: "t1", DurationMin: 0, WindowStart: hhmm(8, 0), WindowEnd: hhmm(9, 0)},
 	}
 	edges := [][]Edge{
 		{{}, {DistanceM: 100, DurationSec: 60}},
@@ -164,7 +173,7 @@ func TestOptimize_StartTimeMins480(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 480, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(8, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 2)
 }
@@ -187,7 +196,7 @@ func TestOptimize_SymmetricMatrix(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, n)
 	seen := map[int]int{}
@@ -214,7 +223,7 @@ func TestOptimize_UnreachablePairs(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 3, "all nodes must be visited even with unreachable pairs")
 }
@@ -224,7 +233,7 @@ func TestOptimize_FallbackPass(t *testing.T) {
 	// Node 0 has no window; Node 1 has a window that's already passed by the time we arrive
 	nodes := []Node{
 		{TaskID: "t0", DurationMin: 10, WindowStart: -1, WindowEnd: -1},
-		{TaskID: "t1", DurationMin: 10, WindowStart: 480, WindowEnd: 490}, // 08:00-08:10
+		{TaskID: "t1", DurationMin: 10, WindowStart: hhmm(8, 0), WindowEnd: hhmm(8, 10)},
 	}
 	edges := [][]Edge{
 		{{}, {DistanceM: 1000, DurationSec: 3600}}, // 1 hour travel
@@ -234,7 +243,7 @@ func TestOptimize_FallbackPass(t *testing.T) {
 	a := NewNearestNeighborTW()
 	// Start at 09:00 → we arrive at t1 at 10:00, which is after window end (08:10)
 	// Pass 1 finds no feasible node → Pass 2 selects nearest regardless
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 2, "both nodes should still be visited via Pass 2 fallback")
 }
@@ -244,7 +253,7 @@ func TestOptimize_FallbackPass(t *testing.T) {
 func TestOptimize_EmptyGraph(t *testing.T) {
 	g := &Graph{Nodes: []Node{}, Edges: [][]Edge{}}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, noConstraints)
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), noConstraints)
 	require.NoError(t, err)
 	assert.Len(t, res.Order, 0)
 }
@@ -268,7 +277,7 @@ func TestOptimize_FixedStartNode(t *testing.T) {
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
 	startIdx := 2
-	res, err := a.Optimize(context.Background(), g, 540, Constraints{StartNodeIdx: &startIdx})
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), Constraints{StartNodeIdx: &startIdx})
 	require.NoError(t, err)
 	require.Len(t, res.Order, 3)
 	assert.Equal(t, 2, res.Order[0], "first node must be the pinned start")
@@ -291,7 +300,7 @@ func TestOptimize_FixedEndNode(t *testing.T) {
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
 	endIdx := 1
-	res, err := a.Optimize(context.Background(), g, 540, Constraints{EndNodeIdx: &endIdx})
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), Constraints{EndNodeIdx: &endIdx})
 	require.NoError(t, err)
 	require.Len(t, res.Order, 3)
 	assert.Equal(t, 1, res.Order[len(res.Order)-1], "last node must be the pinned end")
@@ -315,7 +324,7 @@ func TestOptimize_FixedStartAndEnd(t *testing.T) {
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
 	startIdx, endIdx := 0, 3
-	res, err := a.Optimize(context.Background(), g, 540, Constraints{StartNodeIdx: &startIdx, EndNodeIdx: &endIdx})
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), Constraints{StartNodeIdx: &startIdx, EndNodeIdx: &endIdx})
 	require.NoError(t, err)
 	require.Len(t, res.Order, 4)
 	assert.Equal(t, 0, res.Order[0], "first node must be the pinned start")
@@ -339,7 +348,7 @@ func TestOptimize_PrecedenceConstraint(t *testing.T) {
 	}
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
-	res, err := a.Optimize(context.Background(), g, 540, Constraints{
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), Constraints{
 		PrecedencePairs: []PrecedencePair{{Before: 2, After: 1}},
 	})
 	require.NoError(t, err)
@@ -371,7 +380,7 @@ func TestOptimize_AllVisitedWithConstraints(t *testing.T) {
 	g := &Graph{Nodes: nodes, Edges: edges}
 	a := NewNearestNeighborTW()
 	startIdx, endIdx := 0, 4
-	res, err := a.Optimize(context.Background(), g, 540, Constraints{
+	res, err := a.Optimize(context.Background(), g, hhmm(9, 0), Constraints{
 		StartNodeIdx:    &startIdx,
 		EndNodeIdx:      &endIdx,
 		PrecedencePairs: []PrecedencePair{{Before: 1, After: 3}},
@@ -398,32 +407,32 @@ func TestFeasible_NoConstraints(t *testing.T) {
 
 // 4.2.2 Прибытие в пределах окна → true
 func TestFeasible_WithinWindow(t *testing.T) {
-	node := Node{DurationMin: 30, WindowStart: 540, WindowEnd: 1080} // 09:00-18:00
-	// arrival at 540 (09:00), window end = 1080-30=1050 → feasible
-	assert.True(t, feasible(node, 600))
+	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(18, 0)}
+	// arrival at 10:00, window end = 18:00 - 30min → feasible
+	assert.True(t, feasible(node, hhmm(10, 0)))
 }
 
 // 4.2.3 Прибытие до открытия окна → true (we wait)
 func TestFeasible_ArrivalBeforeWindowStart(t *testing.T) {
-	node := Node{DurationMin: 30, WindowStart: 540, WindowEnd: 600}
-	// arrival at 420 (07:00), but window opens at 09:00
-	// feasible checks arrivalMins <= WindowEnd - DurationMin = 600-30=570
-	// 420 <= 570 → true
-	assert.True(t, feasible(node, 420))
+	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 0)}
+	// arrival at 07:00, window opens 09:00
+	// feasible checks arrivalSec <= WindowEnd - 30*60
+	// 07:00 <= 09:30 → true
+	assert.True(t, feasible(node, hhmm(7, 0)))
 }
 
 // 4.2.4 Прибытие после закрытия окна → false
 func TestFeasible_ArrivalAfterWindowEnd(t *testing.T) {
-	node := Node{DurationMin: 30, WindowStart: 540, WindowEnd: 600}
-	// arrival at 600, window closes at 600, need 30 min service → 600 > 570 → false
-	assert.False(t, feasible(node, 600))
+	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 0)}
+	// arrival at 10:00, window closes at 10:00, need 30 min service → false
+	assert.False(t, feasible(node, hhmm(10, 0)))
 }
 
 // 4.2.5 Прибытие прямо в окно
 func TestFeasible_ArrivalAtDeadline(t *testing.T) {
-	node := Node{DurationMin: 30, WindowStart: 540, WindowEnd: 600}
-	// arrival at 570 = WindowEnd-DurationMin → exactly at deadline → feasible
-	assert.True(t, feasible(node, 570))
+	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 0)}
+	// arrival at 09:30 = WindowEnd - DurationMin*60 → exactly at deadline → feasible
+	assert.True(t, feasible(node, hhmm(9, 30)))
 }
 
 // ── startNode() tests ─────────────────────────────────────────────────────────
@@ -431,9 +440,9 @@ func TestFeasible_ArrivalAtDeadline(t *testing.T) {
 func TestStartNode_EarliestWindow(t *testing.T) {
 	g := &Graph{
 		Nodes: []Node{
-			{WindowStart: 600},
-			{WindowStart: 480}, // earliest
-			{WindowStart: 720},
+			{WindowStart: hhmm(10, 0)},
+			{WindowStart: hhmm(8, 0)}, // earliest
+			{WindowStart: hhmm(12, 0)},
 		},
 	}
 	assert.Equal(t, 1, startNode(g))

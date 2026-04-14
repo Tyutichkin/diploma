@@ -186,3 +186,38 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
   if (!suggestions[0]) return null;
   return { lat: suggestions[0].lat, lng: suggestions[0].lng };
 }
+
+/**
+ * Возвращает подсказки адресов через Yandex Geocoder REST API.
+ * Возвращает до 5 вариантов с координатами — ymaps.suggest недоступен на бесплатном тарифе.
+ */
+export async function suggestAddresses(query: string): Promise<GeocodeSuggestion[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const apiKey =
+    (import.meta.env.VITE_YANDEX_GEOCODER_KEY as string | undefined) ||
+    (import.meta.env.VITE_YANDEX_MAPS_KEY as string | undefined);
+  if (!apiKey) return [];
+
+  const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${encodeURIComponent(apiKey)}&geocode=${encodeURIComponent(trimmed)}&format=json&results=5&lang=ru_RU`;
+  const resp = await fetch(url);
+  if (!resp.ok) return [];
+  const json = await resp.json();
+
+  const members: unknown[] = json?.response?.GeoObjectCollection?.featureMember ?? [];
+  const suggestions: GeocodeSuggestion[] = [];
+  for (const m of members) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const obj = (m as any).GeoObject;
+    const text: string = obj?.metaDataProperty?.GeocoderMetaData?.text;
+    const posStr: string = obj?.Point?.pos; // "lon lat"
+    if (!text || !posStr) continue;
+    const [lonStr, latStr] = posStr.split(' ');
+    const lat = parseFloat(latStr);
+    const lng = parseFloat(lonStr);
+    if (isNaN(lat) || isNaN(lng)) continue;
+    suggestions.push({ lat, lng, displayName: text });
+  }
+  return suggestions;
+}

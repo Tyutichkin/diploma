@@ -22,6 +22,7 @@ import {
 interface TaskItemProps {
   task: Task;
   index: number;
+  isAddressless?: boolean;
   isStart?: boolean;
   isEnd?: boolean;
   canSetStart?: boolean;
@@ -34,11 +35,14 @@ interface TaskItemProps {
   onSetRole?: (id: string, role: 'start' | 'end' | null) => void;
 }
 
-const ITEM_TYPE = 'TASK';
+// Раздельные типы DnD предотвращают перетаскивание между группами.
+const ITEM_TYPE_WITH_ADDR = 'TASK_WITH_ADDR';
+const ITEM_TYPE_NO_ADDR = 'TASK_NO_ADDR';
 
 export function TaskItem({
   task,
   index,
+  isAddressless = false,
   isStart,
   isEnd,
   canSetStart,
@@ -50,8 +54,10 @@ export function TaskItem({
   onMoveEnd,
   onSetRole,
 }: TaskItemProps) {
+  const itemType = isAddressless ? ITEM_TYPE_NO_ADDR : ITEM_TYPE_WITH_ADDR;
+
   const [{ isDragging }, drag, preview] = useDrag({
-    type: ITEM_TYPE,
+    type: itemType,
     item: { index },
     end: () => {
       void onMoveEnd();
@@ -62,7 +68,7 @@ export function TaskItem({
   });
 
   const [, drop] = useDrop({
-    accept: ITEM_TYPE,
+    accept: itemType,
     hover: (item: { index: number }) => {
       if (item.index !== index) {
         onMove(item.index, index);
@@ -84,15 +90,19 @@ export function TaskItem({
     Sep: React.ComponentType;
   }) => (
     <>
-      <Item disabled={startDisabled} onClick={handleToggleStart}>
-        <Flag className={cn('mr-2 h-3.5 w-3.5', isStart ? 'text-green-600' : 'text-gray-400')} />
-        {startLabel}
-      </Item>
-      <Item disabled={endDisabled} onClick={handleToggleEnd}>
-        <Flag className={cn('mr-2 h-3.5 w-3.5', isEnd ? 'text-orange-500' : 'text-gray-400')} />
-        {endLabel}
-      </Item>
-      <Sep />
+      {!isAddressless && (
+        <>
+          <Item disabled={startDisabled} onClick={handleToggleStart}>
+            <Flag className={cn('mr-2 h-3.5 w-3.5', isStart ? 'text-green-600' : 'text-gray-400')} />
+            {startLabel}
+          </Item>
+          <Item disabled={endDisabled} onClick={handleToggleEnd}>
+            <Flag className={cn('mr-2 h-3.5 w-3.5', isEnd ? 'text-orange-500' : 'text-gray-400')} />
+            {endLabel}
+          </Item>
+          <Sep />
+        </>
+      )}
       <Item onClick={() => onEdit(task)}>
         <Edit2 className="mr-2 h-3.5 w-3.5 text-gray-400" />
         Редактировать
@@ -196,18 +206,27 @@ export function TaskItem({
                   </div>
 
                   <div className="mt-2 space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{task.address}</span>
-                    </div>
+                    {task.address ? (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{task.address}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-muted-foreground italic">
+                        <MapPin className="h-4 w-4 flex-shrink-0 opacity-40" />
+                        <span className="text-xs">Без адреса</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4" />
-                        <span>{task.duration} мин</span>
+                        <span>{task.duration != null ? `${task.duration} мин` : 'мгновенная'}</span>
                       </div>
-                      {(task.timeWindowStart || task.timeWindowEnd) && (
+                      {(task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime) && (
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                          {task.timeWindowStart || '—'}&nbsp;—&nbsp;{task.timeWindowEnd || '—'}
+                          {[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'}
+                          &nbsp;—&nbsp;
+                          {[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}
                         </span>
                       )}
                     </div>

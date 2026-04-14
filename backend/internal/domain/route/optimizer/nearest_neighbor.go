@@ -23,6 +23,7 @@ import (
 //  4. If an end node is pinned, append it last.
 //  5. Return the ordered node indices and aggregate statistics.
 //
+// Все временны́е величины хранятся в секундах Unix.
 // Сложность: O(n²).
 type NearestNeighborTW struct{}
 
@@ -30,7 +31,7 @@ func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
 
 func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
 
-func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins int, c Constraints) (Result, error) {
+func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix int64, c Constraints) (Result, error) {
 	n := len(g.Nodes)
 	if n == 0 {
 		return Result{}, nil
@@ -55,7 +56,7 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 	visited[cur] = true
 	order = append(order, cur)
 
-	currentTimeMins := startTimeMins + g.Nodes[cur].DurationMin
+	currentTimeSec := startTimeUnix + int64(g.Nodes[cur].DurationMin)*60
 
 	var totalDistM, totalTravelSec, totalServiceSec, totalWaitSec int
 	totalServiceSec = g.Nodes[cur].DurationMin * 60
@@ -71,8 +72,8 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 				}
 			}
 			if allOtherVisited {
-				currentTimeMins, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
-					appendNode(endIdx, cur, currentTimeMins, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+				currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
+					appendNode(endIdx, cur, currentTimeSec, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
 				visited[endIdx] = true
 				order = append(order, endIdx)
 				break
@@ -91,8 +92,8 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 				continue
 			}
 			e := g.Edges[cur][i]
-			arrivalMins := currentTimeMins + e.DurationSec/60
-			if feasible(g.Nodes[i], arrivalMins) && e.DurationSec < nextDurSec {
+			arrivalSec := currentTimeSec + int64(e.DurationSec)
+			if feasible(g.Nodes[i], arrivalSec) && e.DurationSec < nextDurSec {
 				nextDurSec = e.DurationSec
 				next = i
 			}
@@ -119,16 +120,16 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 			// No selectable node: can only happen with a circular precedence graph.
 			// Place the pinned end node if it remains, then stop.
 			if endIdx >= 0 && !visited[endIdx] {
-				currentTimeMins, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
-					appendNode(endIdx, cur, currentTimeMins, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+				currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
+					appendNode(endIdx, cur, currentTimeSec, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
 				visited[endIdx] = true
 				order = append(order, endIdx)
 			}
 			break
 		}
 
-		currentTimeMins, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
-			appendNode(next, cur, currentTimeMins, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+		currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec =
+			appendNode(next, cur, currentTimeSec, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
 		visited[next] = true
 		order = append(order, next)
 		cur = next
@@ -144,23 +145,23 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeMins 
 }
 
 // appendNode добавляет узел next к текущему состоянию обхода и возвращает
-// обновлённые значения currentTimeMins и агрегатов.
-func appendNode(next, cur, currentTimeMins int, g *Graph, distM, travelSec, serviceSec, waitSec int) (int, int, int, int, int) {
+// обновлённые значения currentTimeSec и агрегатов.
+func appendNode(next, cur int, currentTimeSec int64, g *Graph, distM, travelSec, serviceSec, waitSec int) (int64, int, int, int, int) {
 	e := g.Edges[cur][next]
 	node := g.Nodes[next]
 
-	arrivalMins := currentTimeMins + e.DurationSec/60
-	waitMins := 0
-	if node.WindowStart >= 0 && arrivalMins < node.WindowStart {
-		waitMins = node.WindowStart - arrivalMins
+	arrivalSec := currentTimeSec + int64(e.DurationSec)
+	var waitSec2 int64
+	if node.WindowStart >= 0 && arrivalSec < node.WindowStart {
+		waitSec2 = node.WindowStart - arrivalSec
 	}
 
 	distM += e.DistanceM
 	travelSec += e.DurationSec
 	serviceSec += node.DurationMin * 60
-	waitSec += waitMins * 60
+	waitSec += int(waitSec2)
 
-	return arrivalMins + waitMins + node.DurationMin, distM, travelSec, serviceSec, waitSec
+	return arrivalSec + waitSec2 + int64(node.DurationMin)*60, distM, travelSec, serviceSec, waitSec
 }
 
 // buildPrereqs строит для каждого узла i список узлов, которые должны быть
@@ -184,7 +185,7 @@ func prereqsMet(i int, visited []bool, prereqs [][]int) bool {
 }
 
 // startNode selects the starting node: the one with the earliest time-window
-// open time, or node 0 if no time windows are defined.
+// open time (Unix seconds), or node 0 if no time windows are defined.
 func startNode(g *Graph) int {
 	best := 0
 	for i, node := range g.Nodes {
@@ -198,11 +199,11 @@ func startNode(g *Graph) int {
 	return best
 }
 
-// feasible returns true when service at node can begin by arrivalMins
+// feasible returns true when service at node can begin by arrivalSec
 // (i.e. we can complete service before the window closes).
-func feasible(node Node, arrivalMins int) bool {
+func feasible(node Node, arrivalSec int64) bool {
 	if node.WindowEnd < 0 {
 		return true
 	}
-	return arrivalMins <= node.WindowEnd-node.DurationMin
+	return arrivalSec <= node.WindowEnd-int64(node.DurationMin)*60
 }

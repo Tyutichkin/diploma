@@ -7,13 +7,13 @@ type Node struct {
 	Lng    float64
 
 	// WindowStart is the earliest allowed service-start time,
-	// expressed as minutes since midnight.  -1 means no constraint.
-	WindowStart int
+	// expressed as Unix seconds.  -1 means no constraint.
+	WindowStart int64
 
 	// WindowEnd is the latest allowed service-start time,
-	// expressed as minutes since midnight.  -1 means no constraint.
-	// The service must begin no later than WindowEnd-DurationMin.
-	WindowEnd int
+	// expressed as Unix seconds.  -1 means no constraint.
+	// The service must begin no later than WindowEnd - DurationMin*60.
+	WindowEnd int64
 
 	DurationMin int // service duration at this stop, in minutes
 }

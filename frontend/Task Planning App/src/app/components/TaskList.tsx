@@ -1,7 +1,8 @@
-import { Task } from '../types/task';
+import { Task, taskHasAddress } from '../types/task';
 import { TaskItem } from './TaskItem';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { MapPin, MapPinOff } from 'lucide-react';
 
 interface TaskListProps {
   tasks: Task[];
@@ -26,6 +27,9 @@ export function TaskList({
   onReorderEnd,
   onSetRole,
 }: TaskListProps) {
+  const withAddress = tasks.filter(taskHasAddress);
+  const withoutAddress = tasks.filter((t) => !taskHasAddress(t));
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="flex-shrink-0">
@@ -39,23 +43,67 @@ export function TaskList({
             </div>
           ) : (
             <div>
-              {tasks.map((task, index) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  index={index}
-                  isStart={task.id === startTaskId}
-                  isEnd={task.id === endTaskId}
-                  canSetStart={!startTaskId || task.id === startTaskId}
-                  canSetEnd={!endTaskId || task.id === endTaskId}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onToggleComplete={onToggleComplete}
-                  onMove={onReorder}
-                  onMoveEnd={onReorderEnd}
-                  onSetRole={onSetRole}
-                />
-              ))}
+              {/* ── Группа «С адресом» ──────────────────────────── */}
+              {withAddress.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <MapPin className="h-3.5 w-3.5" />
+                    С адресом ({withAddress.length})
+                  </div>
+                  {withAddress.map((task) => {
+                    const globalIndex = tasks.findIndex((t) => t.id === task.id);
+                    return (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        index={globalIndex}
+                        isAddressless={false}
+                        isStart={task.id === startTaskId}
+                        isEnd={task.id === endTaskId}
+                        canSetStart={!startTaskId || task.id === startTaskId}
+                        canSetEnd={!endTaskId || task.id === endTaskId}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onToggleComplete={onToggleComplete}
+                        onMove={onReorder}
+                        onMoveEnd={onReorderEnd}
+                        onSetRole={onSetRole}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Группа «Без адреса» ─────────────────────────── */}
+              {withoutAddress.length > 0 && (
+                <div className={withAddress.length > 0 ? 'mt-4' : ''}>
+                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    <MapPinOff className="h-3.5 w-3.5" />
+                    Без адреса ({withoutAddress.length})
+                  </div>
+                  {withoutAddress.map((task) => {
+                    const globalIndex = tasks.findIndex((t) => t.id === task.id);
+                    return (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        index={globalIndex}
+                        isAddressless={true}
+                        isStart={false}
+                        isEnd={false}
+                        canSetStart={false}
+                        canSetEnd={false}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onToggleComplete={onToggleComplete}
+                        onMove={onReorder}
+                        onMoveEnd={onReorderEnd}
+                        onSetRole={onSetRole}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </ScrollArea>

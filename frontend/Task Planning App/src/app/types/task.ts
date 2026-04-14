@@ -1,15 +1,41 @@
 export interface Task {
   id: string;
   title: string;
-  address: string;
+  address?: string; // пустая строка или отсутствие = нет адреса
   latitude?: number;
   longitude?: number;
-  duration: number; // minutes
-  timeWindowStart?: string; // ISO time string or "HH:mm"
-  timeWindowEnd?: string; // ISO time string or "HH:mm"
+  duration?: number; // minutes; undefined = мгновенная задача
+
+  // Раздельные дата и время для временных окон.
+  windowStartDate?: string; // "YYYY-MM-DD"
+  windowStartTime?: string; // "HH:mm"
+  windowEndDate?: string;   // "YYYY-MM-DD"
+  windowEndTime?: string;   // "HH:mm"
+
   priority?: number; // 1-5
   completed?: boolean;
   order?: number;
+}
+
+/** Возвращает true, если задача имеет привязанный адрес и координаты. */
+export function taskHasAddress(task: Task): boolean {
+  return Boolean(task.address) && task.latitude !== undefined && task.longitude !== undefined;
+}
+
+/** Собирает дату+время в "YYYY-MM-DD HH:mm" строку для отображения. */
+export function formatWindowBound(date?: string, time?: string): string | undefined {
+  if (!date && !time) return undefined;
+  if (date && time) return `${date} ${time}`;
+  if (date) return date;
+  return time;
+}
+
+/** Собирает datetime в миллисекунды для сравнения. */
+export function windowBoundMs(date?: string, time?: string): number | null {
+  if (!date) return null;
+  const str = time ? `${date}T${time}` : date;
+  const ms = new Date(str).getTime();
+  return isNaN(ms) ? null : ms;
 }
 
 export interface OptimizedRoute {

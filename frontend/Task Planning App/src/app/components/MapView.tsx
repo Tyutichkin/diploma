@@ -152,8 +152,8 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
             `<div style="font-weight:600;margin-top:8px">#${index + 1} ${task.title}</div>`,
             `<div style="color:#555">${task.address}</div>`,
             `<div style="color:#555;margin-top:2px">Длительность: ${task.duration} мин</div>`,
-            task.timeWindowStart && task.timeWindowEnd
-              ? `<div style="color:#555">Окно: ${task.timeWindowStart} – ${task.timeWindowEnd}</div>`
+            (task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime)
+              ? `<div style="color:#555">Окно: ${[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'} – ${[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}</div>`
               : '',
           ]
             .filter(Boolean)

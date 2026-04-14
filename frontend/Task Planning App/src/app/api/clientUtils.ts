@@ -37,6 +37,7 @@ export interface ApiTask {
   WindowStart?: string | null;
   WindowEnd?: string | null;
   SortIndex: number;
+  IsCompleted: boolean;
 }
 
 export interface MappedTask {
@@ -63,6 +64,6 @@ export function mapTaskFromApi(task: ApiTask): MappedTask {
     timeWindowStart: normalizeTime(task.WindowStart),
     timeWindowEnd: normalizeTime(task.WindowEnd),
     order: task.SortIndex,
-    completed: false,
+    completed: task.IsCompleted,
   };
 }

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Task, OptimizedRoute } from '../types/task';
+import { Task, OptimizedRoute, taskHasAddress, windowBoundMs, formatWindowBound } from '../types/task';
 import { SavedRouteSummary } from '../types/route';
 import { TaskList } from './TaskList';
 import { TaskForm, TaskRole } from './TaskForm';
+import { TaskImport, ImportedTaskRow } from './TaskImport';
 import { MapView, TransportMode, RouteLeg } from './MapView';
 import { RouteStepList } from './RouteStepList';
 import { Button } from './ui/button';
@@ -23,7 +24,7 @@ import {
   Pencil,
   Check,
   X,
-
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildYandexDistanceMatrix, geocodeAddressSuggestions } from '../utils/routeOptimizer';
@@ -34,7 +35,6 @@ import {
   deleteAllRoutes,
   deleteRoute,
   deleteTask,
-  getCompletedTaskIdsStorageKey,
   getRoute,
   listRoutes,
   listTasks,
@@ -57,48 +57,11 @@ function normalizeTasksOrder(tasks: Task[]) {
   }));
 }
 
-function mergeCompletedState(tasks: Task[], completedIds: string[]) {
-  const completedSet = new Set(completedIds);
-  return tasks.map((task) => ({
-    ...task,
-    completed: completedSet.has(task.id),
-  }));
-}
-
-function readCompletedTaskIds(email: string) {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const raw = window.localStorage.getItem(getCompletedTaskIdsStorageKey(email));
-  if (!raw) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as string[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function timeToMins(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function minsToTime(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
 
 function validateStartEndConstraints(
   tasks: Task[],
   startTaskId: string,
   endTaskId: string,
-  startTimeMins: number,
 ): string[] {
   const issues: string[] = [];
   const startTask = startTaskId ? tasks.find((t) => t.id === startTaskId) : null;
@@ -106,58 +69,45 @@ function validateStartEndConstraints(
 
   if (!startTask && !endTask) return issues;
 
-  // Начальная точка: её окно должно быть доступно в момент старта маршрута
-  if (startTask?.timeWindowEnd) {
-    const winEnd = timeToMins(startTask.timeWindowEnd);
-    if (winEnd < startTimeMins) {
-      issues.push(
-        `Временное окно начальной точки "${startTask.title}" заканчивается в ${startTask.timeWindowEnd}, раньше времени начала маршрута (${minsToTime(startTimeMins)}).`,
-      );
-    }
-  }
-
   // Начальная точка vs конечная точка
   if (startTask && endTask) {
-    const sWinStart = startTask.timeWindowStart ? timeToMins(startTask.timeWindowStart) : null;
-    const sWinEnd = startTask.timeWindowEnd ? timeToMins(startTask.timeWindowEnd) : null;
-    const eWinEnd = endTask.timeWindowEnd ? timeToMins(endTask.timeWindowEnd) : null;
-    const eWinStart = endTask.timeWindowStart ? timeToMins(endTask.timeWindowStart) : null;
+    const sWinStart = windowBoundMs(startTask.windowStartDate, startTask.windowStartTime);
+    const sWinEnd = windowBoundMs(startTask.windowEndDate, startTask.windowEndTime);
+    const eWinEnd = windowBoundMs(endTask.windowEndDate, endTask.windowEndTime);
+    const eWinStart = windowBoundMs(endTask.windowStartDate, endTask.windowStartTime);
 
-    // Начало старта позже конца финиша
     if (sWinStart !== null && eWinEnd !== null && sWinStart >= eWinEnd) {
       issues.push(
-        `Начальная точка "${startTask.title}" начинается в ${startTask.timeWindowStart}, но конечная точка "${endTask.title}" заканчивается в ${endTask.timeWindowEnd}. Маршрут заведомо невозможен.`,
+        `Начальная точка "${startTask.title}" начинается в ${formatWindowBound(startTask.windowStartDate, startTask.windowStartTime)}, но конечная точка "${endTask.title}" заканчивается в ${formatWindowBound(endTask.windowEndDate, endTask.windowEndTime)}. Маршрут заведомо невозможен.`,
       );
     }
 
-    // После завершения начальной задачи окно конечной уже закрыто
     if (sWinStart !== null && eWinEnd !== null) {
-      const earliestDoneStart = sWinStart + startTask.duration;
-      if (earliestDoneStart >= eWinEnd) {
+      const earliestDoneMs = sWinStart + (startTask.duration ?? 0) * 60000;
+      if (earliestDoneMs >= eWinEnd) {
         issues.push(
-          `После выполнения начальной точки "${startTask.title}" (не ранее ${minsToTime(earliestDoneStart)}) временное окно конечной точки "${endTask.title}" уже закрыто (до ${endTask.timeWindowEnd}).`,
+          `После выполнения начальной точки "${startTask.title}" временное окно конечной точки "${endTask.title}" уже закрыто. Маршрут заведомо невозможен.`,
         );
       }
     }
 
-    // Конец окна начальной точки позже начала окна конечной — возможный конфликт
     if (sWinEnd !== null && eWinStart !== null && sWinEnd > eWinStart) {
       issues.push(
-        `Окно начальной точки "${startTask.title}" (до ${startTask.timeWindowEnd}) перекрывается с окном конечной точки "${endTask.title}" (с ${endTask.timeWindowStart}). Маршрут может быть невыполним.`,
+        `Окно начальной точки "${startTask.title}" перекрывается с окном конечной точки "${endTask.title}". Маршрут может быть невыполним.`,
       );
     }
   }
 
   // Промежуточные задачи vs начальная точка
-  if (startTask?.timeWindowStart) {
-    const sWinStart = timeToMins(startTask.timeWindowStart);
-    for (const task of tasks) {
-      if (task.id === startTaskId || task.id === endTaskId) continue;
-      if (task.timeWindowEnd) {
-        const tWinEnd = timeToMins(task.timeWindowEnd);
-        if (tWinEnd <= sWinStart) {
+  if (startTask?.windowStartDate) {
+    const sWinStart = windowBoundMs(startTask.windowStartDate, startTask.windowStartTime);
+    if (sWinStart !== null) {
+      for (const task of tasks) {
+        if (task.id === startTaskId || task.id === endTaskId) continue;
+        const tWinEnd = windowBoundMs(task.windowEndDate, task.windowEndTime);
+        if (tWinEnd !== null && tWinEnd <= sWinStart) {
           issues.push(
-            `Задача "${task.title}" должна быть завершена до ${task.timeWindowEnd}, но начальная точка "${startTask.title}" не откроется раньше ${startTask.timeWindowStart}. Задача не может быть выполнена после начальной точки.`,
+            `Задача "${task.title}" должна быть завершена до ${formatWindowBound(task.windowEndDate, task.windowEndTime)}, но начальная точка "${startTask.title}" не откроется раньше ${formatWindowBound(startTask.windowStartDate, startTask.windowStartTime)}.`,
           );
         }
       }
@@ -165,15 +115,15 @@ function validateStartEndConstraints(
   }
 
   // Промежуточные задачи vs конечная точка
-  if (endTask?.timeWindowEnd) {
-    const eWinEnd = timeToMins(endTask.timeWindowEnd);
-    for (const task of tasks) {
-      if (task.id === startTaskId || task.id === endTaskId) continue;
-      if (task.timeWindowStart) {
-        const tWinStart = timeToMins(task.timeWindowStart);
-        if (tWinStart >= eWinEnd) {
+  if (endTask?.windowEndDate) {
+    const eWinEnd = windowBoundMs(endTask.windowEndDate, endTask.windowEndTime);
+    if (eWinEnd !== null) {
+      for (const task of tasks) {
+        if (task.id === startTaskId || task.id === endTaskId) continue;
+        const tWinStart = windowBoundMs(task.windowStartDate, task.windowStartTime);
+        if (tWinStart !== null && tWinStart >= eWinEnd) {
           issues.push(
-            `Задача "${task.title}" начинается не ранее ${task.timeWindowStart}, но конечная точка "${endTask.title}" закрывается в ${endTask.timeWindowEnd}. Задача не может быть выполнена до конечной точки.`,
+            `Задача "${task.title}" начинается не ранее ${formatWindowBound(task.windowStartDate, task.windowStartTime)}, но конечная точка "${endTask.title}" закрывается в ${formatWindowBound(endTask.windowEndDate, endTask.windowEndTime)}.`,
           );
         }
       }
@@ -211,9 +161,6 @@ export function MainPage() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [routeOptimized, setRouteOptimized] = useState(false);
   const [optimizedInfo, setOptimizedInfo] = useState<OptimizedRoute | null>(null);
-  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>(() =>
-    session ? readCompletedTaskIds(session.email) : [],
-  );
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
   const [loadingRouteId, setLoadingRouteId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
@@ -223,6 +170,7 @@ export function MainPage() {
   const [startTaskId, setStartTaskId] = useState<string>('');
   const [endTaskId, setEndTaskId] = useState<string>('');
   const [precedences, setPrecedences] = useState<PrecedencePair[]>([]);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleUnauthorized = useCallback(async () => {
     toast.error('Сессия истекла. Выполните вход заново.');
@@ -247,30 +195,6 @@ export function MainPage() {
     setTasks(normalized);
   }, []);
 
-  useEffect(() => {
-    if (!session) {
-      return;
-    }
-
-    setCompletedTaskIds(readCompletedTaskIds(session.email));
-  }, [session]);
-
-  useEffect(() => {
-    if (!session || typeof window === 'undefined' || isLoading) {
-      return;
-    }
-
-    const availableIds = new Set(tasks.map((task) => task.id));
-    const cleaned = completedTaskIds.filter((id) => availableIds.has(id));
-    const storageKey = getCompletedTaskIdsStorageKey(session.email);
-
-    window.localStorage.setItem(storageKey, JSON.stringify(cleaned));
-
-    if (cleaned.length !== completedTaskIds.length) {
-      setCompletedTaskIds(cleaned);
-    }
-  }, [completedTaskIds, session, tasks, isLoading]);
-
   const loadData = useCallback(async () => {
     if (!requestOptions || !session) {
       return;
@@ -284,9 +208,7 @@ export function MainPage() {
         listRoutes(requestOptions),
       ]);
 
-      const completedIds = readCompletedTaskIds(session.email);
-      replaceTasks(mergeCompletedState(serverTasks, completedIds));
-      setCompletedTaskIds(completedIds);
+      replaceTasks(serverTasks);
       setSavedRoutes(routes);
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 401)) {
@@ -337,6 +259,62 @@ export function MainPage() {
     setIsFormOpen(true);
   };
 
+  const handleImportTasks = async (rows: ImportedTaskRow[]) => {
+    if (!requestOptions) return;
+
+    let created = 0;
+    let geocodeFailed = 0;
+
+    for (const row of rows) {
+      let lat: number | undefined;
+      let lng: number | undefined;
+      let resolvedAddress: string | undefined = row.address;
+
+      if (row.address) {
+        try {
+          const suggestions = await geocodeAddressSuggestions(row.address);
+          if (suggestions.length > 0) {
+            lat = suggestions[0].lat;
+            lng = suggestions[0].lng;
+            resolvedAddress = suggestions[0].displayName;
+          } else {
+            geocodeFailed++;
+            resolvedAddress = undefined;
+          }
+        } catch {
+          geocodeFailed++;
+          resolvedAddress = undefined;
+        }
+      }
+
+      const savedTask = await createTask(
+        {
+          title: row.title,
+          address: resolvedAddress,
+          latitude: lat,
+          longitude: lng,
+          duration: row.duration,
+          windowStartTime: row.timeWindowStart,
+          windowEndTime: row.timeWindowEnd,
+          sortIndex: tasksRef.current.length + created,
+        },
+        requestOptions,
+      );
+
+      replaceTasks([...tasksRef.current, savedTask]);
+      created++;
+    }
+
+    toast.success(
+      geocodeFailed > 0
+        ? `Импортировано ${created} задач. Геокодирование не удалось для ${geocodeFailed} адресов — они сохранены без координат.`
+        : `Импортировано ${created} задач`,
+    );
+    setRouteOptimized(false);
+    setOptimizedInfo(null);
+    setActiveRouteId(null);
+  };
+
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setIsFormOpen(true);
@@ -360,7 +338,8 @@ export function MainPage() {
       return;
     }
 
-    if (task.latitude === undefined || task.longitude === undefined) {
+    // Задача с адресом должна иметь координаты (геокодирование в TaskForm гарантирует это)
+    if (task.address && (task.latitude === undefined || task.longitude === undefined)) {
       throw new Error('Не удалось определить координаты адреса.');
     }
 
@@ -377,8 +356,10 @@ export function MainPage() {
             latitude: task.latitude,
             longitude: task.longitude,
             duration: task.duration,
-            timeWindowStart: task.timeWindowStart,
-            timeWindowEnd: task.timeWindowEnd,
+            windowStartDate: task.windowStartDate,
+            windowStartTime: task.windowStartTime,
+            windowEndDate: task.windowEndDate,
+            windowEndTime: task.windowEndTime,
             sortIndex: task.order ?? 0,
           },
           requestOptions,
@@ -386,9 +367,7 @@ export function MainPage() {
 
         replaceTasks(
           tasksRef.current.map((currentTask) =>
-            currentTask.id === task.id
-              ? { ...savedTask, completed: task.completed }
-              : currentTask,
+            currentTask.id === task.id ? savedTask : currentTask,
           ),
         );
         savedId = task.id;
@@ -401,8 +380,10 @@ export function MainPage() {
             latitude: task.latitude,
             longitude: task.longitude,
             duration: task.duration,
-            timeWindowStart: task.timeWindowStart,
-            timeWindowEnd: task.timeWindowEnd,
+            windowStartDate: task.windowStartDate,
+            windowStartTime: task.windowStartTime,
+            windowEndDate: task.windowEndDate,
+            windowEndTime: task.windowEndTime,
             sortIndex: tasksRef.current.length,
           },
           requestOptions,
@@ -444,7 +425,6 @@ export function MainPage() {
     try {
       await deleteTask(id, requestOptions);
       replaceTasks(tasksRef.current.filter((task) => task.id !== id));
-      setCompletedTaskIds((currentIds) => currentIds.filter((taskId) => taskId !== id));
       if (startTaskId === id) setStartTaskId('');
       if (endTaskId === id) setEndTaskId('');
       setRouteOptimized(false);
@@ -459,18 +439,36 @@ export function MainPage() {
     }
   };
 
-  const handleToggleComplete = (id: string) => {
-    setCompletedTaskIds((currentIds) =>
-      currentIds.includes(id)
-        ? currentIds.filter((taskId) => taskId !== id)
-        : [...currentIds, id],
-    );
+  const handleToggleComplete = async (id: string) => {
+    if (!requestOptions) {
+      return;
+    }
+
+    const task = tasksRef.current.find((t) => t.id === id);
+    if (!task) {
+      return;
+    }
+
+    const newCompleted = !task.completed;
 
     replaceTasks(
-      tasksRef.current.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task,
+      tasksRef.current.map((t) =>
+        t.id === id ? { ...t, completed: newCompleted } : t,
       ),
     );
+
+    try {
+      await updateTask(id, { completed: newCompleted }, requestOptions);
+    } catch (error) {
+      replaceTasks(
+        tasksRef.current.map((t) =>
+          t.id === id ? { ...t, completed: task.completed } : t,
+        ),
+      );
+      if (!(error instanceof ApiError && error.status === 401)) {
+        toast.error('Не удалось сохранить статус задачи');
+      }
+    }
   };
 
   const handleReorderTasks = (dragIndex: number, hoverIndex: number) => {
@@ -493,16 +491,23 @@ export function MainPage() {
   };
 
   const handleOptimizeRoute = async () => {
-    if (!requestOptions || tasksRef.current.length < 2) {
+    if (!requestOptions) {
       return;
     }
 
-    const START_TIME_MINS = 540;
+    // Оптимизируем только задачи с адресом; задачи без адреса остаются в своей группе.
+    const addressTasks = tasksRef.current.filter(taskHasAddress);
+    const addresslessTasks = tasksRef.current.filter((t) => !taskHasAddress(t));
+
+    if (addressTasks.length < 2) {
+      toast.warning('Для оптимизации нужно минимум 2 задачи с адресом.');
+      return;
+    }
+
     const constraintIssues = validateStartEndConstraints(
-      tasksRef.current,
+      addressTasks,
       startTaskId,
       endTaskId,
-      START_TIME_MINS,
     );
     if (constraintIssues.length > 0) {
       for (const issue of constraintIssues) {
@@ -515,31 +520,30 @@ export function MainPage() {
     toast.info('Построение матрицы расстояний через Яндекс...');
 
     try {
-      // Шаг 1: строим матрицу расстояний через Yandex Maps JS API —
-      // тот же движок, что рисует маршрут на карте (учёт пробок, реальная сеть).
-      // Это гарантирует, что порядок задач при оптимизации совпадает с
-      // маршрутом, отображаемым на экране.
-      const distanceMatrix = await buildYandexDistanceMatrix(tasksRef.current, transportMode);
+      // Шаг 1: строим матрицу расстояний только для задач с адресом.
+      const distanceMatrix = await buildYandexDistanceMatrix(addressTasks, transportMode);
 
       toast.info('Оптимизация маршрута...');
 
       // Шаг 2: бэкенд строит граф из матрицы, запускает алгоритм NNH-TW
-      // и возвращает оптимальный порядок задач.
+      // и возвращает оптимальный порядок задач с адресом.
       const constraintPairs: PrecedenceConstraint[] = precedences
         .filter((p) => p.beforeId && p.afterId && p.beforeId !== p.afterId)
         .map((p) => ({ beforeTaskId: p.beforeId, afterTaskId: p.afterId }));
 
       const result = await optimizeRoute(
-        tasksRef.current.map((t) => t.id),
+        addressTasks.map((t) => t.id),
         requestOptions,
-        540,
+        0,
         distanceMatrix,
         startTaskId || undefined,
         endTaskId || undefined,
         constraintPairs.length > 0 ? constraintPairs : undefined,
       );
 
-      const orderedTasks = normalizeTasksOrder(reorderTasksByIds(tasksRef.current, result.orderedTaskIds));
+      // Переупорядочиваем задачи с адресом; задачи без адреса идут в конец.
+      const orderedAddressTasks = reorderTasksByIds(addressTasks, result.orderedTaskIds);
+      const orderedTasks = normalizeTasksOrder([...orderedAddressTasks, ...addresslessTasks]);
       replaceTasks(orderedTasks);
 
       const orderSaved = await persistTaskOrder(orderedTasks);
@@ -552,11 +556,11 @@ export function MainPage() {
         ...currentRoutes,
       ]);
       setOptimizedInfo({
-        tasks: orderedTasks,
+        tasks: orderedAddressTasks,
         totalDistance: result.totalDistanceKm ?? 0,
         totalTravelTime: result.totalTravelTimeMin ?? 0,
         totalDuration:
-          result.totalDurationMin ?? orderedTasks.reduce((sum, t) => sum + t.duration, 0),
+          result.totalDurationMin ?? orderedAddressTasks.reduce((sum, t) => sum + t.duration, 0),
       });
       setRouteOptimized(true);
       setActiveRouteId(result.id);
@@ -689,8 +693,10 @@ export function MainPage() {
         },
         duration: task.duration,
         timeWindow: {
-          start: task.timeWindowStart,
-          end: task.timeWindowEnd,
+          startDate: task.windowStartDate,
+          startTime: task.windowStartTime,
+          endDate: task.windowEndDate,
+          endTime: task.windowEndTime,
         },
         completed: task.completed,
       })),
@@ -741,6 +747,17 @@ export function MainPage() {
             </TooltipTrigger>
             <TooltipContent>
               <p>Создать новую задачу с адресом и временными рамками</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Импорт из файла
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Загрузить задачи из CSV или Excel-файла</p>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -1073,6 +1090,11 @@ export function MainPage() {
           onClose={() => setIsFormOpen(false)}
           onSave={handleSaveTask}
           onGeocodeMultiple={geocodeAddressSuggestions}
+        />
+        <TaskImport
+          open={isImportOpen}
+          onOpenChange={setIsImportOpen}
+          onImport={handleImportTasks}
         />
       </div>
     </DndProvider>

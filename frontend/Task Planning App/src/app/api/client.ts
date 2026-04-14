@@ -20,12 +20,15 @@ interface ApiTask {
   ID: string;
   Title: string;
   AddressText: string;
-  Latitude: number;
-  Longitude: number;
-  DurationMin: number;
-  WindowStart?: string | null;
-  WindowEnd?: string | null;
+  Latitude: number | null;
+  Longitude: number | null;
+  DurationMin: number | null;
+  WindowStartDate?: string | null;
+  WindowStartTime?: string | null;
+  WindowEndDate?: string | null;
+  WindowEndTime?: string | null;
   SortIndex: number;
+  IsCompleted: boolean;
 }
 
 interface ApiRoute {
@@ -144,13 +147,16 @@ export async function listTasks(options: AuthorizedRequestOptions) {
 
 export interface SaveTaskInput {
   title: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  duration: number;
-  timeWindowStart?: string;
-  timeWindowEnd?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  duration?: number;
+  windowStartDate?: string; // "YYYY-MM-DD"
+  windowStartTime?: string; // "HH:mm"
+  windowEndDate?: string;
+  windowEndTime?: string;
   sortIndex: number;
+  completed?: boolean;
 }
 
 export async function createTask(input: SaveTaskInput, options: AuthorizedRequestOptions) {
@@ -160,12 +166,14 @@ export async function createTask(input: SaveTaskInput, options: AuthorizedReques
       method: 'POST',
       body: JSON.stringify({
         title: input.title,
-        addressText: input.address,
-        latitude: input.latitude,
-        longitude: input.longitude,
+        addressText: input.address ?? null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
         durationMin: input.duration,
-        windowStart: serializeTime(input.timeWindowStart),
-        windowEnd: serializeTime(input.timeWindowEnd),
+        windowStartDate: input.windowStartDate || null,
+        windowStartTime: input.windowStartTime || null,
+        windowEndDate: input.windowEndDate || null,
+        windowEndTime: input.windowEndTime || null,
         sortIndex: input.sortIndex,
       }),
     },
@@ -186,9 +194,12 @@ export async function updateTask(taskId: string, input: Partial<SaveTaskInput>, 
         latitude: input.latitude,
         longitude: input.longitude,
         durationMin: input.duration,
-        windowStart: input.timeWindowStart === undefined ? undefined : serializeTime(input.timeWindowStart),
-        windowEnd: input.timeWindowEnd === undefined ? undefined : serializeTime(input.timeWindowEnd),
+        windowStartDate: input.windowStartDate,
+        windowStartTime: input.windowStartTime,
+        windowEndDate: input.windowEndDate,
+        windowEndTime: input.windowEndTime,
         sortIndex: input.sortIndex,
+        isCompleted: input.completed,
       }),
     },
     options,
@@ -239,10 +250,11 @@ export interface PrecedenceConstraint {
 //
 // startTaskId and endTaskId pin the first and last stops respectively.
 // precedenceConstraints enforces that certain tasks are visited before others.
+// startTimeUnix — Unix seconds (0 → backend defaults to today 09:00 UTC).
 export async function optimizeRoute(
   taskIds: string[],
   options: AuthorizedRequestOptions,
-  startTimeMins = 540,
+  startTimeUnix = 0,
   distanceMatrix?: DistanceCell[][],
   startTaskId?: string,
   endTaskId?: string,
@@ -254,7 +266,7 @@ export async function optimizeRoute(
       method: 'POST',
       body: JSON.stringify({
         taskIds,
-        startTimeMins,
+        startTimeUnix,
         distanceMatrix,
         startTaskId: startTaskId ?? undefined,
         endTaskId: endTaskId ?? undefined,
@@ -382,14 +394,16 @@ function mapTaskFromApi(task: ApiTask): Task {
   return {
     id: task.ID,
     title: task.Title,
-    address: task.AddressText,
-    latitude: task.Latitude,
-    longitude: task.Longitude,
-    duration: task.DurationMin,
-    timeWindowStart: normalizeTime(task.WindowStart),
-    timeWindowEnd: normalizeTime(task.WindowEnd),
+    address: task.AddressText || undefined,
+    latitude: task.Latitude ?? undefined,
+    longitude: task.Longitude ?? undefined,
+    duration: task.DurationMin ?? undefined,
+    windowStartDate: task.WindowStartDate || undefined,
+    windowStartTime: task.WindowStartTime || undefined,
+    windowEndDate: task.WindowEndDate || undefined,
+    windowEndTime: task.WindowEndTime || undefined,
     order: task.SortIndex,
-    completed: false,
+    completed: task.IsCompleted,
   };
 }
 
@@ -408,9 +422,9 @@ function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
     .sort((left, right) => left.Position - right.Position)
     .map((stop) => stop.TaskID);
 
-  const totalDistanceKm = route.Stats?.TotalDistanceM ? route.Stats.TotalDistanceM / 1000 : undefined;
-  const totalTravelTimeMin = route.Stats?.TotalTravelSec ? Math.round(route.Stats.TotalTravelSec / 60) : undefined;
-  const serviceTimeMin = route.Stats?.TotalServiceSec ? Math.round(route.Stats.TotalServiceSec / 60) : undefined;
+  const totalDistanceKm = route.Stats?.TotalDistanceM != null ? route.Stats.TotalDistanceM / 1000 : undefined;
+  const totalTravelTimeMin = route.Stats?.TotalTravelSec != null ? Math.round(route.Stats.TotalTravelSec / 60) : undefined;
+  const serviceTimeMin = route.Stats?.TotalServiceSec != null ? Math.round(route.Stats.TotalServiceSec / 60) : undefined;
 
   return {
     ...mapRouteSummary(route.Route),
@@ -424,21 +438,6 @@ function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
   };
 }
 
-function normalizeTime(value?: string | null) {
-  if (!value) {
-    return undefined;
-  }
-
-  return value.slice(0, 5);
-}
-
-function serializeTime(value?: string) {
-  if (!value) {
-    return '';
-  }
-
-  return value.length === 5 ? `${value}:00` : value;
-}
 
 function getEmailFromToken(token: string) {
   try {

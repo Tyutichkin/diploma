@@ -2,9 +2,8 @@ package story
 
 import (
 	"context"
-	"errors"
-	"strconv"
-	"strings"
+	"fmt"
+	"time"
 
 	"planner-backend/internal/domain/task"
 	taskgate "planner-backend/internal/domain/task/gate"
@@ -23,55 +22,112 @@ func (s *Story) List(ctx context.Context, userID string) ([]task.Task, error) {
 }
 
 func (s *Story) Create(ctx context.Context, userID string, in task.CreateInput) (task.Task, error) {
-	if in.Title == "" || in.AddressText == "" {
-		return task.Task{}, errors.New("title/address required")
+	if in.Title == "" {
+		return task.Task{}, &task.ValidationError{Message: "title required"}
 	}
-	if in.DurationMin <= 0 {
-		return task.Task{}, errors.New("duration_min must be positive")
+	if in.DurationMin != nil && *in.DurationMin < 0 {
+		return task.Task{}, &task.ValidationError{Message: "duration_min must not be negative"}
 	}
-	if err := validateTimeWindow(in.WindowStart, in.WindowEnd); err != nil {
+	if err := validateWindow(
+		in.WindowStartDate, in.WindowStartTime,
+		in.WindowEndDate, in.WindowEndTime,
+	); err != nil {
 		return task.Task{}, err
 	}
+	// Если дата не указана — проставляем сегодня.
+	fillDefaultDate(&in.WindowStartDate, in.WindowStartTime)
+	fillDefaultDate(&in.WindowEndDate, in.WindowEndTime)
 	return s.tasks.Create(ctx, userID, in)
 }
 
 func (s *Story) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
-	if err := validateTimeWindow(in.WindowStart, in.WindowEnd); err != nil {
+	if err := validateWindow(
+		in.WindowStartDate, in.WindowStartTime,
+		in.WindowEndDate, in.WindowEndTime,
+	); err != nil {
 		return task.Task{}, false, err
 	}
+	// Для update: заполняем дефолтную дату только если поле присутствует (не nil)
+	// и не является сбросом (не "").
+	fillDefaultDateUpdate(&in.WindowStartDate, in.WindowStartTime)
+	fillDefaultDateUpdate(&in.WindowEndDate, in.WindowEndTime)
 	return s.tasks.Update(ctx, userID, taskID, in)
 }
 
-// validateTimeWindow returns an error when both boundaries are set and start >= end.
-// A single boundary (only start or only end) is accepted without validation.
-func validateTimeWindow(start, end *string) error {
-	if start == nil || end == nil || *start == "" || *end == "" {
+// validateWindow проверяет, что если заданы обе даты+время, то start < end.
+// Если указана только дата без времени — это "весь день", не валидируем время.
+func validateWindow(startDate, startTime, endDate, endTime *string) error {
+	// Обе пустые/nil — ок
+	sDate := derefStr(startDate)
+	eDate := derefStr(endDate)
+	if sDate == "" && eDate == "" {
 		return nil
 	}
-	sMin := parseWindowTimeMins(*start)
-	eMin := parseWindowTimeMins(*end)
-	if sMin < 0 || eMin < 0 {
-		return nil // unparseable values — let the DB reject them
+
+	// Если только одна граница — допустимо, не валидируем перекрытие
+	if sDate == "" || eDate == "" {
+		return nil
 	}
-	if sMin >= eMin {
-		return errors.New("window_start must be before window_end")
+
+	sTime := derefStr(startTime)
+	eTime := derefStr(endTime)
+
+	s, err := combineDatetime(sDate, sTime)
+	if err != nil {
+		return nil // непарсимое — пусть БД отклонит
+	}
+	e, err := combineDatetime(eDate, eTime)
+	if err != nil {
+		return nil
+	}
+
+	if !s.Before(e) {
+		return &task.ValidationError{Message: "window_start must be before window_end"}
 	}
 	return nil
 }
 
-// parseWindowTimeMins converts "HH:MM" or "HH:MM:SS" to minutes since midnight.
-// Returns -1 for nil or unparseable input.
-func parseWindowTimeMins(s string) int {
-	parts := strings.SplitN(s, ":", 3)
-	if len(parts) < 2 {
-		return -1
+// combineDatetime собирает time.Time из строки даты "YYYY-MM-DD" и времени "HH:MM".
+// Если время пустое — считаем начало дня (00:00).
+func combineDatetime(dateStr, timeStr string) (time.Time, error) {
+	if timeStr == "" {
+		return time.Parse("2006-01-02", dateStr)
 	}
-	h, err1 := strconv.Atoi(parts[0])
-	m, err2 := strconv.Atoi(parts[1])
-	if err1 != nil || err2 != nil {
-		return -1
+	return time.Parse("2006-01-02 15:04", fmt.Sprintf("%s %s", dateStr, timeStr))
+}
+
+// fillDefaultDate: если время задано, а дата нет — ставим сегодня.
+func fillDefaultDate(datePtr **string, timePtr *string) {
+	if datePtr == nil || timePtr == nil {
+		return
 	}
-	return h*60 + m
+	// Время задано, дата пуста → ставим сегодня
+	if *timePtr != "" && (*datePtr == nil || **datePtr == "") {
+		today := time.Now().Format("2006-01-02")
+		*datePtr = &today
+	}
+}
+
+// fillDefaultDateUpdate: для UpdateInput (3-state *string).
+// Ставим дефолтную дату, если время присутствует (не nil, не ""), а дата нет.
+func fillDefaultDateUpdate(datePtr **string, timePtr *string) {
+	if timePtr == nil {
+		return
+	}
+	// Время задано — убеждаемся, что дата тоже задана
+	if *timePtr != "" {
+		if datePtr != nil && (*datePtr == nil || **datePtr == "") {
+			today := time.Now().Format("2006-01-02")
+			*datePtr = &today
+		}
+	}
+}
+
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (s *Story) Delete(ctx context.Context, userID, taskID string) (bool, error) {

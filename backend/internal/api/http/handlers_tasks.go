@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -42,15 +43,22 @@ func (h *TaskHandlers) Create(c *gin.Context) {
 		return
 	}
 
+	var addressText string
+	if req.AddressText != nil {
+		addressText = *req.AddressText
+	}
+
 	out, err := h.story.Create(c.Request.Context(), userID, task.CreateInput{
-		Title:       req.Title,
-		AddressText: req.AddressText,
-		Latitude:    req.Latitude,
-		Longitude:   req.Longitude,
-		DurationMin: req.DurationMin,
-		WindowStart: req.WindowStart,
-		WindowEnd:   req.WindowEnd,
-		SortIndex:   req.SortIndex,
+		Title:           req.Title,
+		AddressText:     addressText,
+		Latitude:        req.Latitude,
+		Longitude:       req.Longitude,
+		DurationMin:     req.DurationMin,
+		WindowStartDate: req.WindowStartDate,
+		WindowStartTime: req.WindowStartTime,
+		WindowEndDate:   req.WindowEndDate,
+		WindowEndTime:   req.WindowEndTime,
+		SortIndex:       req.SortIndex,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -74,16 +82,24 @@ func (h *TaskHandlers) Update(c *gin.Context) {
 	}
 
 	out, found, err := h.story.Update(c.Request.Context(), userID, taskID, task.UpdateInput{
-		Title:       req.Title,
-		AddressText: req.AddressText,
-		Latitude:    req.Latitude,
-		Longitude:   req.Longitude,
-		DurationMin: req.DurationMin,
-		WindowStart: req.WindowStart,
-		WindowEnd:   req.WindowEnd,
-		SortIndex:   req.SortIndex,
+		Title:           req.Title,
+		AddressText:     req.AddressText,
+		Latitude:        req.Latitude,
+		Longitude:       req.Longitude,
+		DurationMin:     req.DurationMin,
+		WindowStartDate: req.WindowStartDate,
+		WindowStartTime: req.WindowStartTime,
+		WindowEndDate:   req.WindowEndDate,
+		WindowEndTime:   req.WindowEndTime,
+		SortIndex:       req.SortIndex,
+		IsCompleted:     req.IsCompleted,
 	})
 	if err != nil {
+		var valErr *task.ValidationError
+		if errors.As(err, &valErr) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": valErr.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
 		return
 	}

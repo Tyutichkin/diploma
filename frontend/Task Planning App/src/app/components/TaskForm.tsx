@@ -1,10 +1,9 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Task } from '../types/task';
-import { GeocodeSuggestion } from '../utils/routeOptimizer';
+import { GeocodeSuggestion, suggestAddresses } from '../utils/routeOptimizer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -43,388 +42,441 @@ export function TaskForm({
 }: TaskFormProps) {
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('');
-  const [duration, setDuration] = useState('30');
-  const [timeWindowStart, setTimeWindowStart] = useState('');
-  const [timeWindowEnd, setTimeWindowEnd] = useState('');
+  const [duration, setDuration] = useState('');
+  const [windowStartDate, setWindowStartDate] = useState('');
+  const [windowStartTime, setWindowStartTime] = useState('');
+  const [windowEndDate, setWindowEndDate] = useState('');
+  const [windowEndTime, setWindowEndTime] = useState('');
   const [role, setRole] = useState<TaskRole>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [windowError, setWindowError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<GeocodeSuggestion | null>(null);
-  const [pendingTask, setPendingTask] = useState<Task | null>(null);
+
+  // Автодополнение адреса
+  const [autoSuggestions, setAutoSuggestions] = useState<GeocodeSuggestion[]>([]);
+  const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
+  // Координаты, полученные при выборе из дропдауна — не нужно геокодировать повторно
+  const [preselectedCoords, setPreselectedCoords] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (task) {
       setTitle(task.title);
-      setAddress(task.address);
-      setDuration(task.duration.toString());
-      setTimeWindowStart(task.timeWindowStart || '');
-      setTimeWindowEnd(task.timeWindowEnd || '');
+      setAddress(task.address ?? '');
+      setDuration(task.duration != null ? task.duration.toString() : '');
+      setWindowStartDate(task.windowStartDate || '');
+      setWindowStartTime(task.windowStartTime || '');
+      setWindowEndDate(task.windowEndDate || '');
+      setWindowEndTime(task.windowEndTime || '');
     } else {
       setTitle('');
       setAddress('');
-      setDuration('30');
-      setTimeWindowStart('');
-      setTimeWindowEnd('');
+      setDuration('');
+      setWindowStartDate('');
+      setWindowStartTime('');
+      setWindowEndDate('');
+      setWindowEndTime('');
     }
     setRole(initialRole);
-    setSuggestions([]);
-    setSelectedSuggestion(null);
     setGeocodeError(null);
     setWindowError(null);
-    setPendingTask(null);
+    setAutoSuggestions([]);
+    setAutoSuggestOpen(false);
+    setPreselectedCoords(null);
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
   }, [task, isOpen, initialRole]);
 
   const handleToggleRole = (toggled: 'start' | 'end') => {
     setRole((current) => (current === toggled ? null : toggled));
   };
 
+  const handleAddressChange = (value: string) => {
+    setAddress(value);
+    setGeocodeError(null);
+    if (preselectedCoords && preselectedCoords.address !== value) {
+      setPreselectedCoords(null);
+    }
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    if (!value.trim()) {
+      setAutoSuggestions([]);
+      setAutoSuggestOpen(false);
+      return;
+    }
+    suggestTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await suggestAddresses(value);
+        setAutoSuggestions(results);
+        setAutoSuggestOpen(results.length > 0);
+      } catch {
+        // тихо игнорируем — автодополнение не критично
+      }
+    }, 500);
+  };
+
+  const handleSelectAutoSuggestion = (suggestion: GeocodeSuggestion) => {
+    setAutoSuggestOpen(false);
+    setAutoSuggestions([]);
+    setAddress(suggestion.displayName);
+    setGeocodeError(null);
+    setPreselectedCoords({ lat: suggestion.lat, lng: suggestion.lng, address: suggestion.displayName });
+  };
+
+  /** Вычисляет размер окна в минутах, если обе границы заданы. */
+  const computeWindowMins = (): number | null => {
+    if (!windowStartDate && !windowStartTime && !windowEndDate && !windowEndTime) return null;
+    // Нужна хотя бы одна дата для сравнения
+    const sDate = windowStartDate || windowEndDate;
+    const eDate = windowEndDate || windowStartDate;
+    if (!sDate || !eDate) return null;
+    const sTime = windowStartTime || '00:00';
+    const eTime = windowEndTime || '23:59';
+    const start = new Date(`${sDate}T${sTime}`);
+    const end = new Date(`${eDate}T${eTime}`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+    return (end.getTime() - start.getTime()) / 60000;
+  };
+
+  const buildBaseTask = (): Task => ({
+    id: task?.id || crypto.randomUUID(),
+    title,
+    address,
+    duration: duration.trim() !== '' ? parseInt(duration, 10) : undefined,
+    windowStartDate: windowStartDate || undefined,
+    windowStartTime: windowStartTime || undefined,
+    windowEndDate: windowEndDate || undefined,
+    windowEndTime: windowEndTime || undefined,
+    completed: task?.completed || false,
+    order: task?.order,
+  });
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setGeocodeError(null);
-    setSuggestions([]);
-    setSelectedSuggestion(null);
     setWindowError(null);
 
-    if (timeWindowStart && timeWindowEnd) {
-      const [sh, sm] = timeWindowStart.split(':').map(Number);
-      const [eh, em] = timeWindowEnd.split(':').map(Number);
-      const windowMins = (eh * 60 + em) - (sh * 60 + sm);
-      const durationMins = parseInt(duration, 10) || 0;
-      if (windowMins <= 0) {
-        setWindowError('Конец окна должен быть позже начала.');
-        return;
-      }
-      if (durationMins > windowMins) {
-        setWindowError(`Длительность (${durationMins} мин) превышает размер окна (${windowMins} мин). Увеличьте окно или уменьшите длительность.`);
+    const windowMins = computeWindowMins();
+    if (windowMins !== null && windowMins <= 0) {
+      setWindowError('Конец окна должен быть позже начала.');
+      return;
+    }
+    if (windowMins !== null) {
+      const durationMins = duration.trim() !== '' ? parseInt(duration, 10) : 0;
+      if (durationMins > 0 && durationMins > windowMins) {
+        setWindowError(`Длительность (${durationMins} мин) превышает размер окна (${Math.round(windowMins)} мин). Увеличьте окно или уменьшите длительность.`);
         return;
       }
     }
 
-    // If address hasn't changed for an existing task, skip geocoding
-    if (task && task.address === address && task.latitude !== undefined && task.longitude !== undefined) {
-      const updatedTask: Task = {
-        id: task.id,
-        title,
-        address,
-        latitude: task.latitude,
-        longitude: task.longitude,
-        duration: parseInt(duration, 10) || 30,
-        timeWindowStart: timeWindowStart,
-        timeWindowEnd: timeWindowEnd,
-        completed: task.completed,
-        order: task.order,
-      };
+    // Задача без адреса
+    if (!address.trim()) {
+      const t: Task = { ...buildBaseTask(), address: undefined, latitude: undefined, longitude: undefined };
       setIsGeocoding(true);
-      try {
-        await onSave(updatedTask, role);
-        onClose();
-      } catch {
-        // error shown via toast in parent
-      } finally {
-        setIsGeocoding(false);
-      }
+      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ } finally { setIsGeocoding(false); }
       return;
     }
 
+    // Адрес выбран из автодополнения — координаты уже есть
+    if (preselectedCoords && preselectedCoords.address === address) {
+      const t: Task = { ...buildBaseTask(), latitude: preselectedCoords.lat, longitude: preselectedCoords.lng };
+      setIsGeocoding(true);
+      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ } finally { setIsGeocoding(false); }
+      return;
+    }
+
+    // Адрес не изменился у существующей задачи — пропускаем геокодирование
+    if (task && (task.address ?? '') === address && task.latitude !== undefined && task.longitude !== undefined) {
+      const t: Task = { ...buildBaseTask(), latitude: task.latitude, longitude: task.longitude, completed: task.completed };
+      setIsGeocoding(true);
+      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ } finally { setIsGeocoding(false); }
+      return;
+    }
+
+    // Геокодируем вручную введённый адрес
     setIsGeocoding(true);
     try {
       let results: GeocodeSuggestion[];
       try {
         results = await onGeocodeMultiple(address);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Ошибка геокодирования';
-        setGeocodeError(msg);
+        setGeocodeError(err instanceof Error ? err.message : 'Ошибка геокодирования');
         return;
       }
-
       if (results.length === 0) {
-        setGeocodeError('Адрес не найден. Попробуйте уточнить запрос.');
+        setGeocodeError('Адрес не найден. Выберите вариант из подсказок или уточните запрос.');
         return;
       }
-
-      const built: Task = {
-        id: task?.id || crypto.randomUUID(),
-        title,
-        address,
-        duration: parseInt(duration, 10) || 30,
-        timeWindowStart: timeWindowStart,
-        timeWindowEnd: timeWindowEnd,
-        completed: task?.completed || false,
-        order: task?.order,
-      };
-      setPendingTask(built);
-
-      if (results.length === 1) {
-        const taskWithCoords: Task = { ...built, latitude: results[0].lat, longitude: results[0].lng, address: results[0].displayName };
-        setIsGeocoding(true);
-        try {
-          await onSave(taskWithCoords, role);
-          onClose();
-        } catch {
-          // error shown via toast in parent
-        } finally {
-          setIsGeocoding(false);
-        }
-        return;
-      }
-
-      setSuggestions(results);
+      const t: Task = { ...buildBaseTask(), latitude: results[0].lat, longitude: results[0].lng, address: results[0].displayName };
+      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ }
     } finally {
       setIsGeocoding(false);
     }
   };
 
-  const handleSelectSuggestion = async (suggestion: GeocodeSuggestion) => {
-    if (!pendingTask) return;
-    setSelectedSuggestion(suggestion);
-    const taskWithCoords: Task = {
-      ...pendingTask,
-      latitude: suggestion.lat,
-      longitude: suggestion.lng,
-      address: suggestion.displayName,
-    };
-    setIsGeocoding(true);
-    try {
-      await onSave(taskWithCoords, role);
-      onClose();
-    } catch {
-      // error shown via toast in parent
-    } finally {
-      setIsGeocoding(false);
-    }
-  };
-
-  const showSuggestions = suggestions.length > 0;
+  const hasAnyWindowField = windowStartDate || windowStartTime || windowEndDate || windowEndTime;
+  const windowMinsLive = computeWindowMins();
+  const durationMinsNum = duration.trim() !== '' ? parseInt(duration, 10) : 0;
+  const hasLiveWindowError =
+    (hasAnyWindowField && windowMinsLive !== null && windowMinsLive <= 0) ||
+    (hasAnyWindowField && windowMinsLive !== null && windowMinsLive > 0 &&
+      durationMinsNum > 0 && durationMinsNum > windowMinsLive);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
-        {showSuggestions ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Выберите адрес</DialogTitle>
-              <DialogDescription>
-                Найдено несколько адресов. Выберите наиболее подходящий.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2 py-4 max-h-80 overflow-y-auto">
-              {suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={isGeocoding}
-                  onClick={() => handleSelectSuggestion(s)}
-                  className="flex items-start gap-2 rounded-lg border p-3 text-left text-sm hover:bg-accent transition-colors disabled:opacity-50"
-                >
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>{s.displayName}</span>
-                </button>
-              ))}
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>{task ? 'Редактировать задачу' : 'Добавить задачу'}</DialogTitle>
+            <DialogDescription>
+              Укажите детали задачи. Адрес необязателен — задачи без адреса отображаются отдельно и не включаются в маршрут.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Название задачи *</Label>
+              <Input
+                id="title"
+                placeholder="Например: Встреча с клиентом"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
             </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => { setSuggestions([]); setPendingTask(null); }}
-                disabled={isGeocoding}
-              >
-                Назад
-              </Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle>{task ? 'Редактировать задачу' : 'Добавить задачу'}</DialogTitle>
-              <DialogDescription>
-                Укажите детали задачи. Адрес будет использован для построения маршрута.
-              </DialogDescription>
-            </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Название задачи *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="address">
+                Адрес{' '}
+                <span className="text-muted-foreground font-normal">(необязательно)</span>
+              </Label>
+              <div className="relative">
                 <Input
-                  id="title"
-                  placeholder="Например: Встреча с клиентом"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Адрес *</Label>
-                <Textarea
                   id="address"
                   placeholder="Например: г. Москва, ул. Тверская, д. 1"
                   value={address}
-                  onChange={(e) => { setAddress(e.target.value); setGeocodeError(null); }}
-                  rows={2}
-                  required
+                  onChange={(e) => handleAddressChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setAutoSuggestOpen(false), 150)}
+                  onFocus={() => autoSuggestions.length > 0 && setAutoSuggestOpen(true)}
+                  autoComplete="off"
                 />
-                {geocodeError && (
-                  <p className="text-sm text-destructive">{geocodeError}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="duration">Длительность (минуты) *</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="5"
-                  step="5"
-                  placeholder="30"
-                  value={duration}
-                  onChange={(e) => { setDuration(e.target.value); setWindowError(null); }}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Временное окно <span className="text-muted-foreground font-normal">(необязательно)</span></Label>
-                <p className="text-xs text-muted-foreground">
-                  Период, в который должно <strong>начаться</strong> обслуживание. Алгоритм будет
-                  стараться прибыть не раньше начала и успеть начать до конца&nbsp;окна. Окно должно
-                  быть не короче длительности задачи.
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="timeWindowStart">Начало окна</Label>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        id="timeWindowStart"
-                        type="time"
-                        value={timeWindowStart}
-                        onChange={(e) => { setTimeWindowStart(e.target.value); setWindowError(null); }}
-                        onBlur={(e) => { if (!e.target.value) { setTimeWindowStart(''); setWindowError(null); } }}
-                        className="flex-1"
-                      />
-                      {timeWindowStart && (
+                {autoSuggestOpen && autoSuggestions.length > 0 && (
+                  <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md text-sm overflow-hidden">
+                    {autoSuggestions.map((s, i) => (
+                      <li key={i}>
                         <button
                           type="button"
-                          onClick={() => { setTimeWindowStart(''); setWindowError(null); }}
-                          className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                          aria-label="Очистить начало окна"
+                          onMouseDown={(e) => { e.preventDefault(); handleSelectAutoSuggestion(s); }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent transition-colors"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{s.displayName}</span>
                         </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="timeWindowEnd">Конец окна</Label>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        id="timeWindowEnd"
-                        type="time"
-                        value={timeWindowEnd}
-                        onChange={(e) => { setTimeWindowEnd(e.target.value); setWindowError(null); }}
-                        onBlur={(e) => { if (!e.target.value) { setTimeWindowEnd(''); setWindowError(null); } }}
-                        className="flex-1"
-                      />
-                      {timeWindowEnd && (
-                        <button
-                          type="button"
-                          onClick={() => { setTimeWindowEnd(''); setWindowError(null); }}
-                          className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                          aria-label="Очистить конец окна"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {(() => {
-                  if (!timeWindowStart || !timeWindowEnd) return null;
-                  const [sh, sm] = timeWindowStart.split(':').map(Number);
-                  const [eh, em] = timeWindowEnd.split(':').map(Number);
-                  const windowMins = (eh * 60 + em) - (sh * 60 + sm);
-                  const durationMins = parseInt(duration, 10) || 0;
-                  if (windowMins <= 0) {
-                    return (
-                      <p className="text-xs text-destructive">
-                        Конец окна должен быть позже начала.
-                      </p>
-                    );
-                  }
-                  if (durationMins > windowMins) {
-                    return (
-                      <p className="text-xs text-destructive">
-                        Длительность ({durationMins} мин) превышает размер окна ({windowMins} мин) — задача не сможет уложиться в окно.
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
-                {windowError && <p className="text-sm text-destructive">{windowError}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Роль в маршруте <span className="text-muted-foreground font-normal">(необязательно)</span></Label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!canSetStart && role !== 'start'}
-                    onClick={() => handleToggleRole('start')}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors',
-                      role === 'start'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-200 text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700',
-                      (!canSetStart && role !== 'start') && 'cursor-not-allowed opacity-40',
-                    )}
-                    title={!canSetStart && role !== 'start' ? 'Начальная точка уже задана для другой задачи' : undefined}
-                  >
-                    <Flag className="h-3.5 w-3.5" />
-                    Начальная точка
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canSetEnd && role !== 'end'}
-                    onClick={() => handleToggleRole('end')}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors',
-                      role === 'end'
-                        ? 'border-orange-400 bg-orange-50 text-orange-700'
-                        : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700',
-                      (!canSetEnd && role !== 'end') && 'cursor-not-allowed opacity-40',
-                    )}
-                    title={!canSetEnd && role !== 'end' ? 'Конечная точка уже задана для другой задачи' : undefined}
-                  >
-                    <Flag className="h-3.5 w-3.5" />
-                    Конечная точка
-                  </button>
-                </div>
-                {!canSetStart && role !== 'start' && (
-                  <p className="text-xs text-muted-foreground">
-                    Начальная точка уже задана. Снимите её с другой задачи, чтобы назначить эту.
-                  </p>
-                )}
-                {!canSetEnd && role !== 'end' && (
-                  <p className="text-xs text-muted-foreground">
-                    Конечная точка уже задана. Снимите её с другой задачи, чтобы назначить эту.
-                  </p>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Начните вводить адрес — появятся подсказки. Задачи без адреса не включаются в маршрут.
+              </p>
+              {geocodeError && (
+                <p className="text-sm text-destructive">{geocodeError}</p>
+              )}
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Отмена
-              </Button>
-              <Button type="submit" disabled={isGeocoding || isSaving}>
-                {(isGeocoding || isSaving) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {task ? 'Сохранить' : 'Добавить'}
-              </Button>
-            </DialogFooter>
-          </form>
-        )}
+            <div className="space-y-2">
+              <Label htmlFor="duration">
+                Длительность (минуты){' '}
+                <span className="text-muted-foreground font-normal">(необязательно)</span>
+              </Label>
+              <Input
+                id="duration"
+                type="number"
+                min="0"
+                step="5"
+                placeholder="Не задана (мгновенная)"
+                value={duration}
+                onChange={(e) => { setDuration(e.target.value); setWindowError(null); }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Временное окно <span className="text-muted-foreground font-normal">(необязательно)</span></Label>
+              <p className="text-xs text-muted-foreground">
+                Дата и время, в которые должно <strong>начаться</strong> выполнение задачи. Если указана
+                только дата без времени — задача может быть выполнена в течение всего дня.
+                Если дата не указана — используется сегодняшняя.
+              </p>
+
+              {/* Начало окна */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Начало окна</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="windowStartDate"
+                      type="date"
+                      aria-label="Дата начала окна"
+                      value={windowStartDate}
+                      onChange={(e) => { setWindowStartDate(e.target.value); setWindowError(null); }}
+                      className="flex-1"
+                    />
+                    {windowStartDate && (
+                      <button
+                        type="button"
+                        onClick={() => { setWindowStartDate(''); setWindowError(null); }}
+                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                        aria-label="Очистить дату начала окна"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="windowStartTime"
+                      type="time"
+                      aria-label="Время начала окна"
+                      value={windowStartTime}
+                      onChange={(e) => { setWindowStartTime(e.target.value); setWindowError(null); }}
+                      className="flex-1"
+                    />
+                    {windowStartTime && (
+                      <button
+                        type="button"
+                        onClick={() => { setWindowStartTime(''); setWindowError(null); }}
+                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                        aria-label="Очистить время начала окна"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Конец окна */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Конец окна</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="windowEndDate"
+                      type="date"
+                      aria-label="Дата конца окна"
+                      value={windowEndDate}
+                      onChange={(e) => { setWindowEndDate(e.target.value); setWindowError(null); }}
+                      className="flex-1"
+                    />
+                    {windowEndDate && (
+                      <button
+                        type="button"
+                        onClick={() => { setWindowEndDate(''); setWindowError(null); }}
+                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                        aria-label="Очистить дату конца окна"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="windowEndTime"
+                      type="time"
+                      aria-label="Время конца окна"
+                      value={windowEndTime}
+                      onChange={(e) => { setWindowEndTime(e.target.value); setWindowError(null); }}
+                      className="flex-1"
+                    />
+                    {windowEndTime && (
+                      <button
+                        type="button"
+                        onClick={() => { setWindowEndTime(''); setWindowError(null); }}
+                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                        aria-label="Очистить время конца окна"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {hasAnyWindowField && windowMinsLive !== null && windowMinsLive <= 0 && (
+                <p className="text-xs text-destructive">Конец окна должен быть позже начала.</p>
+              )}
+              {hasAnyWindowField && windowMinsLive !== null && windowMinsLive > 0 && (() => {
+                const durationMins = duration.trim() !== '' ? parseInt(duration, 10) : 0;
+                if (durationMins > 0 && durationMins > windowMinsLive) {
+                  return (
+                    <p className="text-xs text-destructive">
+                      Длительность ({durationMins} мин) превышает размер окна ({Math.round(windowMinsLive)} мин) — задача не сможет уложиться в окно.
+                    </p>
+                  );
+                }
+                return null;
+              })()}
+              {windowError && <p className="text-sm text-destructive">{windowError}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Роль в маршруте <span className="text-muted-foreground font-normal">(необязательно)</span></Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={!canSetStart && role !== 'start'}
+                  onClick={() => handleToggleRole('start')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors',
+                    role === 'start'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700',
+                    (!canSetStart && role !== 'start') && 'cursor-not-allowed opacity-40',
+                  )}
+                  title={!canSetStart && role !== 'start' ? 'Начальная точка уже задана для другой задачи' : undefined}
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                  Начальная точка
+                </button>
+                <button
+                  type="button"
+                  disabled={!canSetEnd && role !== 'end'}
+                  onClick={() => handleToggleRole('end')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-colors',
+                    role === 'end'
+                      ? 'border-orange-400 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700',
+                    (!canSetEnd && role !== 'end') && 'cursor-not-allowed opacity-40',
+                  )}
+                  title={!canSetEnd && role !== 'end' ? 'Конечная точка уже задана для другой задачи' : undefined}
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                  Конечная точка
+                </button>
+              </div>
+              {!canSetStart && role !== 'start' && (
+                <p className="text-xs text-muted-foreground">
+                  Начальная точка уже задана. Снимите её с другой задачи, чтобы назначить эту.
+                </p>
+              )}
+              {!canSetEnd && role !== 'end' && (
+                <p className="text-xs text-muted-foreground">
+                  Конечная точка уже задана. Снимите её с другой задачи, чтобы назначить эту.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Отмена
+            </Button>
+            <Button type="submit" disabled={isGeocoding || isSaving || hasLiveWindowError}>
+              {(isGeocoding || isSaving) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {task ? 'Сохранить' : 'Добавить'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

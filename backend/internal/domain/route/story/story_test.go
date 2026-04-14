@@ -103,25 +103,29 @@ func (m *mockDistProvider) GetMatrix(ctx context.Context, points []distancepkg.P
 
 type mockOptimizer struct {
 	nameFn     func() string
-	optimizeFn func(ctx context.Context, g *routeopt.Graph, startTimeMins int, c routeopt.Constraints) (routeopt.Result, error)
+	optimizeFn func(ctx context.Context, g *routeopt.Graph, startTimeUnix int64, c routeopt.Constraints) (routeopt.Result, error)
 }
 
 func (m *mockOptimizer) Name() string { return m.nameFn() }
-func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTimeMins int, c routeopt.Constraints) (routeopt.Result, error) {
-	return m.optimizeFn(ctx, g, startTimeMins, c)
+func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTimeUnix int64, c routeopt.Constraints) (routeopt.Result, error) {
+	return m.optimizeFn(ctx, g, startTimeUnix, c)
 }
+
+func intPtr(v int) *int { return &v }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func makeRouteTask(id, userID string) task.Task {
+	lat := 55.75
+	lon := 37.61
 	return task.Task{
 		ID:          id,
 		UserID:      userID,
 		Title:       "Task " + id,
 		AddressText: "Some Address",
-		Latitude:    55.75,
-		Longitude:   37.61,
-		DurationMin: 30,
+		Latitude:    &lat,
+		Longitude:   &lon,
+		DurationMin: intPtr(30),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -147,7 +151,7 @@ func makeRoute(id, userID, status string) route.Route {
 func defaultOptimizer() *mockOptimizer {
 	return &mockOptimizer{
 		nameFn: func() string { return "nearest-neighbor-tw" },
-		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int, _ routeopt.Constraints) (routeopt.Result, error) {
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int64, _ routeopt.Constraints) (routeopt.Result, error) {
 			order := make([]int, len(g.Nodes))
 			for i := range order {
 				order[i] = i
@@ -383,7 +387,7 @@ func TestOptimize_ConstraintsPassedToOptimizer(t *testing.T) {
 	var capturedConstraints routeopt.Constraints
 	opt := &mockOptimizer{
 		nameFn: func() string { return "nearest-neighbor-tw" },
-		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int, c routeopt.Constraints) (routeopt.Result, error) {
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, _ int64, c routeopt.Constraints) (routeopt.Result, error) {
 			capturedConstraints = c
 			order := make([]int, len(g.Nodes))
 			for i := range order {
@@ -568,48 +572,37 @@ func TestDelete_EmptyRouteID(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── parseTimeMins tests ───────────────────────────────────────────────────────
+// ── buildUnixSec tests ───────────────────────────────────────────────────────
 
-// 4.3.1 Корректное время
-func TestParseTimeMins_Valid(t *testing.T) {
-	s := "09:30:00"
-	assert.Equal(t, 570, parseTimeMins(&s))
+// 4.3.1 Дата + время
+func TestBuildUnixSec_DateAndTime(t *testing.T) {
+	d := "2024-01-15"
+	tm := "09:30"
+	expected := time.Date(2024, 1, 15, 9, 30, 0, 0, time.UTC).Unix()
+	assert.Equal(t, expected, buildUnixSec(&d, &tm))
 }
 
-// 4.3.2 Полночь
-func TestParseTimeMins_Midnight(t *testing.T) {
-	s := "00:00:00"
-	assert.Equal(t, 0, parseTimeMins(&s))
+// 4.3.2 Только дата без времени — начало дня
+func TestBuildUnixSec_DateOnly(t *testing.T) {
+	d := "2024-01-15"
+	expected := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC).Unix()
+	assert.Equal(t, expected, buildUnixSec(&d, nil))
 }
 
-// 4.3.3 Конец дня
-func TestParseTimeMins_EndOfDay(t *testing.T) {
-	s := "23:59:59"
-	assert.Equal(t, 1439, parseTimeMins(&s))
+// 4.3.3 Пустая дата → -1
+func TestBuildUnixSec_EmptyDate(t *testing.T) {
+	empty := ""
+	tm := "09:30"
+	assert.Equal(t, int64(-1), buildUnixSec(&empty, &tm))
 }
 
-// 4.3.4 nil указатель
-func TestParseTimeMins_Nil(t *testing.T) {
-	assert.Equal(t, -1, parseTimeMins(nil))
+// 4.3.4 nil дата → -1
+func TestBuildUnixSec_NilDate(t *testing.T) {
+	assert.Equal(t, int64(-1), buildUnixSec(nil, nil))
 }
 
-// 4.3.5 Пустая строка
-func TestParseTimeMins_Empty(t *testing.T) {
-	s := ""
-	assert.Equal(t, -1, parseTimeMins(&s))
-}
-
-// 4.3.6 Некорректный формат
-func TestParseTimeMins_InvalidFormat(t *testing.T) {
-	s := "25:61:00"
-	// Parsing: 25*60+61 = 1561; note parseTimeMins doesn't validate range
-	// but 25:61:00 is still parseable as ints, so returns 25*60+61=1561
-	result := parseTimeMins(&s)
-	_ = result // implementation dependent
-}
-
-// 4.3.7 Формат HH:MM (без секунд)
-func TestParseTimeMins_HHMMFormat(t *testing.T) {
-	s := "09:30"
-	assert.Equal(t, 570, parseTimeMins(&s))
+// 4.3.5 Некорректный формат даты
+func TestBuildUnixSec_InvalidDate(t *testing.T) {
+	d := "not-a-date"
+	assert.Equal(t, int64(-1), buildUnixSec(&d, nil))
 }

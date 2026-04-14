@@ -1,0 +1,1 @@
+ALTER TABLE tasks ALTER COLUMN duration_min DROP NOT NULL;

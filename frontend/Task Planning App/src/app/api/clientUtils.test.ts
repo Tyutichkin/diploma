@@ -98,6 +98,7 @@ describe('mapTaskFromApi', () => {
     Longitude: 37.61,
     DurationMin: 30,
     SortIndex: 2,
+    IsCompleted: false,
   };
 
   // 7.6.6 Маппинг PascalCase → camelCase

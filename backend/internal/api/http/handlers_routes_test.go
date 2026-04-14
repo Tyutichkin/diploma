@@ -126,7 +126,7 @@ func (m *hDistProvider) GetMatrix(ctx context.Context, points []distancepkg.Poin
 type hOptimizer struct{}
 
 func (o *hOptimizer) Name() string { return "nearest-neighbor-tw" }
-func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, _ int, _ routeopt.Constraints) (routeopt.Result, error) {
+func (o *hOptimizer) Optimize(_ context.Context, g *routeopt.Graph, _ int64, _ routeopt.Constraints) (routeopt.Result, error) {
 	order := make([]int, len(g.Nodes))
 	for i := range order {
 		order[i] = i
@@ -170,14 +170,16 @@ func makeTestRoute(id, userID, status string) route.Route {
 }
 
 func makeTestTask2(id, userID string) task.Task {
+	lat := 55.75
+	lon := 37.61
 	return task.Task{
 		ID:          id,
 		UserID:      userID,
 		Title:       "Task " + id,
 		AddressText: "Addr",
-		Latitude:    55.75,
-		Longitude:   37.61,
-		DurationMin: 30,
+		Latitude:    &lat,
+		Longitude:   &lon,
+		DurationMin: intPtr(30),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -230,7 +232,7 @@ func TestRouteHandler_Optimize_Success(t *testing.T) {
 	r := newRouteTestRouter(rRepo, tRepo, &hDistProvider{})
 	w := doJSON(t, r, "POST", "/api/routes/optimize", map[string]any{
 		"taskIds":        []string{t1.ID, t2.ID, t3.ID},
-		"startTimeMins":  540,
+		"startTimeUnix":  1704085200,
 		"distanceMatrix": matrix,
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -263,7 +265,7 @@ func TestRouteHandler_Optimize_WithConstraints(t *testing.T) {
 	r := newRouteTestRouter(rRepo, tRepo, &hDistProvider{})
 	w := doJSON(t, r, "POST", "/api/routes/optimize", map[string]any{
 		"taskIds":       []string{t1.ID, t2.ID, t3.ID},
-		"startTimeMins": 540,
+		"startTimeUnix": 1704085200,
 		"distanceMatrix": matrix,
 		"startTaskId":   t1.ID,
 		"endTaskId":     t3.ID,

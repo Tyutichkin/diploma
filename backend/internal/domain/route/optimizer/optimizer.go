@@ -42,7 +42,7 @@ type Optimizer interface {
 	Name() string
 
 	// Optimize возвращает индексы узлов в оптимальном порядке обхода.
-	// startTimeMins — время выезда в минутах от полуночи (например, 540 = 09:00).
+	// startTimeUnix — время выезда в секундах Unix (например, 1704085200 = 2024-01-01T09:00:00Z).
 	// c — дополнительные ограничения; нулевое значение означает их отсутствие.
-	Optimize(ctx context.Context, g *Graph, startTimeMins int, c Constraints) (Result, error)
+	Optimize(ctx context.Context, g *Graph, startTimeUnix int64, c Constraints) (Result, error)
 }

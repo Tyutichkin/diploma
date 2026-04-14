@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { TaskForm } from './TaskForm';
 import { Task } from '../types/task';
 
@@ -26,130 +25,124 @@ const taskWithWindow: Task = {
   latitude: 55.75,
   longitude: 37.61,
   duration: 30,
-  timeWindowStart: '09:00',
-  timeWindowEnd: '18:00',
+  windowStartDate: '2024-01-15',
+  windowStartTime: '09:00',
+  windowEndDate: '2024-01-15',
+  windowEndTime: '18:00',
 };
 
-const taskWithStartOnly: Task = {
+const taskWithStartDateOnly: Task = {
   id: 'task-2',
-  title: 'Задача только с началом',
+  title: 'Задача только с датой начала',
   address: 'ул. Арбат, 1',
   latitude: 55.75,
   longitude: 37.61,
   duration: 30,
-  timeWindowStart: '10:00',
+  windowStartDate: '2024-01-15',
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('TaskForm — индивидуальные кнопки сброса временного окна', () => {
+describe('TaskForm — раздельные поля дата/время для временного окна', () => {
   it('кнопки очистки не отображаются, если поля пусты', () => {
     render(<TaskForm {...defaultProps} />);
-    expect(screen.queryByRole('button', { name: /очистить начало окна/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /очистить конец окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить дату начала окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить время начала окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить дату конца окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить время конца окна/i })).toBeNull();
   });
 
-  it('кнопка очистки начала окна появляется при вводе значения', async () => {
+  it('кнопки очистки появляются при вводе даты начала', () => {
     render(<TaskForm {...defaultProps} />);
-    const startInput = screen.getByLabelText('Начало окна');
-    await userEvent.type(startInput, '09:00');
-    expect(screen.getByRole('button', { name: /очистить начало окна/i })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /очистить конец окна/i })).toBeNull();
+    const startDateInput = screen.getByLabelText('Дата начала окна');
+    fireEvent.change(startDateInput, { target: { value: '2024-01-15' } });
+    expect(screen.getByRole('button', { name: /очистить дату начала окна/i })).toBeTruthy();
   });
 
-  it('кнопка очистки конца окна появляется при вводе значения', async () => {
-    render(<TaskForm {...defaultProps} />);
-    const endInput = screen.getByLabelText('Конец окна');
-    await userEvent.type(endInput, '18:00');
-    expect(screen.queryByRole('button', { name: /очистить начало окна/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /очистить конец окна/i })).toBeTruthy();
-  });
-
-  it('обе кнопки очистки отображаются при редактировании задачи с полным окном', () => {
+  it('все кнопки очистки отображаются при редактировании задачи с полным окном', () => {
     render(<TaskForm {...defaultProps} task={taskWithWindow} />);
-    expect(screen.getByRole('button', { name: /очистить начало окна/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /очистить конец окна/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /очистить дату начала окна/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /очистить время начала окна/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /очистить дату конца окна/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /очистить время конца окна/i })).toBeTruthy();
   });
 
-  it('только кнопка начала окна отображается при задаче с одним полем', () => {
-    render(<TaskForm {...defaultProps} task={taskWithStartOnly} />);
-    expect(screen.getByRole('button', { name: /очистить начало окна/i })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /очистить конец окна/i })).toBeNull();
+  it('только кнопка даты начала окна отображается при задаче только с датой начала', () => {
+    render(<TaskForm {...defaultProps} task={taskWithStartDateOnly} />);
+    expect(screen.getByRole('button', { name: /очистить дату начала окна/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /очистить время начала окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить дату конца окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить время конца окна/i })).toBeNull();
   });
 
-  it('клик по очистке начала очищает только начало окна', () => {
+  it('клик по очистке даты начала очищает только дату начала', () => {
     render(<TaskForm {...defaultProps} task={taskWithWindow} />);
 
-    const startInput = screen.getByLabelText('Начало окна') as HTMLInputElement;
-    const endInput = screen.getByLabelText('Конец окна') as HTMLInputElement;
+    const startDateInput = screen.getByLabelText('Дата начала окна') as HTMLInputElement;
+    const startTimeInput = screen.getByLabelText('Время начала окна') as HTMLInputElement;
 
-    fireEvent.click(screen.getByRole('button', { name: /очистить начало окна/i }));
+    fireEvent.click(screen.getByRole('button', { name: /очистить дату начала окна/i }));
 
-    expect(startInput.value).toBe('');
-    expect(endInput.value).toBe('18:00');
+    expect(startDateInput.value).toBe('');
+    expect(startTimeInput.value).toBe('09:00');
   });
 
-  it('клик по очистке конца очищает только конец окна', () => {
+  it('клик по очистке времени конца очищает только время конца', () => {
     render(<TaskForm {...defaultProps} task={taskWithWindow} />);
 
-    const startInput = screen.getByLabelText('Начало окна') as HTMLInputElement;
-    const endInput = screen.getByLabelText('Конец окна') as HTMLInputElement;
+    const endDateInput = screen.getByLabelText('Дата конца окна') as HTMLInputElement;
+    const endTimeInput = screen.getByLabelText('Время конца окна') as HTMLInputElement;
 
-    fireEvent.click(screen.getByRole('button', { name: /очистить конец окна/i }));
+    fireEvent.click(screen.getByRole('button', { name: /очистить время конца окна/i }));
 
-    expect(startInput.value).toBe('09:00');
-    expect(endInput.value).toBe('');
+    expect(endDateInput.value).toBe('2024-01-15');
+    expect(endTimeInput.value).toBe('');
   });
 
-  it('после очистки начала кнопка начала исчезает, кнопка конца остаётся', () => {
+  it('после очистки всех полей кнопки исчезают', () => {
     render(<TaskForm {...defaultProps} task={taskWithWindow} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /очистить начало окна/i }));
+    fireEvent.click(screen.getByRole('button', { name: /очистить дату начала окна/i }));
+    fireEvent.click(screen.getByRole('button', { name: /очистить время начала окна/i }));
+    fireEvent.click(screen.getByRole('button', { name: /очистить дату конца окна/i }));
+    fireEvent.click(screen.getByRole('button', { name: /очистить время конца окна/i }));
 
-    expect(screen.queryByRole('button', { name: /очистить начало окна/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /очистить конец окна/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /очистить дату начала окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить время начала окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить дату конца окна/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /очистить время конца окна/i })).toBeNull();
   });
 
-  it('после очистки обоих полей обе кнопки исчезают', () => {
+  it('при сохранении задачи передаются раздельные поля окна', async () => {
     render(<TaskForm {...defaultProps} task={taskWithWindow} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /очистить начало окна/i }));
-    fireEvent.click(screen.getByRole('button', { name: /очистить конец окна/i }));
-
-    expect(screen.queryByRole('button', { name: /очистить начало окна/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /очистить конец окна/i })).toBeNull();
-  });
-
-  it('после очистки начала и сохранения timeWindowStart передаётся как пустая строка', async () => {
-    render(<TaskForm {...defaultProps} task={taskWithWindow} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /очистить начало окна/i }));
 
     fireEvent.submit(screen.getByRole('button', { name: /сохранить/i }).closest('form')!);
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledOnce();
       const savedTask = mockOnSave.mock.calls[0][0] as Task;
-      expect(savedTask.timeWindowStart).toBe('');
-      expect(savedTask.timeWindowEnd).toBe('18:00');
+      expect(savedTask.windowStartDate).toBe('2024-01-15');
+      expect(savedTask.windowStartTime).toBe('09:00');
+      expect(savedTask.windowEndDate).toBe('2024-01-15');
+      expect(savedTask.windowEndTime).toBe('18:00');
     });
   });
 
-  it('после очистки обоих полей и сохранения оба поля передаются как пустые строки', async () => {
+  it('после очистки даты начала и сохранения windowStartDate пустая', async () => {
     render(<TaskForm {...defaultProps} task={taskWithWindow} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /очистить начало окна/i }));
-    fireEvent.click(screen.getByRole('button', { name: /очистить конец окна/i }));
-
+    fireEvent.click(screen.getByRole('button', { name: /очистить дату начала окна/i }));
     fireEvent.submit(screen.getByRole('button', { name: /сохранить/i }).closest('form')!);
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledOnce();
       const savedTask = mockOnSave.mock.calls[0][0] as Task;
-      expect(savedTask.timeWindowStart).toBe('');
-      expect(savedTask.timeWindowEnd).toBe('');
+      expect(savedTask.windowStartDate).toBeUndefined();
+      expect(savedTask.windowStartTime).toBe('09:00');
+      expect(savedTask.windowEndDate).toBe('2024-01-15');
+      expect(savedTask.windowEndTime).toBe('18:00');
     });
   });
 });

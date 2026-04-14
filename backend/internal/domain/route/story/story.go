@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
+	"time"
 
 	"planner-backend/internal/domain/route"
 	routegate "planner-backend/internal/domain/route/gate"
@@ -75,7 +74,7 @@ func (s *Story) Optimize(
 	ctx context.Context,
 	userID string,
 	taskIDs []string,
-	startTimeMins int,
+	startTimeUnix int64,
 	externalMatrix [][]distancepkg.Edge,
 	startTaskID, endTaskID *string,
 	precedences []PrecedenceConstraint,
@@ -103,7 +102,10 @@ func (s *Story) Optimize(
 	} else {
 		points := make([]distancepkg.Point, len(tasks))
 		for i, t := range tasks {
-			points[i] = distancepkg.Point{Lat: t.Latitude, Lng: t.Longitude}
+			if t.Latitude == nil || t.Longitude == nil {
+				return route.Full{}, fmt.Errorf("task %q has no coordinates: required for distance matrix", t.ID)
+			}
+			points[i] = distancepkg.Point{Lat: *t.Latitude, Lng: *t.Longitude}
 		}
 		matrix, err = s.distProvider.GetMatrix(ctx, points)
 		if err != nil {
@@ -116,11 +118,11 @@ func (s *Story) Optimize(
 	for i, t := range tasks {
 		nodes[i] = routeopt.Node{
 			TaskID:      t.ID,
-			Lat:         t.Latitude,
-			Lng:         t.Longitude,
-			WindowStart: parseTimeMins(t.WindowStart),
-			WindowEnd:   parseTimeMins(t.WindowEnd),
-			DurationMin: t.DurationMin,
+			Lat:         derefF64(t.Latitude),
+			Lng:         derefF64(t.Longitude),
+			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime),
+			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime),
+			DurationMin: derefInt(t.DurationMin),
 		}
 		taskIDToIdx[t.ID] = i
 	}
@@ -160,7 +162,7 @@ func (s *Story) Optimize(
 		}
 	}
 
-	result, err := s.optimizer.Optimize(ctx, g, startTimeMins, constraints)
+	result, err := s.optimizer.Optimize(ctx, g, startTimeUnix, constraints)
 	if err != nil {
 		return route.Full{}, fmt.Errorf("optimise: %w", err)
 	}
@@ -247,20 +249,41 @@ func (s *Story) Rename(ctx context.Context, userID, routeID, name string) (bool,
 	return s.routes.RenameRoute(ctx, userID, routeID, name)
 }
 
-// parseTimeMins converts an optional "HH:MM:SS" or "HH:MM" time string to
-// minutes since midnight.  Returns -1 when the value is nil or unparseable.
-func parseTimeMins(s *string) int {
-	if s == nil {
+// derefInt safely dereferences a *int, returning 0 for nil.
+func derefInt(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// derefF64 safely dereferences a *float64, returning 0 for nil.
+func derefF64(p *float64) float64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+// buildUnixSec собирает Unix-секунды из раздельных даты ("YYYY-MM-DD") и времени ("HH:MM").
+// Если дата nil/пустая — возвращает -1 (нет ограничения).
+// Если дата есть, а время нет — возвращает начало дня (00:00) для start или конец дня (23:59) для end.
+// Для простоты: без времени возвращаем начало дня (00:00).
+func buildUnixSec(dateStr, timeStr *string) int64 {
+	if dateStr == nil || *dateStr == "" {
 		return -1
 	}
-	parts := strings.SplitN(*s, ":", 3)
-	if len(parts) < 2 {
+	if timeStr == nil || *timeStr == "" {
+		// Дата без времени — начало дня
+		t, err := time.Parse("2006-01-02", *dateStr)
+		if err != nil {
+			return -1
+		}
+		return t.Unix()
+	}
+	t, err := time.Parse("2006-01-02 15:04", *dateStr+" "+*timeStr)
+	if err != nil {
 		return -1
 	}
-	h, err1 := strconv.Atoi(parts[0])
-	m, err2 := strconv.Atoi(parts[1])
-	if err1 != nil || err2 != nil {
-		return -1
-	}
-	return h*60 + m
+	return t.Unix()
 }

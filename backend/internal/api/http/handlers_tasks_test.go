@@ -17,6 +17,8 @@ import (
 	taskstory "planner-backend/internal/domain/task/story"
 )
 
+func intPtr(v int) *int { return &v }
+
 // ── mock task repository for handlers ─────────────────────────────────────────
 
 type handlerTaskRepo struct {
@@ -93,12 +95,30 @@ func newTaskTestRouter(repo *handlerTaskRepo) *gin.Engine {
 }
 
 func makeTestTask(id, userID, title string) task.Task {
+	lat := 55.75
+	lon := 37.61
 	return task.Task{
 		ID:          id,
 		UserID:      userID,
 		Title:       title,
 		AddressText: "Test Address",
-		DurationMin: 30,
+		Latitude:    &lat,
+		Longitude:   &lon,
+		DurationMin: intPtr(30),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+}
+
+func makeTestTaskNoAddr(id, userID, title string) task.Task {
+	return task.Task{
+		ID:          id,
+		UserID:      userID,
+		Title:       title,
+		AddressText: "",
+		Latitude:    nil,
+		Longitude:   nil,
+		DurationMin: intPtr(15),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -160,6 +180,46 @@ func TestTaskHandler_Create_Success(t *testing.T) {
 	assert.Equal(t, taskID, got.ID)
 }
 
+// 5.3.3b POST /api/tasks — задача без адреса → 200
+func TestTaskHandler_Create_NoAddress(t *testing.T) {
+	taskID := uuid.NewString()
+	repo := &handlerTaskRepo{
+		createFn: func(_ context.Context, _ string, in task.CreateInput) (task.Task, error) {
+			assert.Equal(t, "", in.AddressText)
+			assert.Nil(t, in.Latitude)
+			assert.Nil(t, in.Longitude)
+			return makeTestTaskNoAddr(taskID, taskTestUserID, in.Title), nil
+		},
+	}
+	r := newTaskTestRouter(repo)
+	w := doJSON(t, r, "POST", "/api/tasks", map[string]any{
+		"title": "Звонок клиенту", "durationMin": 15,
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+	var got task.Task
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&got))
+	assert.Equal(t, taskID, got.ID)
+	assert.Nil(t, got.Latitude)
+	assert.Nil(t, got.Longitude)
+}
+
+// 5.3.3c POST /api/tasks — явный null для addressText → 200 (фронтенд отправляет null)
+func TestTaskHandler_Create_NullAddressText(t *testing.T) {
+	taskID := uuid.NewString()
+	repo := &handlerTaskRepo{
+		createFn: func(_ context.Context, _ string, in task.CreateInput) (task.Task, error) {
+			assert.Equal(t, "", in.AddressText)
+			return makeTestTaskNoAddr(taskID, taskTestUserID, in.Title), nil
+		},
+	}
+	r := newTaskTestRouter(repo)
+	// Симулируем {"title":"...", "addressText": null, "durationMin": 15}
+	w := doJSON(t, r, "POST", "/api/tasks", map[string]any{
+		"title": "Звонок", "addressText": nil, "durationMin": 15,
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 // 5.3.4 POST /api/tasks — пустое тело → 400
 func TestTaskHandler_Create_EmptyTitle(t *testing.T) {
 	repo := &handlerTaskRepo{}
@@ -215,15 +275,16 @@ func TestTaskHandler_Update_ClearWindowStart(t *testing.T) {
 	}
 	r := newTaskTestRouter(repo)
 	w := doJSON(t, r, "PATCH", "/api/tasks/"+taskID, map[string]any{
-		"windowStart": "",
-		"windowEnd":   "18:00:00",
+		"windowStartDate": "",
+		"windowEndDate":   "2024-01-15",
+		"windowEndTime":   "18:00",
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
-	require.NotNil(t, gotInput.WindowStart, "WindowStart должен быть ptr(\"\") — признак сброса")
-	assert.Equal(t, "", *gotInput.WindowStart)
+	require.NotNil(t, gotInput.WindowStartDate, "WindowStartDate должен быть ptr(\"\") — признак сброса")
+	assert.Equal(t, "", *gotInput.WindowStartDate)
 }
 
-// 5.3.7b PATCH /api/tasks/:id — сброс конца окна (windowEnd="") → 200
+// 5.3.7b PATCH /api/tasks/:id — сброс конца окна (windowEndDate="") → 200
 func TestTaskHandler_Update_ClearWindowEnd(t *testing.T) {
 	taskID := uuid.NewString()
 	var gotInput task.UpdateInput
@@ -235,12 +296,13 @@ func TestTaskHandler_Update_ClearWindowEnd(t *testing.T) {
 	}
 	r := newTaskTestRouter(repo)
 	w := doJSON(t, r, "PATCH", "/api/tasks/"+taskID, map[string]any{
-		"windowStart": "09:00:00",
-		"windowEnd":   "",
+		"windowStartDate": "2024-01-15",
+		"windowStartTime": "09:00",
+		"windowEndDate":   "",
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
-	require.NotNil(t, gotInput.WindowEnd, "WindowEnd должен быть ptr(\"\") — признак сброса")
-	assert.Equal(t, "", *gotInput.WindowEnd)
+	require.NotNil(t, gotInput.WindowEndDate, "WindowEndDate должен быть ptr(\"\") — признак сброса")
+	assert.Equal(t, "", *gotInput.WindowEndDate)
 }
 
 // 5.3.8 PATCH /api/tasks/:id — не найдено → 404

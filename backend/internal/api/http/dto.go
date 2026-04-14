@@ -20,14 +20,18 @@ type TokenPairResp struct {
 }
 
 type CreateTaskReq struct {
-	Title       string  `json:"title"`
-	AddressText string  `json:"addressText"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
-	DurationMin int     `json:"durationMin"`
-	WindowStart *string `json:"windowStart"`
-	WindowEnd   *string `json:"windowEnd"`
-	SortIndex   int     `json:"sortIndex"`
+	Title       string   `json:"title"`
+	AddressText *string  `json:"addressText"` // null = нет адреса
+	Latitude    *float64 `json:"latitude"`    // null = нет координат
+	Longitude   *float64 `json:"longitude"`   // null = нет координат
+	DurationMin *int     `json:"durationMin"` // null = мгновенная задача
+
+	WindowStartDate *string `json:"windowStartDate"` // "YYYY-MM-DD"
+	WindowStartTime *string `json:"windowStartTime"` // "HH:MM"
+	WindowEndDate   *string `json:"windowEndDate"`   // "YYYY-MM-DD"
+	WindowEndTime   *string `json:"windowEndTime"`   // "HH:MM"
+
+	SortIndex int `json:"sortIndex"`
 }
 
 type UpdateTaskReq struct {
@@ -36,9 +40,14 @@ type UpdateTaskReq struct {
 	Latitude    *float64 `json:"latitude"`
 	Longitude   *float64 `json:"longitude"`
 	DurationMin *int     `json:"durationMin"`
-	WindowStart *string  `json:"windowStart"`
-	WindowEnd   *string  `json:"windowEnd"`
-	SortIndex   *int     `json:"sortIndex"`
+
+	WindowStartDate *string `json:"windowStartDate"`
+	WindowStartTime *string `json:"windowStartTime"`
+	WindowEndDate   *string `json:"windowEndDate"`
+	WindowEndTime   *string `json:"windowEndTime"`
+
+	SortIndex   *int  `json:"sortIndex"`
+	IsCompleted *bool `json:"isCompleted"`
 }
 
 type TaskOrderItem struct {
@@ -77,9 +86,9 @@ type PrecedencePairDTO struct {
 // и порядок задач будет согласован с маршрутом на карте (Яндекс).
 type OptimizeRouteReq struct {
 	TaskIDs               []string            `json:"taskIds"`
-	StartTimeMins         int                 `json:"startTimeMins"`             // минуты от полуночи, по умолчанию 540 (09:00)
-	DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`  // matrix[i][j] — стоимость TaskIDs[i]→TaskIDs[j]
-	StartTaskID           *string             `json:"startTaskId,omitempty"`     // фиксированная первая точка маршрута
-	EndTaskID             *string             `json:"endTaskId,omitempty"`       // фиксированная последняя точка маршрута
+	StartTimeUnix         int64               `json:"startTimeUnix"`                   // Unix-секунды; 0 → сервер вычисляет из задач
+	DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`        // matrix[i][j] — стоимость TaskIDs[i]→TaskIDs[j]
+	StartTaskID           *string             `json:"startTaskId,omitempty"`           // фиксированная первая точка маршрута
+	EndTaskID             *string             `json:"endTaskId,omitempty"`             // фиксированная последняя точка маршрута
 	PrecedenceConstraints []PrecedencePairDTO `json:"precedenceConstraints,omitempty"` // ограничения порядка выполнения
 }
