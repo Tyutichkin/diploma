@@ -1,0 +1,76 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k+kd}{let}\PYG{+w}{ }\PYG{n+nx}{refreshSessionPromise}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{Promise}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{AuthSession}\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{o}{|}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{p}{;}
+
+\PYG{k}{export}\PYG{+w}{ }\PYG{k+kd}{interface}\PYG{+w}{ }\PYG{n+nx}{PrecedenceConstraint}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n+nx}{beforeTaskId}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{;}
+\PYG{+w}{  }\PYG{n+nx}{afterTaskId}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+c1}{// optimizeRoute передаeт идентификаторы задач, матрицу расстояний}
+\PYG{c+c1}{// и дополнительные ограничения на бэкенд.}
+\PYG{k}{export}\PYG{+w}{ }\PYG{k}{async}\PYG{+w}{ }\PYG{k+kd}{function}\PYG{+w}{ }\PYG{n+nx}{optimizeRoute}\PYG{p}{(}
+\PYG{+w}{  }\PYG{n+nx}{taskIds}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{[],}
+\PYG{+w}{  }\PYG{n+nx}{options}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{AuthorizedRequestOptions}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{startTimeUnix}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{0}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{distanceMatrix?}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{DistanceCell}\PYG{p}{[][],}
+\PYG{+w}{  }\PYG{n+nx}{startTaskId?}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{endTaskId?}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{precedenceConstraints?}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{PrecedenceConstraint}\PYG{p}{[],}
+\PYG{p}{)}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nb}{Promise}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{SavedRouteDetails}\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{route}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nx}{requestWithAuth}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{ApiRouteFull}\PYG{o}{\PYGZgt{}}\PYG{p}{(}
+\PYG{+w}{    }\PYG{l+s+s1}{\PYGZsq{}/routes/optimize\PYGZsq{}}\PYG{p}{,}
+\PYG{+w}{    }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{n+nx}{method}\PYG{o}{:}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}POST\PYGZsq{}}\PYG{p}{,}
+\PYG{+w}{      }\PYG{n+nx}{body}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{JSON.stringify}\PYG{p}{(\PYGZob{}}
+\PYG{+w}{        }\PYG{n+nx}{taskIds}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{startTimeUnix}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{distanceMatrix}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nx}{startTaskId}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{startTaskId}\PYG{+w}{ }\PYG{o}{??}\PYG{+w}{ }\PYG{k+kc}{undefined}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nx}{endTaskId}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{endTaskId}\PYG{+w}{ }\PYG{o}{??}\PYG{+w}{ }\PYG{k+kc}{undefined}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nx}{precedenceConstraints}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{precedenceConstraints?.length}
+\PYG{+w}{          }\PYG{o}{?}\PYG{+w}{ }\PYG{n+nx}{precedenceConstraints}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{undefined}\PYG{p}{,}
+\PYG{+w}{      }\PYG{p}{\PYGZcb{}),}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{n+nx}{options}\PYG{p}{,}
+\PYG{+w}{  }\PYG{p}{);}
+\PYG{+w}{  }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{mapRouteDetails}\PYG{p}{(}\PYG{n+nx}{route}\PYG{p}{);}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+c1}{// requestWithAuth выполняет HTTP\PYGZhy{}запрос с токеном доступа.}
+\PYG{c+c1}{// При получении 401 однократно обновляет токен и повторяет запрос.}
+\PYG{k}{async}\PYG{+w}{ }\PYG{k+kd}{function}\PYG{+w}{ }\PYG{n+nx}{requestWithAuth}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{T}\PYG{o}{\PYGZgt{}}\PYG{p}{(}
+\PYG{+w}{  }\PYG{n+nx}{path}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{init}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{RequestInit}\PYG{p}{,}
+\PYG{+w}{  }\PYG{n+nx}{options}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{AuthorizedRequestOptions}\PYG{p}{,}
+\PYG{p}{)}\PYG{o}{:}\PYG{+w}{ }\PYG{n+nb}{Promise}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{T}\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{k}{try}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nx}{request}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{T}\PYG{o}{\PYGZgt{}}\PYG{p}{(}\PYG{n+nx}{path}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{init}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{options}\PYG{p}{.}\PYG{n+nx}{session}\PYG{p}{.}\PYG{n+nx}{accessToken}\PYG{p}{);}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k}{catch}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{error}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{o}{!}\PYG{p}{(}\PYG{n+nx}{error}\PYG{+w}{ }\PYG{o+ow}{instanceof}\PYG{+w}{ }\PYG{n+nx}{ApiError}\PYG{p}{)}\PYG{+w}{ }\PYG{o}{||}\PYG{+w}{ }\PYG{n+nx}{error}\PYG{p}{.}\PYG{n+nx}{status}\PYG{+w}{ }\PYG{o}{!==}\PYG{+w}{ }\PYG{l+m+mf}{401}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{throw}\PYG{+w}{ }\PYG{n+nx}{error}\PYG{p}{;}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{k}{try}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{nextSession}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nx}{refreshSession}\PYG{p}{(}\PYG{n+nx}{options}\PYG{p}{);}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{request}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{T}\PYG{o}{\PYGZgt{}}\PYG{p}{(}\PYG{n+nx}{path}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{init}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{nextSession}\PYG{p}{.}\PYG{n+nx}{accessToken}\PYG{p}{);}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k}{catch}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{error}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nx}{options}\PYG{p}{.}\PYG{n+nx}{onUnauthorized}\PYG{p}{();}
+\PYG{+w}{    }\PYG{k}{throw}\PYG{+w}{ }\PYG{n+nx}{error}\PYG{p}{;}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+c1}{// refreshSession — дедупликация через единственный промис.}
+\PYG{k}{async}\PYG{+w}{ }\PYG{k+kd}{function}\PYG{+w}{ }\PYG{n+nx}{refreshSession}\PYG{p}{(}\PYG{n+nx}{options}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{AuthorizedRequestOptions}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{o}{!}\PYG{n+nx}{refreshSessionPromise}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n+nx}{refreshSessionPromise}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{request}\PYG{o}{\PYGZlt{}}\PYG{n+nx}{TokenPairResponse}\PYG{o}{\PYGZgt{}}\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}/auth/refresh\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{n+nx}{method}\PYG{o}{:}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}POST\PYGZsq{}}\PYG{p}{,}
+\PYG{+w}{      }\PYG{n+nx}{body}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{JSON.stringify}\PYG{p}{(\PYGZob{}}
+\PYG{+w}{        }\PYG{n+nx}{refreshToken}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{options.session.refreshToken}\PYG{p}{,}
+\PYG{+w}{      }\PYG{p}{\PYGZcb{}),}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{})}
+\PYG{+w}{      }\PYG{p}{.}\PYG{n+nx}{then}\PYG{p}{((}\PYG{n+nx}{pair}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{nextSession}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{buildSession}\PYG{p}{(}\PYG{n+nx}{pair}\PYG{p}{,}
+\PYG{+w}{          }\PYG{n+nx}{getEmailFromToken}\PYG{p}{(}\PYG{n+nx}{pair}\PYG{p}{.}\PYG{n+nx}{accessToken}\PYG{p}{)}\PYG{+w}{ }\PYG{o}{??}\PYG{+w}{ }\PYG{n+nx}{options}\PYG{p}{.}\PYG{n+nx}{session}\PYG{p}{.}\PYG{n+nx}{email}\PYG{p}{);}
+\PYG{+w}{        }\PYG{n+nx}{options}\PYG{p}{.}\PYG{n+nx}{onSessionChange}\PYG{p}{(}\PYG{n+nx}{nextSession}\PYG{p}{);}
+\PYG{+w}{        }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{nextSession}\PYG{p}{;}
+\PYG{+w}{      }\PYG{p}{\PYGZcb{})}
+\PYG{+w}{      }\PYG{p}{.}\PYG{k}{finally}\PYG{p}{(()}\PYG{+w}{ }\PYG{p}{=\PYGZgt{}}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{refreshSessionPromise}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{k+kc}{null}\PYG{p}{;}\PYG{+w}{ }\PYG{p}{\PYGZcb{});}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{refreshSessionPromise}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+\end{Verbatim}

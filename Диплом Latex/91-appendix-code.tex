@@ -5,7 +5,7 @@
 \counterwithin{listing}{chapter}
 \setcounter{listing}{0}
 
-\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами (nearest\_neighbor.go)}{app:lst_optimizer}
+\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами и просмотром вперeд (nearest\_neighbor.go)}{app:lst_optimizer}
     \begin{minted}{go}
 package optimizer
 
@@ -14,212 +14,141 @@ import (
     "math"
 )
 
-// NearestNeighborTW реализует эвристику ближайшего соседа для задачи
-// коммивояжeра с временными окнами (NNH-TW).
-//
-// Алгоритм:
-//  1. Выбрать начальный узел: с наиболее ранним открытием временного окна
-//     или узел 0, если временные окна не заданы.
-//  2. Отметить его посещeнным; установить текущее время = startTime + длительность.
-//  3. Повторять, пока не посещены все узлы:
-//     a. Проход 1: найти ближайший допустимый узел (укладывается в окно).
-//     b. Проход 2: если таких нет — взять ближайший без учeта окна.
-//     c. Вычислить время ожидания, если прибываем до открытия окна.
-//     d. Сдвинуть текущее время: прибытие + ожидание + длительность обслуживания.
-//  4. Вернуть упорядоченные индексы узлов и агрегированную статистику.
-//
-// Временная сложность: O(n^2).
+// NearestNeighborTW — эвристика ближайшего соседа с учeтом временных окон
+// (NNH-TW). Все временные величины хранятся в секундах Unix. Сложность — O(n³).
 type NearestNeighborTW struct{}
 
 func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
-
-func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
+func (a *NearestNeighborTW) Name() string      { return "nearest-neighbor-tw" }
 
 func (a *NearestNeighborTW) Optimize(
-    _ context.Context, g *Graph, startTimeMins int,
+    _ context.Context, g *Graph, startTimeUnix int64, c Constraints,
 ) (Result, error) {
     n := len(g.Nodes)
-    if n == 0 {
-        return Result{}, nil
-    }
+    if n == 0 { return Result{}, nil }
+
+    prereqs := buildPrereqs(n, c.PrecedencePairs)
+    endIdx := -1
+    if c.EndNodeIdx != nil { endIdx = *c.EndNodeIdx }
 
     visited := make([]bool, n)
     order := make([]int, 0, n)
 
-    cur := startNode(g)
+    var cur int
+    if c.StartNodeIdx != nil {
+        cur = *c.StartNodeIdx
+    } else {
+        cur = startNode(g, prereqs, endIdx)
+    }
     visited[cur] = true
     order = append(order, cur)
-
-    currentTimeMins := startTimeMins + g.Nodes[cur].DurationMin
+    currentTimeSec := startTimeUnix + int64(g.Nodes[cur].DurationMin)*60
 
     var totalDistM, totalTravelSec, totalServiceSec, totalWaitSec int
     totalServiceSec = g.Nodes[cur].DurationMin * 60
 
     for len(order) < n {
-        next := -1
-        nextDurSec := math.MaxInt
-
-        // Проход 1: ближайший допустимый узел (укладывается в временное окно).
-        for i := 0; i < n; i++ {
-            if visited[i] {
-                continue
-            }
-            e := g.Edges[cur][i]
-            arrivalMins := currentTimeMins + e.DurationSec/60
-            if feasible(g.Nodes[i], arrivalMins) && e.DurationSec < nextDurSec {
-                nextDurSec = e.DurationSec
-                next = i
-            }
-        }
-
-        // Проход 2: запасной вариант — ближайший узел без учeта временного окна.
-        if next == -1 {
-            nextDurSec = math.MaxInt
+        // Закреплeнный конечный узел — ставим последним.
+        if endIdx >= 0 && !visited[endIdx] {
+            allOther := true
             for i := 0; i < n; i++ {
-                if visited[i] {
-                    continue
-                }
-                if e := g.Edges[cur][i]; e.DurationSec < nextDurSec {
-                    nextDurSec = e.DurationSec
-                    next = i
-                }
+                if !visited[i] && i != endIdx { allOther = false; break }
+            }
+            if allOther {
+                currentTimeSec, totalDistM, totalTravelSec, totalServiceSec,
+                    totalWaitSec, _ = appendNode(endIdx, cur, currentTimeSec, g,
+                    totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+                visited[endIdx] = true; order = append(order, endIdx); break
             }
         }
 
+        next := -1
+        var bestComp int64 = math.MaxInt64
+        var bestDeadline int64 = math.MaxInt64
+        bestSafe := false
+
+        // Проход 1: допустимый узел + look-ahead.
+        for i := 0; i < n; i++ {
+            if visited[i] || i == endIdx { continue }
+            if !prereqsMet(i, visited, prereqs) { continue }
+            arrival := currentTimeSec + int64(g.Edges[cur][i].DurationSec)
+            if !feasible(g.Nodes[i], arrival) { continue }
+            comp := nodeCompletionTime(g.Nodes[i], arrival)
+            deadline := g.Nodes[i].WindowEnd
+            if deadline < 0 { deadline = math.MaxInt64 }
+            safe := !causesWindowMiss(i, comp, g, visited, endIdx)
+            better := false
+            switch {
+            case safe && !bestSafe: better = true
+            case safe == bestSafe:
+                better = comp < bestComp ||
+                    (comp == bestComp && deadline < bestDeadline)
+            }
+            if better {
+                bestComp = comp; bestDeadline = deadline
+                bestSafe = safe; next = i
+            }
+        }
+
+        // Проход 2: fallback — без учeта окна.
         if next == -1 {
-            break
+            bestComp = math.MaxInt64
+            for i := 0; i < n; i++ {
+                if visited[i] || i == endIdx { continue }
+                if !prereqsMet(i, visited, prereqs) { continue }
+                arrival := currentTimeSec + int64(g.Edges[cur][i].DurationSec)
+                comp := nodeCompletionTime(g.Nodes[i], arrival)
+                if comp < bestComp { bestComp = comp; next = i }
+            }
         }
+        if next == -1 { break }
 
-        e := g.Edges[cur][next]
-        node := g.Nodes[next]
-
-        arrivalMins := currentTimeMins + e.DurationSec/60
-        waitMins := 0
-        if node.WindowStart >= 0 && arrivalMins < node.WindowStart {
-            waitMins = node.WindowStart - arrivalMins
-        }
-
-        totalDistM += e.DistanceM
-        totalTravelSec += e.DurationSec
-        totalServiceSec += node.DurationMin * 60
-        totalWaitSec += waitMins * 60
-
-        currentTimeMins = arrivalMins + waitMins + node.DurationMin
-        visited[next] = true
-        order = append(order, next)
-        cur = next
+        currentTimeSec, totalDistM, totalTravelSec, totalServiceSec,
+            totalWaitSec, _ = appendNode(next, cur, currentTimeSec, g,
+            totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
+        visited[next] = true; order = append(order, next); cur = next
     }
-
-    return Result{
-        Order:           order,
-        TotalDistanceM:  totalDistM,
-        TotalTravelSec:  totalTravelSec,
-        TotalServiceSec: totalServiceSec,
-        TotalWaitSec:    totalWaitSec,
-    }, nil
+    return Result{Order: order, TotalDistanceM: totalDistM,
+        TotalTravelSec: totalTravelSec, TotalServiceSec: totalServiceSec,
+        TotalWaitSec: totalWaitSec}, nil
 }
 
-// startNode выбирает начальный узел: с наиболее ранним открытием временного
-// окна, или узел 0, если временные окна не заданы.
-func startNode(g *Graph) int {
-    best := 0
-    for i, node := range g.Nodes {
-        if node.WindowStart < 0 {
-            continue
-        }
-        if g.Nodes[best].WindowStart < 0 ||
-            node.WindowStart < g.Nodes[best].WindowStart {
-            best = i
-        }
-    }
-    return best
+func feasible(node Node, arrivalSec int64) bool {
+    if node.WindowEnd < 0 { return true }
+    return arrivalSec <= node.WindowEnd-int64(node.DurationMin)*60
 }
 
-// feasible возвращает true, если обслуживание узла может начаться
-// до закрытия его временного окна.
-func feasible(node Node, arrivalMins int) bool {
-    if node.WindowEnd < 0 {
-        return true
+// causesWindowMiss — look-ahead: true, если после cand
+// хотя бы один узел с окном становится недостижимым.
+func causesWindowMiss(cand int, afterSec int64,
+    g *Graph, visited []bool, endIdx int) bool {
+    for j := 0; j < len(g.Nodes); j++ {
+        if visited[j] || j == cand || j == endIdx { continue }
+        if g.Nodes[j].WindowEnd < 0 { continue }
+        arr := afterSec + int64(g.Edges[cand][j].DurationSec)
+        if !feasible(g.Nodes[j], arr) { return true }
     }
-    return arrivalMins <= node.WindowEnd-node.DurationMin
+    return false
 }
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{HTTP-обработчики эндпоинтов маршрутов (handlers\_routes.go)}{app:lst_handlers_routes}
+\begin{codelisting}{HTTP-обработчик оптимизации маршрута (handlers\_routes.go, метод Optimize)}{app:lst_handlers_routes}
     \begin{minted}{go}
-package http
-
-import (
-    "net/http"
-
-    "github.com/gin-gonic/gin"
-    routestory "planner-backend/internal/domain/route/story"
-    "planner-backend/internal/platform/distance"
-)
-
-type RouteHandlers struct {
-    story *routestory.Story
-}
-
-func NewRouteHandlers(st *routestory.Story) *RouteHandlers {
-    return &RouteHandlers{story: st}
-}
-
-func (h *RouteHandlers) Create(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-    var req CreateRouteReq
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
-        return
-    }
-    out, err := h.story.CreateDraft(
-        c.Request.Context(), userID, req.Source, req.OrderedTaskIDs,
-    )
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, out)
-}
-
-func (h *RouteHandlers) List(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-    out, err := h.story.List(c.Request.Context(), userID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
-        return
-    }
-    c.JSON(http.StatusOK, out)
-}
-
-// Optimize обрабатывает POST /api/routes/optimize.
-// Получает матрицу расстояний от клиента, строит граф в памяти,
-// запускает алгоритм оптимизации с учeтом временных окон
-// и сохраняет результирующий маршрут.
+// Optimize — POST /api/routes/optimize.
 func (h *RouteHandlers) Optimize(c *gin.Context) {
     userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
+    if !ok { return }
+
     var req OptimizeRouteReq
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
         return
     }
 
-    startTime := req.StartTimeMins
-    if startTime <= 0 {
-        startTime = 540 // по умолчанию: 09:00
-    }
+    startTime := req.StartTimeUnix
+    if startTime <= 0 { startTime = time.Now().Unix() }
 
-    // Преобразование клиентской матрицы расстояний в доменный тип.
     var matrix [][]distance.Edge
     if len(req.DistanceMatrix) > 0 {
         matrix = make([][]distance.Edge, len(req.DistanceMatrix))
@@ -227,16 +156,23 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
             matrix[i] = make([]distance.Edge, len(row))
             for j, cell := range row {
                 matrix[i][j] = distance.Edge{
-                    DistanceM:   cell.DistanceM,
-                    DurationSec: cell.DurationSec,
+                    DistanceM: cell.DistanceM, DurationSec: cell.DurationSec,
                 }
             }
         }
     }
 
-    out, err := h.story.Optimize(
-        c.Request.Context(), userID, req.TaskIDs, startTime, matrix,
-    )
+    precedences := make([]routestory.PrecedenceConstraint,
+        len(req.PrecedenceConstraints))
+    for i, p := range req.PrecedenceConstraints {
+        precedences[i] = routestory.PrecedenceConstraint{
+            BeforeTaskID: p.BeforeTaskID, AfterTaskID: p.AfterTaskID,
+        }
+    }
+
+    out, err := h.story.Optimize(c.Request.Context(), userID,
+        req.TaskIDs, startTime, matrix,
+        req.StartTaskID, req.EndTaskID, precedences)
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
@@ -244,102 +180,49 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
     c.JSON(http.StatusOK, out)
 }
 
-func (h *RouteHandlers) Get(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-    routeID := c.Param("id")
-    out, found, err := h.story.Get(c.Request.Context(), userID, routeID)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    if !found {
-        c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-        return
-    }
-    c.JSON(http.StatusOK, out)
-}
-
-func (h *RouteHandlers) Delete(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-    routeID := c.Param("id")
-    found, err := h.story.Delete(c.Request.Context(), userID, routeID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
-        return
-    }
-    if !found {
-        c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-func (h *RouteHandlers) DeleteAll(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-    if err := h.story.DeleteAll(c.Request.Context(), userID); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-func (h *RouteHandlers) Rename(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-    routeID := c.Param("id")
-    var req RenameRouteReq
-    if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
-        return
-    }
-    found, err := h.story.Rename(
-        c.Request.Context(), userID, routeID, req.Name,
-    )
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    if !found {
-        c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"ok": true})
+// OptimizeRouteReq — тело POST /api/routes/optimize.
+type OptimizeRouteReq struct {
+    TaskIDs               []string            `json:"taskIds"`
+    StartTimeUnix         int64               `json:"startTimeUnix"`
+    DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`
+    StartTaskID           *string             `json:"startTaskId,omitempty"`
+    EndTaskID             *string             `json:"endTaskId,omitempty"`
+    PrecedenceConstraints []PrecedencePairDTO `json:"precedenceConstraints,omitempty"`
 }
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Ключевые функции API-клиента: авторизованные запросы и обновление токена (client.ts)}{app:lst_api_client}
+\begin{codelisting}{Ключевые функции API-клиента: оптимизация маршрута и обновление токена (client.ts)}{app:lst_api_client}
     \begin{minted}{typescript}
-// Единственный глобальный промис обновления токена — предотвращает
-// параллельные запросы /auth/refresh при одновременных 401-ошибках.
 let refreshSessionPromise: Promise<AuthSession> | null = null;
 
-// optimizeRoute передаeт идентификаторы задач и предварительно вычисленную
-// матрицу расстояний Яндекс.Карт на бэкенд.
-// Передача матрицы из buildYandexDistanceMatrix() обеспечивает согласованность
-// данных оптимизации с отображением на карте.
+export interface PrecedenceConstraint {
+  beforeTaskId: string;
+  afterTaskId: string;
+}
+
+// optimizeRoute передаeт идентификаторы задач, матрицу расстояний
+// и дополнительные ограничения на бэкенд.
 export async function optimizeRoute(
   taskIds: string[],
   options: AuthorizedRequestOptions,
-  startTimeMins = 540,
+  startTimeUnix = 0,
   distanceMatrix?: DistanceCell[][],
+  startTaskId?: string,
+  endTaskId?: string,
+  precedenceConstraints?: PrecedenceConstraint[],
 ): Promise<SavedRouteDetails> {
   const route = await requestWithAuth<ApiRouteFull>(
     '/routes/optimize',
     {
       method: 'POST',
-      body: JSON.stringify({ taskIds, startTimeMins, distanceMatrix }),
+      body: JSON.stringify({
+        taskIds, startTimeUnix, distanceMatrix,
+        startTaskId: startTaskId ?? undefined,
+        endTaskId: endTaskId ?? undefined,
+        precedenceConstraints: precedenceConstraints?.length
+          ? precedenceConstraints : undefined,
+      }),
     },
     options,
   );
@@ -349,16 +232,13 @@ export async function optimizeRoute(
 // requestWithAuth выполняет HTTP-запрос с токеном доступа.
 // При получении 401 однократно обновляет токен и повторяет запрос.
 async function requestWithAuth<T>(
-  path: string,
-  init: RequestInit,
+  path: string, init: RequestInit,
   options: AuthorizedRequestOptions,
 ): Promise<T> {
   try {
     return await request<T>(path, init, options.session.accessToken);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401) {
-      throw error;
-    }
+    if (!(error instanceof ApiError) || error.status !== 401) throw error;
   }
   try {
     const nextSession = await refreshSession(options);
@@ -369,56 +249,24 @@ async function requestWithAuth<T>(
   }
 }
 
-// refreshSession обновляет пару токенов через /auth/refresh.
-// Дедупликация через единственный промис предотвращает гонку запросов.
+// refreshSession — дедупликация через единственный промис.
 async function refreshSession(options: AuthorizedRequestOptions) {
   if (!refreshSessionPromise) {
     refreshSessionPromise = request<TokenPairResponse>('/auth/refresh', {
       method: 'POST',
-      body: JSON.stringify({ refreshToken: options.session.refreshToken }),
+      body: JSON.stringify({
+        refreshToken: options.session.refreshToken,
+      }),
     })
       .then((pair) => {
-        const nextSession = buildSession(
-          pair,
-          getEmailFromToken(pair.accessToken) ?? options.session.email,
-        );
+        const nextSession = buildSession(pair,
+          getEmailFromToken(pair.accessToken) ?? options.session.email);
         options.onSessionChange(nextSession);
         return nextSession;
       })
-      .finally(() => {
-        refreshSessionPromise = null;
-      });
+      .finally(() => { refreshSessionPromise = null; });
   }
   return refreshSessionPromise;
-}
-
-// request — базовый HTTP-клиент: устанавливает заголовки Content-Type,
-// Accept и Authorization, возвращает типизированный результат или
-// выбрасывает ApiError с HTTP-статусом.
-async function request<T = void>(
-  path: string,
-  init: RequestInit,
-  accessToken?: string,
-): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && init.body) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (!headers.has('Accept')) {
-    headers.set('Accept', 'application/json');
-  }
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  if (!response.ok) {
-    const payload = await parseErrorPayload(response);
-    throw new ApiError(payload?.error ?? 'Request failed', response.status);
-  }
-  if (response.status === 204) return undefined as T;
-  const text = await response.text();
-  if (!text) return undefined as T;
-  return JSON.parse(text) as T;
 }
   \end{minted}
 \end{codelisting}

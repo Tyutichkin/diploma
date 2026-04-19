@@ -1,0 +1,54 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+Вход: граф G(V, E), startTimeUnix, constraints\PYGZob{}startIdx, endIdx, precedences\PYGZcb{}
+Выход: порядок обхода order[], тайминги[], агрегированная статистика
+
+1.  prereqs ← buildPrereqs(precedences)
+2.  endIdx ← constraints.endIdx (или \PYGZhy{}1)
+3.  Если constraints.startIdx задан:
+        cur ← constraints.startIdx
+    Иначе:
+        cur ← узел с наиболее ранним окном среди допустимых
+4.  visited[cur] ← true;  order ← [cur]
+5.  currentTimeSec ← startTimeUnix + duration[cur] * 60
+
+6.  Пока |order| \PYGZlt{} |V|:
+    // Если остался только закреплённый конечный узел — ставим его
+    a. Если endIdx \PYGZgt{}= 0 И все прочие посещены:
+         Добавить endIdx в маршрут; выйти из цикла
+
+    // Проход 1: допустимый узел с минимальным completionTime + look\PYGZhy{}ahead
+    b. bestComp ← ∞;  bestSafe ← false;  bestDeadline ← ∞;  next ← \PYGZhy{}1
+    c. Для каждого i ∉ visited, i ≠ endIdx:
+         Если не выполнены предшественники i: пропустить
+         arrivalSec ← currentTimeSec + travelSec[cur][i]
+         Если НЕ feasible(i, arrivalSec): пропустить
+         comp ← completionTime(i, arrivalSec)
+         safe ← НЕ causesWindowMiss(i, comp, G, visited, endIdx)
+         Если (safe \PYGZgt{} bestSafe) ИЛИ (safe = bestSafe И comp \PYGZlt{} bestComp)
+              ИЛИ (safe = bestSafe И comp = bestComp И deadline[i] \PYGZlt{} bestDeadline):
+             next ← i;  bestComp ← comp;  bestSafe ← safe
+
+    // Проход 2: резервный — минимальный completionTime без учёта окна
+    d. Если next = \PYGZhy{}1:
+         Для каждого i ∉ visited, i ≠ endIdx:
+             Если не выполнены предшественники i: пропустить
+             comp ← completionTime(i, arrivalSec)
+             Если comp \PYGZlt{} bestComp: next ← i
+
+    e. waitSec ← max(0, windowStart[next] − arrivalSec)
+    f. currentTimeSec ← arrivalSec + waitSec + duration[next] * 60
+    g. visited[next] ← true;  order.append(next);  cur ← next
+
+7.  Вернуть order, тайминги и статистику
+
+feasible(i, arrivalSec):
+    Если windowEnd[i] \PYGZlt{} 0: вернуть true
+    Вернуть arrivalSec ≤ windowEnd[i] − duration[i] * 60
+
+causesWindowMiss(cand, afterCandSec, G, visited, endIdx):
+    Для каждого j ∉ visited, j ≠ cand, j ≠ endIdx:
+        Если windowEnd[j] \PYGZlt{} 0: пропустить
+        Если НЕ feasible(j, afterCandSec + travelSec[cand][j]):
+            Вернуть true
+    Вернуть false
+\end{Verbatim}

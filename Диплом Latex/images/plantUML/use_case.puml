@@ -35,8 +35,12 @@ rectangle "Веб-приложение планирования маршруто
         usecase "Создать задачу\n(адрес, временное окно,\nдлительность)" as UC_CREATE
         usecase "Редактировать задачу" as UC_EDIT
         usecase "Удалить задачу" as UC_DELETE
+        usecase "Клонировать задачу" as UC_CLONE
+        usecase "Отметить задачу\nкак выполненную" as UC_COMPLETE
         usecase "Изменить порядок задач\n(перетаскивание)" as UC_REORDER
-        usecase "Геокодировать адрес\n(получить координаты)" as UC_GEO
+        usecase "Импортировать задачи\nиз CSV / XLSX" as UC_IMPORT
+        usecase "Экспортировать задачи\nв CSV / XLSX" as UC_EXPORT
+        usecase "Геокодировать адрес\n(автодополнение)" as UC_GEO
     }
 
     package "Оптимизация маршрута" {
@@ -44,12 +48,15 @@ rectangle "Веб-приложение планирования маршруто
         usecase "Получить матрицу\nрасстояний" as UC_MATRIX
         usecase "Вычислить\nоптимальный порядок\nпосещения (NNH-TW)" as UC_NNH
         usecase "Рассчитать время\nприбытия, ожидания\nи завершения" as UC_TIME
+        usecase "Задать фиксированную\nначальную / конечную\nточку" as UC_FIX
+        usecase "Задать ограничения\nпорядка (A до B)" as UC_PREC
+        usecase "Выбрать режим\nтранспорта" as UC_TRANSPORT
     }
 
-    package "Визуализация и экспорт" {
+    package "Визуализация" {
         usecase "Отобразить маршрут\nна карте" as UC_MAP
         usecase "Просмотреть\nупорядоченный\nсписок задач" as UC_LIST
-        usecase "Экспортировать\nмаршрут в JSON" as UC_EXPORT
+        usecase "Обнаружить конфликты\nвременных окон" as UC_CONFLICT
     }
 }
 
@@ -60,11 +67,17 @@ User --> UC_LOGOUT
 User --> UC_CREATE
 User --> UC_EDIT
 User --> UC_DELETE
+User --> UC_CLONE
+User --> UC_COMPLETE
 User --> UC_REORDER
+User --> UC_IMPORT
+User --> UC_EXPORT
 User --> UC_OPT
+User --> UC_FIX
+User --> UC_PREC
+User --> UC_TRANSPORT
 User --> UC_MAP
 User --> UC_LIST
-User --> UC_EXPORT
 
 ' Включения (include)
 UC_LOGIN ..> UC_REFRESH : <<include>>
@@ -73,6 +86,7 @@ UC_OPT ..> UC_MATRIX : <<include>>
 UC_OPT ..> UC_NNH : <<include>>
 UC_OPT ..> UC_TIME : <<include>>
 UC_OPT ..> UC_MAP : <<include>>
+UC_OPT ..> UC_CONFLICT : <<include>>
 
 ' Внешний API
 UC_GEO --> ExtAPI

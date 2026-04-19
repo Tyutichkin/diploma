@@ -1,0 +1,125 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{package}\PYG{+w}{ }\PYG{n+nx}{optimizer}
+
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{p}{(}
+\PYG{+w}{    }\PYG{l+s}{\PYGZdq{}context\PYGZdq{}}
+\PYG{+w}{    }\PYG{l+s}{\PYGZdq{}math\PYGZdq{}}
+\PYG{p}{)}
+
+\PYG{c+c1}{// NearestNeighborTW — эвристика ближайшего соседа с учeтом временных окон}
+\PYG{c+c1}{// (NNH\PYGZhy{}TW). Все временные величины хранятся в секундах Unix. Сложность — O(n³).}
+\PYG{k+kd}{type}\PYG{+w}{ }\PYG{n+nx}{NearestNeighborTW}\PYG{+w}{ }\PYG{k+kd}{struct}\PYG{p}{\PYGZob{}\PYGZcb{}}
+
+\PYG{k+kd}{func}\PYG{+w}{ }\PYG{n+nx}{NewNearestNeighborTW}\PYG{p}{()}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{NearestNeighborTW}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{return}\PYG{+w}{ }\PYG{o}{\PYGZam{}}\PYG{n+nx}{NearestNeighborTW}\PYG{p}{\PYGZob{}\PYGZcb{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{k+kd}{func}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{a}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{NearestNeighborTW}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nx}{Name}\PYG{p}{()}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{+w}{      }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{return}\PYG{+w}{ }\PYG{l+s}{\PYGZdq{}nearest\PYGZhy{}neighbor\PYGZhy{}tw\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+
+\PYG{k+kd}{func}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{a}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{NearestNeighborTW}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nx}{Optimize}\PYG{p}{(}
+\PYG{+w}{    }\PYG{n+nx}{\PYGZus{}}\PYG{+w}{ }\PYG{n+nx}{context}\PYG{p}{.}\PYG{n+nx}{Context}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{Graph}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{startTimeUnix}\PYG{+w}{ }\PYG{k+kt}{int64}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{c}\PYG{+w}{ }\PYG{n+nx}{Constraints}\PYG{p}{,}
+\PYG{p}{)}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nx}{Result}\PYG{p}{,}\PYG{+w}{ }\PYG{k+kt}{error}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n+nx}{n}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nb}{len}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{)}
+\PYG{+w}{    }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{Result}\PYG{p}{\PYGZob{}\PYGZcb{},}\PYG{+w}{ }\PYG{k+kc}{nil}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+
+\PYG{+w}{    }\PYG{n+nx}{prereqs}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{buildPrereqs}\PYG{p}{(}\PYG{n+nx}{n}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{c}\PYG{p}{.}\PYG{n+nx}{PrecedencePairs}\PYG{p}{)}
+\PYG{+w}{    }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{1}
+\PYG{+w}{    }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{c}\PYG{p}{.}\PYG{n+nx}{EndNodeIdx}\PYG{+w}{ }\PYG{o}{!=}\PYG{+w}{ }\PYG{k+kc}{nil}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{c}\PYG{p}{.}\PYG{n+nx}{EndNodeIdx}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+
+\PYG{+w}{    }\PYG{n+nx}{visited}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nb}{make}\PYG{p}{([]}\PYG{k+kt}{bool}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{)}
+\PYG{+w}{    }\PYG{n+nx}{order}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nb}{make}\PYG{p}{([]}\PYG{k+kt}{int}\PYG{p}{,}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{)}
+
+\PYG{+w}{    }\PYG{k+kd}{var}\PYG{+w}{ }\PYG{n+nx}{cur}\PYG{+w}{ }\PYG{k+kt}{int}
+\PYG{+w}{    }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{c}\PYG{p}{.}\PYG{n+nx}{StartNodeIdx}\PYG{+w}{ }\PYG{o}{!=}\PYG{+w}{ }\PYG{k+kc}{nil}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{n+nx}{cur}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{c}\PYG{p}{.}\PYG{n+nx}{StartNodeIdx}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{k}{else}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{n+nx}{cur}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{startNode}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{prereqs}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{p}{)}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{cur}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{k+kc}{true}
+\PYG{+w}{    }\PYG{n+nx}{order}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nb}{append}\PYG{p}{(}\PYG{n+nx}{order}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{cur}\PYG{p}{)}
+\PYG{+w}{    }\PYG{n+nx}{currentTimeSec}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{startTimeUnix}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nb}{int64}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{cur}\PYG{p}{].}\PYG{n+nx}{DurationMin}\PYG{p}{)}\PYG{o}{*}\PYG{l+m+mi}{60}
+
+\PYG{+w}{    }\PYG{k+kd}{var}\PYG{+w}{ }\PYG{n+nx}{totalDistM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalTravelSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalServiceSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalWaitSec}\PYG{+w}{ }\PYG{k+kt}{int}
+\PYG{+w}{    }\PYG{n+nx}{totalServiceSec}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{cur}\PYG{p}{].}\PYG{n+nx}{DurationMin}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{l+m+mi}{60}
+
+\PYG{+w}{    }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nb}{len}\PYG{p}{(}\PYG{n+nx}{order}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{c+c1}{// Закреплeнный конечный узел — ставим последним.}
+\PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{o}{\PYGZam{}\PYGZam{}}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{endIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{            }\PYG{n+nx}{allOther}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{k+kc}{true}
+\PYG{+w}{            }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{o}{++}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{\PYGZam{}\PYGZam{}}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{!=}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{allOther}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{k+kc}{false}\PYG{p}{;}\PYG{+w}{ }\PYG{k}{break}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{allOther}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                }\PYG{n+nx}{currentTimeSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalDistM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalTravelSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalServiceSec}\PYG{p}{,}
+\PYG{+w}{                    }\PYG{n+nx}{totalWaitSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{\PYGZus{}}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{appendNode}\PYG{p}{(}\PYG{n+nx}{endIdx}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{cur}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{currentTimeSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{,}
+\PYG{+w}{                    }\PYG{n+nx}{totalDistM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalTravelSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalServiceSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalWaitSec}\PYG{p}{)}
+\PYG{+w}{                }\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{endIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{k+kc}{true}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{order}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nb}{append}\PYG{p}{(}\PYG{n+nx}{order}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{p}{);}\PYG{+w}{ }\PYG{k}{break}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{p}{\PYGZcb{}}
+
+\PYG{+w}{        }\PYG{n+nx}{next}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{1}
+\PYG{+w}{        }\PYG{k+kd}{var}\PYG{+w}{ }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{k+kt}{int64}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{math}\PYG{p}{.}\PYG{n+nx}{MaxInt64}
+\PYG{+w}{        }\PYG{k+kd}{var}\PYG{+w}{ }\PYG{n+nx}{bestDeadline}\PYG{+w}{ }\PYG{k+kt}{int64}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{math}\PYG{p}{.}\PYG{n+nx}{MaxInt64}
+\PYG{+w}{        }\PYG{n+nx}{bestSafe}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{k+kc}{false}
+
+\PYG{+w}{        }\PYG{c+c1}{// Проход 1: допустимый узел + look\PYGZhy{}ahead.}
+\PYG{+w}{        }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{o}{++}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{            }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{||}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{prereqsMet}\PYG{p}{(}\PYG{n+nx}{i}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{prereqs}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{n+nx}{arrival}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{currentTimeSec}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nb}{int64}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Edges}\PYG{p}{[}\PYG{n+nx}{cur}\PYG{p}{][}\PYG{n+nx}{i}\PYG{p}{].}\PYG{n+nx}{DurationSec}\PYG{p}{)}
+\PYG{+w}{            }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{feasible}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{],}\PYG{+w}{ }\PYG{n+nx}{arrival}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{n+nx}{comp}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{nodeCompletionTime}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{],}\PYG{+w}{ }\PYG{n+nx}{arrival}\PYG{p}{)}
+\PYG{+w}{            }\PYG{n+nx}{deadline}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{].}\PYG{n+nx}{WindowEnd}
+\PYG{+w}{            }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{deadline}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{deadline}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{math}\PYG{p}{.}\PYG{n+nx}{MaxInt64}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{n+nx}{safe}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{causesWindowMiss}\PYG{p}{(}\PYG{n+nx}{i}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{comp}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{p}{)}
+\PYG{+w}{            }\PYG{n+nx}{better}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{k+kc}{false}
+\PYG{+w}{            }\PYG{k}{switch}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{            }\PYG{k}{case}\PYG{+w}{ }\PYG{n+nx}{safe}\PYG{+w}{ }\PYG{o}{\PYGZam{}\PYGZam{}}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{bestSafe}\PYG{p}{:}\PYG{+w}{ }\PYG{n+nx}{better}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{k+kc}{true}
+\PYG{+w}{            }\PYG{k}{case}\PYG{+w}{ }\PYG{n+nx}{safe}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{n+nx}{bestSafe}\PYG{p}{:}
+\PYG{+w}{                }\PYG{n+nx}{better}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{comp}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{o}{||}
+\PYG{+w}{                    }\PYG{p}{(}\PYG{n+nx}{comp}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{o}{\PYGZam{}\PYGZam{}}\PYG{+w}{ }\PYG{n+nx}{deadline}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{bestDeadline}\PYG{p}{)}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{better}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{comp}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{bestDeadline}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{deadline}
+\PYG{+w}{                }\PYG{n+nx}{bestSafe}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{safe}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{next}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{i}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{p}{\PYGZcb{}}
+
+\PYG{+w}{        }\PYG{c+c1}{// Проход 2: fallback — без учeта окна.}
+\PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{next}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{1}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{            }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{math}\PYG{p}{.}\PYG{n+nx}{MaxInt64}
+\PYG{+w}{            }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{o}{++}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{                }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{||}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{                }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{prereqsMet}\PYG{p}{(}\PYG{n+nx}{i}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{prereqs}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{                }\PYG{n+nx}{arrival}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{currentTimeSec}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nb}{int64}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Edges}\PYG{p}{[}\PYG{n+nx}{cur}\PYG{p}{][}\PYG{n+nx}{i}\PYG{p}{].}\PYG{n+nx}{DurationSec}\PYG{p}{)}
+\PYG{+w}{                }\PYG{n+nx}{comp}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{nodeCompletionTime}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{i}\PYG{p}{],}\PYG{+w}{ }\PYG{n+nx}{arrival}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{comp}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{comp}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{next}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{            }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{next}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{1}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{break}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+
+\PYG{+w}{        }\PYG{n+nx}{currentTimeSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalDistM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalTravelSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalServiceSec}\PYG{p}{,}
+\PYG{+w}{            }\PYG{n+nx}{totalWaitSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{\PYGZus{}}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{appendNode}\PYG{p}{(}\PYG{n+nx}{next}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{cur}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{currentTimeSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{,}
+\PYG{+w}{            }\PYG{n+nx}{totalDistM}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalTravelSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalServiceSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{totalWaitSec}\PYG{p}{)}
+\PYG{+w}{        }\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{next}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{k+kc}{true}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{order}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nb}{append}\PYG{p}{(}\PYG{n+nx}{order}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{next}\PYG{p}{);}\PYG{+w}{ }\PYG{n+nx}{cur}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{next}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{Result}\PYG{p}{\PYGZob{}}\PYG{n+nx}{Order}\PYG{p}{:}\PYG{+w}{ }\PYG{n+nx}{order}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{TotalDistanceM}\PYG{p}{:}\PYG{+w}{ }\PYG{n+nx}{totalDistM}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nx}{TotalTravelSec}\PYG{p}{:}\PYG{+w}{ }\PYG{n+nx}{totalTravelSec}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{TotalServiceSec}\PYG{p}{:}\PYG{+w}{ }\PYG{n+nx}{totalServiceSec}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nx}{TotalWaitSec}\PYG{p}{:}\PYG{+w}{ }\PYG{n+nx}{totalWaitSec}\PYG{p}{\PYGZcb{},}\PYG{+w}{ }\PYG{k+kc}{nil}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{k+kd}{func}\PYG{+w}{ }\PYG{n+nx}{feasible}\PYG{p}{(}\PYG{n+nx}{node}\PYG{+w}{ }\PYG{n+nx}{Node}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{arrivalSec}\PYG{+w}{ }\PYG{k+kt}{int64}\PYG{p}{)}\PYG{+w}{ }\PYG{k+kt}{bool}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{node}\PYG{p}{.}\PYG{n+nx}{WindowEnd}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{return}\PYG{+w}{ }\PYG{k+kc}{true}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{n+nx}{arrivalSec}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{n+nx}{node}\PYG{p}{.}\PYG{n+nx}{WindowEnd}\PYG{o}{\PYGZhy{}}\PYG{n+nb}{int64}\PYG{p}{(}\PYG{n+nx}{node}\PYG{p}{.}\PYG{n+nx}{DurationMin}\PYG{p}{)}\PYG{o}{*}\PYG{l+m+mi}{60}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+c1}{// causesWindowMiss — look\PYGZhy{}ahead: true, если после cand}
+\PYG{c+c1}{// хотя бы один узел с окном становится недостижимым.}
+\PYG{k+kd}{func}\PYG{+w}{ }\PYG{n+nx}{causesWindowMiss}\PYG{p}{(}\PYG{n+nx}{cand}\PYG{+w}{ }\PYG{k+kt}{int}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{afterSec}\PYG{+w}{ }\PYG{k+kt}{int64}\PYG{p}{,}
+\PYG{+w}{    }\PYG{n+nx}{g}\PYG{+w}{ }\PYG{o}{*}\PYG{n+nx}{Graph}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{+w}{ }\PYG{p}{[]}\PYG{k+kt}{bool}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{k+kt}{int}\PYG{p}{)}\PYG{+w}{ }\PYG{k+kt}{bool}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nb}{len}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{);}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{o}{++}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{j}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{||}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{n+nx}{cand}\PYG{+w}{ }\PYG{o}{||}\PYG{+w}{ }\PYG{n+nx}{j}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{j}\PYG{p}{].}\PYG{n+nx}{WindowEnd}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{continue}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{        }\PYG{n+nx}{arr}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{n+nx}{afterSec}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nb}{int64}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Edges}\PYG{p}{[}\PYG{n+nx}{cand}\PYG{p}{][}\PYG{n+nx}{j}\PYG{p}{].}\PYG{n+nx}{DurationSec}\PYG{p}{)}
+\PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{feasible}\PYG{p}{(}\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{j}\PYG{p}{],}\PYG{+w}{ }\PYG{n+nx}{arr}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{k}{return}\PYG{+w}{ }\PYG{k+kc}{true}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{k}{return}\PYG{+w}{ }\PYG{k+kc}{false}
+\PYG{p}{\PYGZcb{}}
+\end{Verbatim}
