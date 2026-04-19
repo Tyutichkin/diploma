@@ -1,0 +1,17 @@
+# Fdb version 3
+["xdvipdfmx"] 0 "preamble.inc.xdv" "preamble.inc.pdf" "preamble.inc" 0
+  "preamble.inc.xdv" 0 -1 0 "xelatex"
+  (generated)
+  "preamble.inc.pdf"
+["xelatex"] 1776634973 "preamble.inc.tex" "preamble.inc.xdv" "preamble.inc" 1776634973
+  "/usr/local/texlive/2021/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
+  "/usr/local/texlive/2021/texmf-dist/fonts/tfm/public/lm/rm-lmr10.tfm" 1254269338 11868 4f81e9b6033c032bdaf9884f4d7ef412 ""
+  "/usr/local/texlive/2021/texmf-dist/tex/latex/lm/ot1lmr.fd" 1616454256 1882 28c08db1407ebff35a658fd141753d16 ""
+  "/usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf" 1616443989 39972 3d6bb4d9d719e93193fa020b58adf5d4 ""
+  "/usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt" 1644707858 5093948 c5a1273cf4392bd81740cdb0a1efc253 ""
+  "/usr/local/texlive/2021/texmf.cnf" 1616695596 577 4c1911a7228e554c6032256d3cf5567d ""
+  "preamble.inc.aux" 1776634973 8 a94a2480d3289e625eea47cd1b285758 ""
+  "preamble.inc.tex" 1776193264 7372 639b6bc5f8bfec1aff90378643af997d ""
+  (generated)
+  "preamble.inc.log"
+  "preamble.inc.xdv"

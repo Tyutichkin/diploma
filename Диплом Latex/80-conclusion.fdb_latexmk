@@ -1,0 +1,14 @@
+# Fdb version 3
+["xdvipdfmx"] 0 "80-conclusion.xdv" "80-conclusion.pdf" "80-conclusion" 0
+  "80-conclusion.xdv" 0 -1 0 "xelatex"
+  (generated)
+  "80-conclusion.pdf"
+["xelatex"] 1776634971 "80-conclusion.tex" "80-conclusion.xdv" "80-conclusion" 1776634971
+  "/usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf" 1616443989 39972 3d6bb4d9d719e93193fa020b58adf5d4 ""
+  "/usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt" 1644707858 5093948 c5a1273cf4392bd81740cdb0a1efc253 ""
+  "/usr/local/texlive/2021/texmf.cnf" 1616695596 577 4c1911a7228e554c6032256d3cf5567d ""
+  "80-conclusion.aux" 1776634971 8 a94a2480d3289e625eea47cd1b285758 ""
+  "80-conclusion.tex" 1776634953 5224 7a4f5a233b4d79abcb3df99d3cf6c8c7 ""
+  (generated)
+  "80-conclusion.xdv"
+  "80-conclusion.log"

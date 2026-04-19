@@ -1,0 +1,16 @@
+# Fdb version 3
+["xdvipdfmx"] 0 "30-design.xdv" "30-design.pdf" "30-design" 0
+  "30-design.xdv" 0 -1 0 "xelatex"
+  (generated)
+  "30-design.pdf"
+["xelatex"] 1776634970 "30-design.tex" "30-design.xdv" "30-design" 1776634970
+  "/usr/local/texlive/2021/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
+  "/usr/local/texlive/2021/texmf-dist/fonts/tfm/public/lm/ts1-lmr10.tfm" 1254269338 1556 b86d923e6b2f9aab2e313098a95cb0b8 ""
+  "/usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf" 1616443989 39972 3d6bb4d9d719e93193fa020b58adf5d4 ""
+  "/usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt" 1644707858 5093948 c5a1273cf4392bd81740cdb0a1efc253 ""
+  "/usr/local/texlive/2021/texmf.cnf" 1616695596 577 4c1911a7228e554c6032256d3cf5567d ""
+  "30-design.aux" 1776634970 8 a94a2480d3289e625eea47cd1b285758 ""
+  "30-design.tex" 1776634953 80027 05a3cbf4763347b01878a23e962eb0f5 ""
+  (generated)
+  "30-design.log"
+  "30-design.xdv"

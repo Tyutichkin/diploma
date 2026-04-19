@@ -1,0 +1,14 @@
+# Fdb version 3
+["xdvipdfmx"] 0 "90-appendix1.xdv" "90-appendix1.pdf" "90-appendix1" 0
+  "90-appendix1.xdv" 0 -1 0 "xelatex"
+  (generated)
+  "90-appendix1.pdf"
+["xelatex"] 1776634972 "90-appendix1.tex" "90-appendix1.xdv" "90-appendix1" 1776634972
+  "/usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf" 1616443989 39972 3d6bb4d9d719e93193fa020b58adf5d4 ""
+  "/usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt" 1644707858 5093948 c5a1273cf4392bd81740cdb0a1efc253 ""
+  "/usr/local/texlive/2021/texmf.cnf" 1616695596 577 4c1911a7228e554c6032256d3cf5567d ""
+  "90-appendix1.aux" 1776634972 8 a94a2480d3289e625eea47cd1b285758 ""
+  "90-appendix1.tex" 1776634953 7017 148003fd0ea577da98bb7aadb78e17ff ""
+  (generated)
+  "90-appendix1.log"
+  "90-appendix1.xdv"

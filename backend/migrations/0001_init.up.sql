@@ -88,16 +88,3 @@ CREATE TABLE IF NOT EXISTS route_geometry (
                                               updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- api_distance_cache
-CREATE TABLE IF NOT EXISTS api_distance_cache (
-                                                  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                                  provider VARCHAR(30) NOT NULL,
-                                                  origin geometry(Point, 4326) NOT NULL,
-  dest geometry(Point, 4326) NOT NULL,
-  distance_m INT NOT NULL,
-  duration_sec INT NOT NULL,
-  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  request_hash VARCHAR(64) NOT NULL UNIQUE
-);
-CREATE INDEX IF NOT EXISTS api_distance_cache_origin_gix ON api_distance_cache USING GIST(origin);
-CREATE INDEX IF NOT EXISTS api_distance_cache_dest_gix ON api_distance_cache USING GIST(dest);

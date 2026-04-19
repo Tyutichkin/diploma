@@ -36,7 +36,7 @@ func New(cfg config.Config) (*App, error) {
 	taskRepo := repository.NewTaskRepo(pool)
 	routeRepo := repository.NewRouteRepo(pool)
 
-	distProvider := distance.NewOSRMProvider(cfg.OSRMBaseURL)
+	distProvider := distance.NewCachedProvider(distance.NewOSRMProvider(cfg.OSRMBaseURL))
 	optimizer := routeopt.NewNearestNeighborTW()
 
 	authStory := authstory.New(userRepo, refreshRepo, cfg.JWTSecret, cfg.AccessTTLMin, cfg.RefreshTTLDays)

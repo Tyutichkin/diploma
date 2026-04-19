@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS api_distance_cache;
 DROP TABLE IF EXISTS route_geometry;
 DROP TABLE IF EXISTS route_stops;
 DROP TABLE IF EXISTS route_stats;

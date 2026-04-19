@@ -79,6 +79,7 @@ BH = {
     'p1_hdr':  1.05,
     'p1_for':  1.05,
     'p1_feas': 1.05,
+    'p1_safe': 0.85,
     'p1_look': 1.05,
     'p1_upd':  0.90,
     'con_a':   0.50,
@@ -97,7 +98,7 @@ BH = {
 block_order = [
     'start', 'input', 'init', 'loop',
     'endchk', 'endadd',
-    'p1_hdr', 'p1_for', 'p1_feas', 'p1_look', 'p1_upd', 'con_a',
+    'p1_hdr', 'p1_for', 'p1_feas', 'p1_safe', 'p1_look', 'p1_upd', 'con_a',
     'p2_chk', 'p2_hdr', 'p2_for', 'p2_upd', 'con_b',
     'wait', 'upd', 'append', 'output', 'end',
 ]
@@ -146,8 +147,10 @@ decision(ax, CX, yb['p1_for'], W_D,  BH['p1_for'],
          'Есть непросмотренные\ni \u2209 visited, i \u2260 endIdx?')
 decision(ax, CX, yb['p1_feas'], W_D,  BH['p1_feas'],
          'feasible(i, arrival)\nИ prereqsMet(i)?')
+process (ax, CX, yb['p1_safe'], W_P,  BH['p1_safe'],
+         'safe \u2190 НЕ causesWindowMiss(i, comp)', fs=8)
 decision(ax, CX, yb['p1_look'], W_D,  BH['p1_look'],
-         'safe = НЕ causesWindowMiss\nbetter(safe, comp, deadline)?')
+         'better по (safe, comp,\ndeadline)?')
 process (ax, CX, yb['p1_upd'], W_P,  BH['p1_upd'],
          'next \u2190 i; bestComp \u2190 comp\nbestSafe \u2190 safe; bestDeadline \u2190 deadline', fs=8)
 connector(ax, CX, yb['con_a'], 0.25, 'A')
@@ -183,6 +186,7 @@ main_seq = [
     ('init',   'loop'),
     ('endchk', 'endadd'),
     ('p1_hdr', 'p1_for'),
+    ('p1_safe','p1_look'),
     ('p1_upd', 'con_a'),
     ('con_a',  'p2_chk'),
     ('p2_hdr', 'p2_for'),
@@ -199,7 +203,7 @@ for (ak, bk) in main_seq:
 arr(ax, CX, yb['loop']    - hh['loop'],    CX, yb['endchk']  + hh['endchk'],  'Да', side='right')
 arr(ax, CX, yb['endchk']  - hh['endchk'],  CX, yb['endadd']  + hh['endadd'],  'Да', side='right')
 arr(ax, CX, yb['p1_for']  - hh['p1_for'],  CX, yb['p1_feas'] + hh['p1_feas'], 'Да', side='right')
-arr(ax, CX, yb['p1_feas'] - hh['p1_feas'], CX, yb['p1_look'] + hh['p1_look'], 'Да', side='right')
+arr(ax, CX, yb['p1_feas'] - hh['p1_feas'], CX, yb['p1_safe'] + hh['p1_safe'], 'Да', side='right')
 arr(ax, CX, yb['p1_look'] - hh['p1_look'], CX, yb['p1_upd']  + hh['p1_upd'],  'Да', side='right')
 arr(ax, CX, yb['p2_chk']  - hh['p2_chk'],  CX, yb['p2_hdr']  + hh['p2_hdr'],  'Да', side='right')
 arr(ax, CX, yb['p2_for']  - hh['p2_for'],  CX, yb['p2_upd']  + hh['p2_upd'],  'Да', side='right')

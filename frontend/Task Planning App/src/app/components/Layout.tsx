@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router';
 import { Button } from './ui/button';
-import { LogOut, BookOpen, User, LayoutDashboard } from 'lucide-react';
+import { LogOut, BookOpen, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/auth-context';
 
 export function Layout() {
@@ -60,19 +60,6 @@ export function Layout() {
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 Инструкция
-              </Button>
-            </Link>
-            <Link to="/about">
-              <Button 
-                variant="ghost"
-                className={`rounded-none border-b-2 ${
-                  isActive('/about') 
-                    ? 'border-blue-600 text-blue-600' 
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <User className="mr-2 h-4 w-4" />
-                Об авторе
               </Button>
             </Link>
           </div>

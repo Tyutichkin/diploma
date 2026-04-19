@@ -1,0 +1,12 @@
+PWD /Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex
+INPUT /usr/local/texlive/2021/texmf.cnf
+INPUT /usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf
+INPUT /usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt
+INPUT preamble.inc.tex
+OUTPUT preamble.inc.log
+INPUT /usr/local/texlive/2021/texmf-dist/tex/latex/lm/ot1lmr.fd
+INPUT /usr/local/texlive/2021/texmf-dist/tex/latex/lm/ot1lmr.fd
+INPUT /usr/local/texlive/2021/texmf-dist/tex/latex/lm/ot1lmr.fd
+INPUT /usr/local/texlive/2021/texmf-dist/tex/latex/lm/ot1lmr.fd
+INPUT /usr/local/texlive/2021/texmf-dist/fonts/map/fontname/texfonts.map
+INPUT /usr/local/texlive/2021/texmf-dist/fonts/tfm/public/lm/rm-lmr10.tfm
