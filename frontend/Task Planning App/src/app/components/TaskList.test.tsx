@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TaskList } from './TaskList';
-import { Task, taskHasAddress } from '../types/task';
+import { Task, taskHasAddress, isTaskWindowConflict, getWindowConflictIds } from '../types/task';
 
 function makeTask(overrides: Partial<Task> & Pick<Task, 'id' | 'title'>): Task {
   return {
@@ -131,5 +131,231 @@ describe('TaskList — группировка', () => {
     const tasks = [makeAddressTask('a1', 'A'), makeNoAddressTask('n1', 'N')];
     renderTaskList(tasks);
     expect(screen.getByText(/Список задач \(2\)/i)).toBeInTheDocument();
+  });
+});
+
+describe('isTaskWindowConflict — индивидуальная проверка', () => {
+  it('возвращает false если нет временного окна', () => {
+    expect(isTaskWindowConflict(makeTask({ id: '1', title: 't' }))).toBe(false);
+  });
+
+  it('возвращает false если только начало окна', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't',
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+    }))).toBe(false);
+  });
+
+  it('возвращает false если только конец окна', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't',
+      windowEndDate: '2025-01-01', windowEndTime: '18:00',
+    }))).toBe(false);
+  });
+
+  it('возвращает false если задача укладывается в окно', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't', duration: 60,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '11:00',
+    }))).toBe(false);
+  });
+
+  it('возвращает true если длительность задачи больше окна', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't', duration: 120,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '10:00',
+    }))).toBe(true);
+  });
+
+  it('возвращает true если конец окна раньше начала', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't', duration: 10,
+      windowStartDate: '2025-01-02', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '09:00',
+    }))).toBe(true);
+  });
+
+  it('возвращает true если окно равно нулю (начало == конец)', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't', duration: 10,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '09:00',
+    }))).toBe(true);
+  });
+
+  it('возвращает false для мгновенной задачи если окно > 0', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't', duration: undefined,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '10:00',
+    }))).toBe(false);
+  });
+
+  it('возвращает false если длительность точно равна окну', () => {
+    expect(isTaskWindowConflict(makeTask({
+      id: '1', title: 't', duration: 60,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '10:00',
+    }))).toBe(false);
+  });
+});
+
+describe('getWindowConflictIds — межзадачные конфликты', () => {
+  it('нет конфликтов у единственной задачи с валидным окном', () => {
+    const tasks = [makeTask({
+      id: '1', title: 't', duration: 30,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '10:00',
+    })];
+    expect(getWindowConflictIds(tasks).size).toBe(0);
+  });
+
+  it('конфликт у двух задач в одном окне (суммарная длительность > окно)', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'A', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+      makeTask({ id: '2', title: 'B', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+    ];
+    const ids = getWindowConflictIds(tasks);
+    expect(ids.has('1')).toBe(true);
+    expect(ids.has('2')).toBe(true);
+  });
+
+  it('задача без пересечения окон не конфликтует', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'A', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '14:00',
+        windowEndDate: '2025-01-01', windowEndTime: '14:30' }),
+      makeTask({ id: '2', title: 'B', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+      makeTask({ id: '3', title: 'C', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+    ];
+    const ids = getWindowConflictIds(tasks);
+    expect(ids.has('1')).toBe(false);
+    expect(ids.has('2')).toBe(true);
+    expect(ids.has('3')).toBe(true);
+  });
+
+  it('задачи без временных окон не конфликтуют', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'A', duration: 30 }),
+      makeTask({ id: '2', title: 'B', duration: 30 }),
+    ];
+    expect(getWindowConflictIds(tasks).size).toBe(0);
+  });
+
+  it('индивидуальный конфликт (длительность > окно) тоже попадает', () => {
+    const tasks = [makeTask({
+      id: '1', title: 't', duration: 120,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '10:00',
+    })];
+    expect(getWindowConflictIds(tasks).has('1')).toBe(true);
+  });
+
+  it('три задачи в одном окне — все конфликтуют', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'A', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+      makeTask({ id: '2', title: 'B', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+      makeTask({ id: '3', title: 'C', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+    ];
+    const ids = getWindowConflictIds(tasks);
+    expect(ids.size).toBe(3);
+  });
+
+  it('две задачи с достаточным окном — нет конфликта', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'A', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '09:00',
+        windowEndDate: '2025-01-01', windowEndTime: '11:00' }),
+      makeTask({ id: '2', title: 'B', duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '09:00',
+        windowEndDate: '2025-01-01', windowEndTime: '11:00' }),
+    ];
+    expect(getWindowConflictIds(tasks).size).toBe(0);
+  });
+});
+
+describe('TaskList — конфликт временного окна', () => {
+  it('отображает иконку ошибки для задачи с индивидуальным конфликтом', () => {
+    const tasks = [makeTask({
+      id: 'c1', title: 'Конфликтная задача',
+      address: 'ул. Тестовая', latitude: 55.75, longitude: 37.61,
+      duration: 120,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '10:00',
+    })];
+    renderTaskList(tasks);
+    const container = screen.getByText('Конфликтная задача').closest('[class*="card"]')!;
+    expect(container.querySelector('.lucide-triangle-alert')).toBeInTheDocument();
+  });
+
+  it('красная обводка карточки при межзадачном конфликте', () => {
+    const tasks = [
+      makeTask({ id: 'c1', title: 'Задача 1',
+        address: 'ул. А', latitude: 55.75, longitude: 37.61, duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+      makeTask({ id: 'c2', title: 'Задача 2',
+        address: 'ул. Б', latitude: 55.76, longitude: 37.62, duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+    ];
+    renderTaskList(tasks);
+    const card1 = screen.getByText('Задача 1').closest('[class*="card"]')!;
+    const card2 = screen.getByText('Задача 2').closest('[class*="card"]')!;
+    expect(card1.className).toContain('border-red-400');
+    expect(card2.className).toContain('border-red-400');
+  });
+
+  it('не отображает иконку ошибки для задачи без конфликта', () => {
+    const tasks = [makeTask({
+      id: 'ok1', title: 'Нормальная задача',
+      address: 'ул. Тестовая', latitude: 55.75, longitude: 37.61,
+      duration: 30,
+      windowStartDate: '2025-01-01', windowStartTime: '09:00',
+      windowEndDate: '2025-01-01', windowEndTime: '12:00',
+    })];
+    renderTaskList(tasks);
+    const container = screen.getByText('Нормальная задача').closest('[class*="card"]')!;
+    expect(container.querySelector('.lucide-triangle-alert')).not.toBeInTheDocument();
+  });
+
+  it('задача с непересекающимся окном не помечается при конфликте других', () => {
+    const tasks = [
+      makeTask({ id: '1', title: 'Свободная',
+        address: 'ул. А', latitude: 55.75, longitude: 37.61, duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '14:00',
+        windowEndDate: '2025-01-01', windowEndTime: '14:30' }),
+      makeTask({ id: '2', title: 'Конфликт А',
+        address: 'ул. Б', latitude: 55.76, longitude: 37.62, duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+      makeTask({ id: '3', title: 'Конфликт Б',
+        address: 'ул. В', latitude: 55.77, longitude: 37.63, duration: 30,
+        windowStartDate: '2025-01-01', windowStartTime: '12:00',
+        windowEndDate: '2025-01-01', windowEndTime: '12:30' }),
+    ];
+    renderTaskList(tasks);
+    const free = screen.getByText('Свободная').closest('[class*="card"]')!;
+    const confA = screen.getByText('Конфликт А').closest('[class*="card"]')!;
+    const confB = screen.getByText('Конфликт Б').closest('[class*="card"]')!;
+    expect(free.className).not.toContain('border-red-400');
+    expect(confA.className).toContain('border-red-400');
+    expect(confB.className).toContain('border-red-400');
   });
 });

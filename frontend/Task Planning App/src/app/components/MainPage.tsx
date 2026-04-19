@@ -3,7 +3,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { Task, OptimizedRoute, taskHasAddress, windowBoundMs, formatWindowBound } from '../types/task';
+import { Task, OptimizedRoute, taskHasAddress, windowBoundMs, formatWindowBound, getWindowConflictIds } from '../types/task';
 import { SavedRouteSummary, RouteStopTiming } from '../types/route';
 import { TaskList } from './TaskList';
 import { TaskForm, TaskRole } from './TaskForm';
@@ -175,6 +175,8 @@ export function MainPage() {
   const tasksRef = useRef<Task[]>([]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const windowConflictIds = useMemo(() => getWindowConflictIds(tasks), [tasks]);
+  const hasWindowConflicts = windowConflictIds.size > 0;
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteSummary[]>([]);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -191,6 +193,33 @@ export function MainPage() {
   const [transportMode, setTransportMode] = useState<TransportMode>('auto');
   const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
   const [routeStops, setRouteStops] = useState<RouteStopTiming[]>([]);
+
+  // Конфликты, выявленные по фактическому времени прибытия после оптимизации
+  const routeConflictIds = useMemo(() => {
+    if (routeStops.length === 0) return undefined;
+    const stopMap = new Map(routeStops.map((s) => [s.taskId, s]));
+    const ids = new Set<string>();
+    for (const task of tasks) {
+      const stop = stopMap.get(task.id);
+      if (!stop?.arriveTime) continue;
+      if (!task.windowEndDate && !task.windowEndTime) continue;
+      const arrivalMs = new Date(stop.arriveTime).getTime();
+      const deadlineMs = new Date(
+        task.windowEndDate && task.windowEndTime
+          ? `${task.windowEndDate}T${task.windowEndTime}:00Z`
+          : task.windowEndDate
+            ? `${task.windowEndDate}T23:59:59Z`
+            : stop.arriveTime,
+      ).getTime();
+      if (isNaN(deadlineMs)) continue;
+      const serviceDurationMs = (task.duration ?? 0) * 60 * 1000;
+      if (arrivalMs > deadlineMs - serviceDurationMs) {
+        ids.add(task.id);
+      }
+    }
+    return ids.size > 0 ? ids : undefined;
+  }, [tasks, routeStops]);
+
   const [startTaskId, setStartTaskId] = useState<string>('');
   const [endTaskId, setEndTaskId] = useState<string>('');
   const [precedences, setPrecedences] = useState<PrecedencePair[]>([]);
@@ -860,22 +889,26 @@ export function MainPage() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                onClick={handleOptimizeRoute}
-                disabled={isOptimizing || isPersistingOrder || tasks.length < 2}
-                variant="default"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isOptimizing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Route className="mr-2 h-4 w-4" />
-                )}
-                Оптимизировать маршрут
-              </Button>
+              <span tabIndex={hasWindowConflicts ? 0 : undefined}>
+                <Button
+                  onClick={handleOptimizeRoute}
+                  disabled={isOptimizing || isPersistingOrder || tasks.length < 2 || hasWindowConflicts}
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isOptimizing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Route className="mr-2 h-4 w-4" />
+                  )}
+                  Оптимизировать маршрут
+                </Button>
+              </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Построить маршрут и сохранить его в бэкенде</p>
+              <p>{hasWindowConflicts
+                ? 'Исправьте конфликты временных окон перед оптимизацией'
+                : 'Построить маршрут и сохранить его в бэкенде'}</p>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -1145,6 +1178,7 @@ export function MainPage() {
               tasks={tasks}
               startTaskId={startTaskId || undefined}
               endTaskId={endTaskId || undefined}
+              routeConflictIds={routeConflictIds}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               onToggleComplete={handleToggleComplete}

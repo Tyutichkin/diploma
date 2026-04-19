@@ -1,4 +1,4 @@
-import { Task, taskHasAddress } from '../types/task';
+import { Task, taskHasAddress, getWindowConflictIds } from '../types/task';
 import { TaskItem } from './TaskItem';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
@@ -8,6 +8,7 @@ interface TaskListProps {
   tasks: Task[];
   startTaskId?: string;
   endTaskId?: string;
+  routeConflictIds?: Set<string>;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void | Promise<void>;
   onToggleComplete: (id: string) => void;
@@ -21,6 +22,7 @@ export function TaskList({
   tasks,
   startTaskId,
   endTaskId,
+  routeConflictIds,
   onEdit,
   onDelete,
   onToggleComplete,
@@ -31,6 +33,10 @@ export function TaskList({
 }: TaskListProps) {
   const withAddress = tasks.filter(taskHasAddress);
   const withoutAddress = tasks.filter((t) => !taskHasAddress(t));
+  const staticConflictIds = getWindowConflictIds(tasks);
+  const conflictIds = routeConflictIds
+    ? new Set([...staticConflictIds, ...routeConflictIds])
+    : staticConflictIds;
 
   return (
     <Card className="h-full flex flex-col">
@@ -65,6 +71,7 @@ export function TaskList({
                         isEnd={task.id === endTaskId}
                         canSetStart={!startTaskId || task.id === startTaskId}
                         canSetEnd={!endTaskId || task.id === endTaskId}
+                        hasWindowConflict={conflictIds.has(task.id)}
                         onEdit={onEdit}
                         onDelete={onDelete}
                         onToggleComplete={onToggleComplete}
@@ -97,6 +104,7 @@ export function TaskList({
                         isEnd={false}
                         canSetStart={false}
                         canSetEnd={false}
+                        hasWindowConflict={conflictIds.has(task.id)}
                         onEdit={onEdit}
                         onDelete={onDelete}
                         onToggleComplete={onToggleComplete}

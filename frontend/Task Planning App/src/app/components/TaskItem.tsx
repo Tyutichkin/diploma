@@ -2,8 +2,13 @@ import { Task } from '../types/task';
 import { useDrag, useDrop } from 'react-dnd';
 import { Card, CardContent } from './ui/card';
 import { Button, buttonVariants } from './ui/button';
-import { GripVertical, Clock, MapPin, Edit2, Trash2, CheckCircle2, Flag, MoreHorizontal, Copy } from 'lucide-react';
+import { GripVertical, Clock, MapPin, Edit2, Trash2, CheckCircle2, Flag, MoreHorizontal, Copy, AlertTriangle } from 'lucide-react';
 import { cn } from './ui/utils';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from './ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +33,7 @@ interface TaskItemProps {
   isEnd?: boolean;
   canSetStart?: boolean;
   canSetEnd?: boolean;
+  hasWindowConflict?: boolean;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void | Promise<void>;
   onToggleComplete: (id: string) => void;
@@ -50,6 +56,7 @@ export function TaskItem({
   isEnd,
   canSetStart,
   canSetEnd,
+  hasWindowConflict = false,
   onEdit,
   onDelete,
   onToggleComplete,
@@ -129,6 +136,7 @@ export function TaskItem({
           <Card className={cn(
             'mb-2 transition-all hover:shadow-md',
             task.completed && 'opacity-60 bg-gray-50',
+            hasWindowConflict && 'border-red-400 bg-red-50/50',
           )}>
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -236,11 +244,24 @@ export function TaskItem({
                         <span>{task.duration != null ? `${task.duration} мин` : 'мгновенная'}</span>
                       </div>
                       {(task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime) && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                        <span className={cn(
+                          'text-xs px-2 py-1 rounded',
+                          hasWindowConflict ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700',
+                        )}>
                           {[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'}
                           &nbsp;—&nbsp;
                           {[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}
                         </span>
+                      )}
+                      {hasWindowConflict && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Задача не укладывается в временное окно. Отредактируйте окно или длительность.
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
                   </div>

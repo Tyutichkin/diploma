@@ -40,7 +40,7 @@ export default function App() {
   return (
     <AuthContext.Provider value={authContextValue}>
       {!session ? <AuthPage /> : <RouterProvider router={router} />}
-      <Toaster position="top-right" />
+      <Toaster position="top-right" expand visibleToasts={5} />
     </AuthContext.Provider>
   );
 }
