@@ -269,11 +269,11 @@ func TestRouteHandler_Optimize_WithConstraints(t *testing.T) {
 
 	r := newRouteTestRouter(rRepo, tRepo, &hDistProvider{})
 	w := doJSON(t, r, "POST", "/api/routes/optimize", map[string]any{
-		"taskIds":       []string{t1.ID, t2.ID, t3.ID},
-		"startTimeUnix": 1704085200,
+		"taskIds":        []string{t1.ID, t2.ID, t3.ID},
+		"startTimeUnix":  1704085200,
 		"distanceMatrix": matrix,
-		"startTaskId":   t1.ID,
-		"endTaskId":     t3.ID,
+		"startTaskId":    t1.ID,
+		"endTaskId":      t3.ID,
 		"precedenceConstraints": []map[string]string{
 			{"beforeTaskId": t1.ID, "afterTaskId": t2.ID},
 		},

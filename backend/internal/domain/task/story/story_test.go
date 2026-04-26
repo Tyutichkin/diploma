@@ -14,7 +14,6 @@ import (
 	"planner-backend/internal/domain/task"
 )
 
-
 type mockTaskRepo struct {
 	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
 	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
@@ -49,7 +48,6 @@ func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (b
 func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	return m.bulkReorderFn(ctx, userID, in)
 }
-
 
 func makeTask(id, userID, title string) task.Task {
 	lat := 55.75
@@ -93,7 +91,6 @@ func validCreateInput() task.CreateInput {
 		DurationMin: ptrs.Ptr(30),
 	}
 }
-
 
 // 2.1.1 Успешное создание
 func TestCreate_Success(t *testing.T) {
@@ -426,7 +423,6 @@ func TestUpdate_ClearBothWindows(t *testing.T) {
 	assert.True(t, found)
 }
 
-
 // 2.2.1 Частичное обновление
 func TestUpdate_PartialUpdate(t *testing.T) {
 	uid := uuid.NewString()
@@ -472,7 +468,6 @@ func TestUpdate_AnotherUsersTask(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found)
 }
-
 
 // 2.3.1 Успешное удаление
 func TestDelete_Success(t *testing.T) {
@@ -533,7 +528,6 @@ func TestDelete_Twice(t *testing.T) {
 	assert.False(t, found2)
 }
 
-
 // 2.4.1 Успешная перестановка
 func TestReorder_Success(t *testing.T) {
 	repo := &mockTaskRepo{
@@ -578,7 +572,6 @@ func TestReorder_RepoError(t *testing.T) {
 	err := s.Reorder(context.Background(), "uid", task.ReorderInput{Items: []task.ReorderItem{{TaskID: "id", SortIndex: 0}}})
 	assert.Error(t, err)
 }
-
 
 // 2.5.1 Возвращает только задачи текущего пользователя
 func TestList_ReturnsOnlyUserTasks(t *testing.T) {
@@ -636,7 +629,6 @@ func TestList_SortedBySortIndex(t *testing.T) {
 	assert.Equal(t, 2, got[2].SortIndex)
 }
 
-
 func TestList_RepoError(t *testing.T) {
 	repo := &mockTaskRepo{
 		listByUserFn: func(_ context.Context, _ string) ([]task.Task, error) {
@@ -658,7 +650,6 @@ func TestCreate_RepoError(t *testing.T) {
 	_, err := s.Create(context.Background(), "uid", validCreateInput())
 	assert.Error(t, err)
 }
-
 
 // Баг: клиент отправляет windowStartDate=today, windowEndDate=today,
 // но оба времени пустые/не указаны → combineDatetime даёт 00:00 для обеих

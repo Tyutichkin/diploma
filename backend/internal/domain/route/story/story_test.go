@@ -18,7 +18,6 @@ import (
 	distancepkg "planner-backend/internal/platform/distance"
 )
 
-
 type mockRouteRepo struct {
 	createDraftFn        func(ctx context.Context, userID, source string) (route.Route, error)
 	listByUserFn         func(ctx context.Context, userID string) ([]route.Route, error)
@@ -59,7 +58,6 @@ func (m *mockRouteRepo) RenameRoute(ctx context.Context, userID, routeID, name s
 	return m.renameRouteFn(ctx, userID, routeID, name)
 }
 
-
 type mockTaskRepo struct {
 	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
 	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
@@ -91,7 +89,6 @@ func (m *mockTaskRepo) BatchCreate(ctx context.Context, userID string, inputs []
 	return nil, nil
 }
 
-
 type mockDistProvider struct {
 	getMatrixFn func(ctx context.Context, points []distancepkg.Point) ([][]distancepkg.Edge, error)
 }
@@ -99,7 +96,6 @@ type mockDistProvider struct {
 func (m *mockDistProvider) GetMatrix(ctx context.Context, points []distancepkg.Point) ([][]distancepkg.Edge, error) {
 	return m.getMatrixFn(ctx, points)
 }
-
 
 type mockOptimizer struct {
 	nameFn     func() string
@@ -110,7 +106,6 @@ func (m *mockOptimizer) Name() string { return m.nameFn() }
 func (m *mockOptimizer) Optimize(ctx context.Context, g *routeopt.Graph, startTimeUnix int64, c routeopt.Constraints) (routeopt.Result, error) {
 	return m.optimizeFn(ctx, g, startTimeUnix, c)
 }
-
 
 func makeRouteTask(id, userID string) task.Task {
 	lat := 55.75
@@ -176,7 +171,6 @@ func defaultOptimizer() *mockOptimizer {
 	}
 }
 
-
 // 3.1.1 Создание черновика с задачами
 func TestCreateDraft_WithTasks(t *testing.T) {
 	routeID := uuid.NewString()
@@ -222,7 +216,6 @@ func TestCreateDraft_EmptyTaskList(t *testing.T) {
 	assert.NotEmpty(t, rt.ID)
 	assert.False(t, replaceStopsCalled, "ReplaceStops should not be called for empty task list")
 }
-
 
 // 3.2.1 Успешная оптимизация
 func TestOptimize_Success(t *testing.T) {
@@ -447,7 +440,6 @@ func TestOptimize_SameStartAndEnd(t *testing.T) {
 	assert.Error(t, err)
 }
 
-
 // 3.3.1 List возвращает только маршруты пользователя
 func TestList_ReturnsUserRoutes(t *testing.T) {
 	uid := uuid.NewString()
@@ -585,7 +577,6 @@ func TestDelete_EmptyRouteID(t *testing.T) {
 	_, err := s.Delete(context.Background(), "uid", "")
 	assert.Error(t, err)
 }
-
 
 var fallbackDate = time.Date(2024, 6, 10, 9, 0, 0, 0, time.UTC)
 

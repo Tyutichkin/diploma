@@ -39,11 +39,10 @@ func MustLoad() Config {
 		return v
 	}
 
-	originsRaw := get("APP_CORS_ORIGINS", "http://localhost:5173")
-	origins := make([]string, 0, len(strings.Split(originsRaw, ",")))
-	for _, x := range strings.Split(originsRaw, ",") {
-		x = strings.TrimSpace(x)
-		if x != "" {
+	rawOrigins := strings.Split(get("APP_CORS_ORIGINS", "http://localhost:5173"), ",")
+	origins := make([]string, 0, len(rawOrigins))
+	for _, x := range rawOrigins {
+		if x = strings.TrimSpace(x); x != "" {
 			origins = append(origins, x)
 		}
 	}

@@ -98,7 +98,7 @@ func (r *TaskRepo) Create(ctx context.Context, userID string, in task.CreateInpu
 		in.SortIndex,
 	)
 
-	return scanTaskRow(row)
+	return scanTask(row)
 }
 
 func (r *TaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error) {
@@ -130,7 +130,7 @@ func (r *TaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task
 	out := make([]task.Task, 0, len(inputs))
 	for range inputs {
 		row := br.QueryRow()
-		t, err := scanTaskRow(row)
+		t, err := scanTask(row)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +185,7 @@ func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.Up
 		taskID, userID,
 	)
 
-	t, err := scanTaskRow(row)
+	t, err := scanTask(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return task.Task{}, false, nil
@@ -233,42 +233,23 @@ func (r *TaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool,
 	return ct.RowsAffected() > 0, nil
 }
 
-// scanTask сканирует строку из pgx.Rows в task.Task.
-func scanTask(rows pgx.Rows) (task.Task, error) {
-	var t task.Task
-	var lat, lon *float64
-	var dur *int
-	var wsDate, wsTime, weDate, weTime *time.Time
-	if err := rows.Scan(
-		&t.ID, &t.UserID, &t.Title, &t.AddressText, &lat, &lon, &dur,
-		&wsDate, &wsTime, &weDate, &weTime,
-		&t.SortIndex, &t.CreatedAt, &t.UpdatedAt, &t.IsDeleted, &t.IsCompleted,
-	); err != nil {
-		return task.Task{}, err
-	}
-	t.Latitude = lat
-	t.Longitude = lon
-	t.DurationMin = dur
-	applyWindowFields(&t, wsDate, wsTime, weDate, weTime)
-	return t, nil
+// scanner — общий интерфейс над pgx.Row и pgx.Rows: оба умеют Scan(...).
+type scanner interface {
+	Scan(dest ...any) error
 }
 
-// scanTaskRow сканирует одну строку из pgx.Row.
-func scanTaskRow(row pgx.Row) (task.Task, error) {
+// scanTask сканирует одну запись задачи. Принимает любой источник, реализующий
+// Scan (pgx.Row или pgx.Rows.Scan).
+func scanTask(s scanner) (task.Task, error) {
 	var t task.Task
-	var lat, lon *float64
-	var dur *int
 	var wsDate, wsTime, weDate, weTime *time.Time
-	if err := row.Scan(
-		&t.ID, &t.UserID, &t.Title, &t.AddressText, &lat, &lon, &dur,
+	if err := s.Scan(
+		&t.ID, &t.UserID, &t.Title, &t.AddressText, &t.Latitude, &t.Longitude, &t.DurationMin,
 		&wsDate, &wsTime, &weDate, &weTime,
 		&t.SortIndex, &t.CreatedAt, &t.UpdatedAt, &t.IsDeleted, &t.IsCompleted,
 	); err != nil {
 		return task.Task{}, err
 	}
-	t.Latitude = lat
-	t.Longitude = lon
-	t.DurationMin = dur
 	applyWindowFields(&t, wsDate, wsTime, weDate, weTime)
 	return t, nil
 }

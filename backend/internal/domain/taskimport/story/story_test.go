@@ -11,7 +11,6 @@ import (
 	taskstory "planner-backend/internal/domain/task/story"
 )
 
-
 type mockTaskRepo struct {
 	batchCreateFn func(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
 }
@@ -40,7 +39,6 @@ func (m *mockTaskRepo) SoftDelete(context.Context, string, string) (bool, error)
 func (m *mockTaskRepo) BulkReorder(context.Context, string, task.ReorderInput) error {
 	return nil
 }
-
 
 func newTestStory(repo *mockTaskRepo) *Story {
 	return New(taskstory.New(repo))

@@ -13,6 +13,54 @@ func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
 
 func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
 
+// traversal — изменяемое состояние одного запуска оптимизации: где мы сейчас,
+// какие узлы посещены, накопленные тайминги и метрики маршрута.
+type traversal struct {
+	g           *Graph
+	cur         int
+	currentTime int64
+	visited     []bool
+	order       []int
+	timings     []StopTiming
+
+	totalDistM      int
+	totalTravelSec  int
+	totalServiceSec int
+	totalWaitSec    int
+}
+
+// appendNode добавляет узел next к маршруту и обновляет агрегаты + текущее время.
+func (t *traversal) appendNode(next int) {
+	e := t.g.Edges[t.cur][next]
+	node := t.g.Nodes[next]
+
+	arrivalSec := t.currentTime + int64(e.DurationSec)
+	var waitSec int64
+	if node.WindowStart >= 0 && arrivalSec < node.WindowStart {
+		waitSec = node.WindowStart - arrivalSec
+	}
+	serviceStart := arrivalSec + waitSec
+	serviceEnd := serviceStart + int64(node.DurationMin)*60
+
+	t.totalDistM += e.DistanceM
+	t.totalTravelSec += e.DurationSec
+	t.totalServiceSec += node.DurationMin * 60
+	t.totalWaitSec += int(waitSec)
+
+	t.timings = append(t.timings, StopTiming{
+		NodeIdx:           next,
+		ArrivalSec:        arrivalSec,
+		WaitSec:           int(waitSec),
+		ServiceStartSec:   serviceStart,
+		ServiceEndSec:     serviceEnd,
+		TravelFromPrevSec: e.DurationSec,
+	})
+	t.visited[next] = true
+	t.order = append(t.order, next)
+	t.cur = next
+	t.currentTime = serviceEnd
+}
+
 func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix int64, c Constraints) (Result, error) {
 	n := len(g.Nodes)
 	if n == 0 {
@@ -26,182 +74,139 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 		endIdx = *c.EndNodeIdx
 	}
 
-	visited := make([]bool, n)
-	order := make([]int, 0, n)
-
-	var cur int
+	cur := 0
 	if c.StartNodeIdx != nil {
 		cur = *c.StartNodeIdx
 	} else {
 		cur = startNode(g, prereqs, endIdx)
 	}
-	visited[cur] = true
-	order = append(order, cur)
 
 	startServiceEnd := startTimeUnix + int64(g.Nodes[cur].DurationMin)*60
-	timings := []StopTiming{{
-		NodeIdx:           cur,
-		ArrivalSec:        startTimeUnix,
-		WaitSec:           0,
-		ServiceStartSec:   startTimeUnix,
-		ServiceEndSec:     startServiceEnd,
-		TravelFromPrevSec: 0,
-	}}
+	t := &traversal{
+		g:           g,
+		cur:         cur,
+		currentTime: startServiceEnd,
+		visited:     make([]bool, n),
+		order:       []int{cur},
+		timings: []StopTiming{{
+			NodeIdx:           cur,
+			ArrivalSec:        startTimeUnix,
+			WaitSec:           0,
+			ServiceStartSec:   startTimeUnix,
+			ServiceEndSec:     startServiceEnd,
+			TravelFromPrevSec: 0,
+		}},
+		totalServiceSec: g.Nodes[cur].DurationMin * 60,
+	}
+	t.visited[cur] = true
 
-	currentTimeSec := startServiceEnd
-
-	var totalDistM, totalTravelSec, totalServiceSec, totalWaitSec int
-	totalServiceSec = g.Nodes[cur].DurationMin * 60
-
-	for len(order) < n {
+	for len(t.order) < n {
 		// Если остался только закреплённый конечный узел — ставим его и выходим.
-		if endIdx >= 0 && !visited[endIdx] {
-			allOtherVisited := true
-			for i := 0; i < n; i++ {
-				if !visited[i] && i != endIdx {
-					allOtherVisited = false
-					break
-				}
-			}
-			if allOtherVisited {
-				var st StopTiming
-				currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec, st =
-					appendNode(endIdx, cur, currentTimeSec, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
-				timings = append(timings, st)
-				visited[endIdx] = true
-				order = append(order, endIdx)
-				break
-			}
+		if endIdx >= 0 && !t.visited[endIdx] && onlyEndUnvisited(t.visited, endIdx) {
+			t.appendNode(endIdx)
+			break
 		}
 
-		next := -1
-		var bestCompletionSec int64 = math.MaxInt64
-		var bestDeadline int64 = math.MaxInt64
-		bestSafe := false
-
-		// Проход 1: допустимый узел с наименьшим временем завершения + look-ahead.
-		// Кандидат "безопасен", если его посещение не делает недостижимым ни один
-		// другой узел с окном. Безопасные всегда предпочитаются рискованным;
-		// внутри одного класса — меньшее время завершения, затем более срочный дедлайн.
-		for i := 0; i < n; i++ {
-			if visited[i] || i == endIdx {
-				continue
-			}
-			if !prereqsMet(i, visited, prereqs) {
-				continue
-			}
-			e := g.Edges[cur][i]
-			arrivalSec := currentTimeSec + int64(e.DurationSec)
-			if !feasible(g.Nodes[i], arrivalSec) {
-				continue
-			}
-
-			comp := nodeCompletionTime(g.Nodes[i], arrivalSec)
-			deadline := g.Nodes[i].WindowEnd
-			if deadline < 0 {
-				deadline = math.MaxInt64
-			}
-			safe := !causesWindowMiss(i, comp, g, visited, endIdx)
-
-			better := false
-			switch {
-			case safe && !bestSafe:
-				better = true
-			case safe == bestSafe:
-				better = comp < bestCompletionSec ||
-					(comp == bestCompletionSec && deadline < bestDeadline)
-			}
-
-			if better {
-				bestCompletionSec = comp
-				bestDeadline = deadline
-				bestSafe = safe
-				next = i
-			}
-		}
-
-		// Проход 2: fallback — минимальное completion, окно игнорируется, предшествование сохраняется.
+		next := pickNextFeasible(t, prereqs, endIdx)
 		if next == -1 {
-			bestCompletionSec = math.MaxInt64
-			for i := 0; i < n; i++ {
-				if visited[i] || i == endIdx {
-					continue
-				}
-				if !prereqsMet(i, visited, prereqs) {
-					continue
-				}
-				e := g.Edges[cur][i]
-				arrivalSec := currentTimeSec + int64(e.DurationSec)
-				comp := nodeCompletionTime(g.Nodes[i], arrivalSec)
-				if comp < bestCompletionSec {
-					bestCompletionSec = comp
-					next = i
-				}
-			}
+			next = pickNextFallback(t, prereqs, endIdx)
 		}
 
 		if next == -1 {
 			// Узел не выбрать — возможно только при циклическом графе предшествования.
-			if endIdx >= 0 && !visited[endIdx] {
-				var st StopTiming
-				currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec, st =
-					appendNode(endIdx, cur, currentTimeSec, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
-				timings = append(timings, st)
-				visited[endIdx] = true
-				order = append(order, endIdx)
+			if endIdx >= 0 && !t.visited[endIdx] {
+				t.appendNode(endIdx)
 			}
 			break
 		}
 
-		var st StopTiming
-		currentTimeSec, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec, st =
-			appendNode(next, cur, currentTimeSec, g, totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
-		timings = append(timings, st)
-		visited[next] = true
-		order = append(order, next)
-		cur = next
+		t.appendNode(next)
 	}
 
 	return Result{
-		Order:           order,
-		Timings:         timings,
-		TotalDistanceM:  totalDistM,
-		TotalTravelSec:  totalTravelSec,
-		TotalServiceSec: totalServiceSec,
-		TotalWaitSec:    totalWaitSec,
+		Order:           t.order,
+		Timings:         t.timings,
+		TotalDistanceM:  t.totalDistM,
+		TotalTravelSec:  t.totalTravelSec,
+		TotalServiceSec: t.totalServiceSec,
+		TotalWaitSec:    t.totalWaitSec,
 	}, nil
 }
 
-// appendNode добавляет узел next к текущему состоянию обхода и возвращает
-// обновлённые значения currentTimeSec, агрегатов и StopTiming для этого узла.
-func appendNode(next, cur int, currentTimeSec int64, g *Graph, distM, travelSec, serviceSec, waitSec int) (int64, int, int, int, int, StopTiming) {
-	e := g.Edges[cur][next]
-	node := g.Nodes[next]
-
-	arrivalSec := currentTimeSec + int64(e.DurationSec)
-	var waitSec2 int64
-	if node.WindowStart >= 0 && arrivalSec < node.WindowStart {
-		waitSec2 = node.WindowStart - arrivalSec
+// onlyEndUnvisited — true, если непосещён только закреплённый конечный узел.
+func onlyEndUnvisited(visited []bool, endIdx int) bool {
+	for i, v := range visited {
+		if !v && i != endIdx {
+			return false
+		}
 	}
+	return true
+}
 
-	serviceStart := arrivalSec + waitSec2
-	serviceEnd := serviceStart + int64(node.DurationMin)*60
+// pickNextFeasible — проход 1: допустимый узел с наименьшим временем завершения
+// + look-ahead. Кандидат "безопасен", если его посещение не делает недостижимым
+// ни один другой узел с окном. Безопасные предпочитаются; внутри одного класса —
+// меньшее время завершения, затем более срочный дедлайн.
+func pickNextFeasible(t *traversal, prereqs [][]int, endIdx int) int {
+	g := t.g
+	next := -1
+	var bestCompletion int64 = math.MaxInt64
+	var bestDeadline int64 = math.MaxInt64
+	bestSafe := false
 
-	distM += e.DistanceM
-	travelSec += e.DurationSec
-	serviceSec += node.DurationMin * 60
-	waitSec += int(waitSec2)
+	for i := range g.Nodes {
+		if t.visited[i] || i == endIdx || !prereqsMet(i, t.visited, prereqs) {
+			continue
+		}
+		arrival := t.currentTime + int64(g.Edges[t.cur][i].DurationSec)
+		if !feasible(g.Nodes[i], arrival) {
+			continue
+		}
 
-	st := StopTiming{
-		NodeIdx:           next,
-		ArrivalSec:        arrivalSec,
-		WaitSec:           int(waitSec2),
-		ServiceStartSec:   serviceStart,
-		ServiceEndSec:     serviceEnd,
-		TravelFromPrevSec: e.DurationSec,
+		comp := nodeCompletionTime(g.Nodes[i], arrival)
+		deadline := g.Nodes[i].WindowEnd
+		if deadline < 0 {
+			deadline = math.MaxInt64
+		}
+		safe := !causesWindowMiss(i, comp, g, t.visited, endIdx)
+
+		better := false
+		switch {
+		case safe && !bestSafe:
+			better = true
+		case safe == bestSafe:
+			better = comp < bestCompletion ||
+				(comp == bestCompletion && deadline < bestDeadline)
+		}
+		if better {
+			bestCompletion = comp
+			bestDeadline = deadline
+			bestSafe = safe
+			next = i
+		}
 	}
+	return next
+}
 
-	return serviceEnd, distM, travelSec, serviceSec, waitSec, st
+// pickNextFallback — проход 2: минимальное completion, окно игнорируется,
+// предшествование сохраняется.
+func pickNextFallback(t *traversal, prereqs [][]int, endIdx int) int {
+	g := t.g
+	next := -1
+	var bestCompletion int64 = math.MaxInt64
+
+	for i := range g.Nodes {
+		if t.visited[i] || i == endIdx || !prereqsMet(i, t.visited, prereqs) {
+			continue
+		}
+		arrival := t.currentTime + int64(g.Edges[t.cur][i].DurationSec)
+		comp := nodeCompletionTime(g.Nodes[i], arrival)
+		if comp < bestCompletion {
+			bestCompletion = comp
+			next = i
+		}
+	}
+	return next
 }
 
 // buildPrereqs строит для каждого узла i список узлов, которые должны быть

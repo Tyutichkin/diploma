@@ -17,7 +17,6 @@ import (
 	"planner-backend/internal/domain/user"
 )
 
-
 type mockUserRepo struct {
 	createFn     func(ctx context.Context, email, passwordHash string) (user.User, error)
 	getByEmailFn func(ctx context.Context, email string) (user.User, bool, error)
@@ -50,7 +49,6 @@ func (m *mockRefreshRepo) RevokeByHash(ctx context.Context, tokenHash string) er
 	return m.revokeByHashFn(ctx, tokenHash)
 }
 
-
 const testSecret = "super-test-secret-key"
 
 func newTestStory(u *mockUserRepo, r *mockRefreshRepo) *Story {
@@ -81,7 +79,6 @@ func okRefreshRecord(userID, tokenHash string) dauth.RefreshTokenRecord {
 		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 	}
 }
-
 
 // 1.1.1 Успешная регистрация
 func TestRegister_Success(t *testing.T) {
@@ -154,7 +151,6 @@ func TestRegister_PasswordHashedWithBcrypt(t *testing.T) {
 	err = bcrypt.CompareHashAndPassword([]byte(capturedHash), []byte(password))
 	assert.NoError(t, err, "captured hash must be bcrypt of the password")
 }
-
 
 // 1.2.1 Успешный вход
 func TestLogin_Success(t *testing.T) {
@@ -234,7 +230,6 @@ func TestLogin_SQLInjectionEmail(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid credentials")
 }
-
 
 // 1.3.1 Успешное обновление токена
 func TestRefresh_Success(t *testing.T) {
@@ -327,7 +322,6 @@ func TestRefresh_AfterLogout(t *testing.T) {
 	assert.Error(t, err)
 }
 
-
 // 1.4.1 Успешный выход
 func TestLogout_Success(t *testing.T) {
 	revokedHash := ""
@@ -359,7 +353,6 @@ func TestLogout_Idempotent(t *testing.T) {
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
 }
-
 
 // 1.5.1 Валидный токен
 func TestVerifyAccessToken_Valid(t *testing.T) {
@@ -482,7 +475,6 @@ func TestVerifyAccessToken_DifferentSecret(t *testing.T) {
 	_, err = storyMySecret.VerifyAccessToken(pair.AccessToken)
 	assert.Error(t, err)
 }
-
 
 func TestRegister_RepoError(t *testing.T) {
 	uRepo := &mockUserRepo{

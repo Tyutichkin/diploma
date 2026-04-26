@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"planner-backend/internal/common/ptrs"
 	"planner-backend/internal/domain/task"
 	taskgate "planner-backend/internal/domain/task/gate"
 )
@@ -47,18 +48,18 @@ func (s *Story) Update(ctx context.Context, userID, taskID string, in task.Updat
 		return task.Task{}, false, err
 	}
 	// Для Update: дефолтную дату подставляем только если поле не nil и не "" (не сброс).
-	fillDefaultDateUpdate(&in.WindowStartDate, in.WindowStartTime)
-	fillDefaultDateUpdate(&in.WindowEndDate, in.WindowEndTime)
+	fillDefaultDate(&in.WindowStartDate, in.WindowStartTime)
+	fillDefaultDate(&in.WindowEndDate, in.WindowEndTime)
 	return s.tasks.Update(ctx, userID, taskID, in)
 }
 
 // validateWindow проверяет, что если заданы обе даты+время, то start < end.
 // Если указана только дата без времени — это "весь день", не валидируем время.
 func validateWindow(startDate, startTime, endDate, endTime *string) error {
-	sDate := derefStr(startDate)
-	eDate := derefStr(endDate)
-	sTime := derefStr(startTime)
-	eTime := derefStr(endTime)
+	sDate := ptrs.Deref(startDate)
+	eDate := ptrs.Deref(endDate)
+	sTime := ptrs.Deref(startTime)
+	eTime := ptrs.Deref(endTime)
 
 	if sDate == "" && eDate == "" {
 		// HH:MM сравнимы лексикографически.
@@ -102,35 +103,18 @@ func combineDatetime(dateStr, timeStr string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04", fmt.Sprintf("%s %s", dateStr, timeStr))
 }
 
-// fillDefaultDate: если время задано, а дата нет — ставим сегодня.
+// fillDefaultDate: если время задано (непустая строка), а дата отсутствует или
+// равна "" — подставляет сегодняшнюю дату. Корректно работает и для CreateInput
+// (timePtr — обычный *string), и для UpdateInput (3-state *string), потому что
+// nil timePtr всегда означает "не трогать".
 func fillDefaultDate(datePtr **string, timePtr *string) {
-	if datePtr == nil || timePtr == nil {
+	if datePtr == nil || timePtr == nil || *timePtr == "" {
 		return
 	}
-	if *timePtr != "" && (*datePtr == nil || **datePtr == "") {
+	if *datePtr == nil || **datePtr == "" {
 		today := time.Now().Format("2006-01-02")
 		*datePtr = &today
 	}
-}
-
-// fillDefaultDateUpdate — то же для UpdateInput (3-state *string).
-func fillDefaultDateUpdate(datePtr **string, timePtr *string) {
-	if timePtr == nil {
-		return
-	}
-	if *timePtr != "" {
-		if datePtr != nil && (*datePtr == nil || **datePtr == "") {
-			today := time.Now().Format("2006-01-02")
-			*datePtr = &today
-		}
-	}
-}
-
-func derefStr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }
 
 func (s *Story) CreateBatch(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error) {

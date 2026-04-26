@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"planner-backend/internal/common/ptrs"
 	"planner-backend/internal/domain/route"
 	routegate "planner-backend/internal/domain/route/gate"
 	routeopt "planner-backend/internal/domain/route/optimizer"
+	"planner-backend/internal/domain/task"
 	taskgate "planner-backend/internal/domain/task/gate"
 	distancepkg "planner-backend/internal/platform/distance"
 )
@@ -82,7 +84,6 @@ func (s *Story) Optimize(
 	if len(taskIDs) < 2 {
 		return route.Full{}, errors.New("at least 2 tasks required for optimisation")
 	}
-
 	if startTaskID != nil && endTaskID != nil && *startTaskID == *endTaskID {
 		return route.Full{}, errors.New("start and end task must be different")
 	}
@@ -95,112 +96,23 @@ func (s *Story) Optimize(
 		return route.Full{}, errors.New("at least 2 valid tasks required")
 	}
 
-	// Если фронт прислал матрицу (Yandex Maps) — берём её; иначе запрашиваем OSRM.
-	var matrix [][]distancepkg.Edge
-	if len(externalMatrix) > 0 {
-		matrix = externalMatrix
-	} else {
-		points := make([]distancepkg.Point, len(tasks))
-		for i, t := range tasks {
-			if t.Latitude == nil || t.Longitude == nil {
-				return route.Full{}, fmt.Errorf("task %q has no coordinates: required for distance matrix", t.ID)
-			}
-			points[i] = distancepkg.Point{Lat: *t.Latitude, Lng: *t.Longitude}
-		}
-		matrix, err = s.distProvider.GetMatrix(ctx, points)
-		if err != nil {
-			return route.Full{}, fmt.Errorf("distance matrix: %w", err)
-		}
+	matrix, err := s.resolveMatrix(ctx, tasks, externalMatrix)
+	if err != nil {
+		return route.Full{}, err
 	}
 
-	// Дата по умолчанию для задач с временем, но без даты (например, импорт из CSV).
-	fallbackDate := time.Unix(startTimeUnix, 0).UTC()
+	graph, taskIDToIdx := buildGraph(tasks, matrix, time.Unix(startTimeUnix, 0).UTC())
+	startTimeUnix = adjustStartTime(graph.Nodes, startTimeUnix)
 
-	nodes := make([]routeopt.Node, len(tasks))
-	taskIDToIdx := make(map[string]int, len(tasks))
-	for i, t := range tasks {
-		nodes[i] = routeopt.Node{
-			TaskID:      t.ID,
-			Lat:         derefF64(t.Latitude),
-			Lng:         derefF64(t.Longitude),
-			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime, fallbackDate),
-			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime, fallbackDate),
-			DurationMin: derefInt(t.DurationMin),
-		}
-		taskIDToIdx[t.ID] = i
-	}
+	constraints := buildConstraints(taskIDToIdx, startTaskID, endTaskID, precedences)
 
-	edges := make([][]routeopt.Edge, len(tasks))
-	for i := range tasks {
-		edges[i] = make([]routeopt.Edge, len(tasks))
-		for j := range tasks {
-			edges[i][j] = routeopt.Edge{
-				DistanceM:   matrix[i][j].DistanceM,
-				DurationSec: matrix[i][j].DurationSec,
-			}
-		}
-	}
-
-	// Если startTimeUnix позже самого раннего WindowStart среди задач, сдвигаем
-	// начало оптимизации к этому окну.  Это критично, когда фронтенд передаёт 0
-	// (бэкенд подставляет time.Now()), а задачи имеют утренние окна — иначе все
-	// утренние окна считались бы просроченными.
-	for _, nd := range nodes {
-		if nd.WindowStart >= 0 && nd.WindowStart < startTimeUnix {
-			startTimeUnix = nd.WindowStart
-		}
-	}
-
-	g := &routeopt.Graph{Nodes: nodes, Edges: edges}
-
-	var constraints routeopt.Constraints
-	if startTaskID != nil {
-		if idx, ok := taskIDToIdx[*startTaskID]; ok {
-			constraints.StartNodeIdx = &idx
-		}
-	}
-	if endTaskID != nil {
-		if idx, ok := taskIDToIdx[*endTaskID]; ok {
-			constraints.EndNodeIdx = &idx
-		}
-	}
-	for _, p := range precedences {
-		beforeIdx, bOk := taskIDToIdx[p.BeforeTaskID]
-		afterIdx, aOk := taskIDToIdx[p.AfterTaskID]
-		if bOk && aOk {
-			constraints.PrecedencePairs = append(constraints.PrecedencePairs, routeopt.PrecedencePair{
-				Before: beforeIdx,
-				After:  afterIdx,
-			})
-		}
-	}
-
-	result, err := s.optimizer.Optimize(ctx, g, startTimeUnix, constraints)
+	result, err := s.optimizer.Optimize(ctx, graph, startTimeUnix, constraints)
 	if err != nil {
 		return route.Full{}, fmt.Errorf("optimise: %w", err)
 	}
 
-	stops := make([]routegate.StopInput, len(result.Order))
-	for pos, nodeIdx := range result.Order {
-		timing := result.Timings[pos]
+	stops := makeStopInputs(result, tasks)
 
-		arriveTime := time.Unix(timing.ArrivalSec, 0).UTC()
-		serviceStart := time.Unix(timing.ServiceStartSec, 0).UTC()
-		serviceEnd := time.Unix(timing.ServiceEndSec, 0).UTC()
-		waitSec := timing.WaitSec
-
-		stops[pos] = routegate.StopInput{
-			TaskID:            tasks[nodeIdx].ID,
-			Position:          pos,
-			TravelFromPrevSec: timing.TravelFromPrevSec,
-			ArriveTime:        &arriveTime,
-			ServiceStartTime:  &serviceStart,
-			ServiceEndTime:    &serviceEnd,
-			WaitSec:           &waitSec,
-		}
-	}
-
-	// Сохраняем всё в одной транзакции.
 	rt, err := s.routes.SaveOptimizedRoute(
 		ctx, userID, s.optimizer.Name(), stops,
 		result.TotalDistanceM, result.TotalTravelSec,
@@ -210,35 +122,164 @@ func (s *Story) Optimize(
 		return route.Full{}, fmt.Errorf("save route: %w", err)
 	}
 
-	// Собираем ответ из данных в памяти — лишнего запроса к БД нет.
-	routeStops := make([]route.Stop, len(stops))
-	for i, stop := range stops {
-		travel := stop.TravelFromPrevSec
-		routeStops[i] = route.Stop{
-			RouteID:           rt.ID,
-			TaskID:            stop.TaskID,
-			Position:          stop.Position,
-			TravelFromPrevSec: &travel,
-			ArriveTime:        stop.ArriveTime,
-			ServiceStartTime:  stop.ServiceStartTime,
-			ServiceEndTime:    stop.ServiceEndTime,
-			WaitSec:           stop.WaitSec,
+	return assembleFull(rt, stops, result), nil
+}
+
+// resolveMatrix отдаёт матрицу из externalMatrix (если передана) или запрашивает её
+// у настроенного distance.Provider. Все задачи должны иметь координаты.
+func (s *Story) resolveMatrix(
+	ctx context.Context,
+	tasks []task.Task,
+	externalMatrix [][]distancepkg.Edge,
+) ([][]distancepkg.Edge, error) {
+	if len(externalMatrix) > 0 {
+		return externalMatrix, nil
+	}
+
+	points := make([]distancepkg.Point, len(tasks))
+	for i, t := range tasks {
+		if t.Latitude == nil || t.Longitude == nil {
+			return nil, fmt.Errorf("task %q has no coordinates: required for distance matrix", t.ID)
+		}
+		points[i] = distancepkg.Point{Lat: *t.Latitude, Lng: *t.Longitude}
+	}
+
+	matrix, err := s.distProvider.GetMatrix(ctx, points)
+	if err != nil {
+		return nil, fmt.Errorf("distance matrix: %w", err)
+	}
+	return matrix, nil
+}
+
+// buildGraph переводит список задач + матрицу расстояний в граф оптимизатора.
+// Возвращает индекс TaskID→позиция узла для последующего разрешения констрейнтов.
+func buildGraph(
+	tasks []task.Task,
+	matrix [][]distancepkg.Edge,
+	fallbackDate time.Time,
+) (*routeopt.Graph, map[string]int) {
+	n := len(tasks)
+	nodes := make([]routeopt.Node, n)
+	idx := make(map[string]int, n)
+	for i, t := range tasks {
+		nodes[i] = routeopt.Node{
+			TaskID:      t.ID,
+			Lat:         ptrs.Deref(t.Latitude),
+			Lng:         ptrs.Deref(t.Longitude),
+			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime, fallbackDate),
+			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime, fallbackDate),
+			DurationMin: ptrs.Deref(t.DurationMin),
+		}
+		idx[t.ID] = i
+	}
+
+	edges := make([][]routeopt.Edge, n)
+	for i := 0; i < n; i++ {
+		edges[i] = make([]routeopt.Edge, n)
+		for j := 0; j < n; j++ {
+			edges[i][j] = routeopt.Edge{
+				DistanceM:   matrix[i][j].DistanceM,
+				DurationSec: matrix[i][j].DurationSec,
+			}
 		}
 	}
 
-	distM := result.TotalDistanceM
-	travelSec := result.TotalTravelSec
-	serviceSec := result.TotalServiceSec
-	waitSec := result.TotalWaitSec
-	stats := &route.Stats{
-		RouteID:         rt.ID,
-		TotalDistanceM:  &distM,
-		TotalTravelSec:  &travelSec,
-		TotalServiceSec: &serviceSec,
-		TotalWaitSec:    &waitSec,
+	return &routeopt.Graph{Nodes: nodes, Edges: edges}, idx
+}
+
+// adjustStartTime сдвигает начало оптимизации к самому раннему WindowStart, если он
+// раньше startTimeUnix. Это нужно для случая, когда фронтенд передаёт 0 (бэк подставляет
+// time.Now()), а у задач утренние окна — иначе все они считались бы просроченными.
+func adjustStartTime(nodes []routeopt.Node, startTimeUnix int64) int64 {
+	for _, nd := range nodes {
+		if nd.WindowStart >= 0 && nd.WindowStart < startTimeUnix {
+			startTimeUnix = nd.WindowStart
+		}
+	}
+	return startTimeUnix
+}
+
+// buildConstraints разрешает идентификаторы задач в индексы узлов графа.
+// Неизвестные ID игнорируются (а не приводят к ошибке) — это исторически согласовано
+// с фронтом, который может прислать удалённую/чужую задачу.
+func buildConstraints(
+	taskIDToIdx map[string]int,
+	startTaskID, endTaskID *string,
+	precedences []PrecedenceConstraint,
+) routeopt.Constraints {
+	var c routeopt.Constraints
+	if startTaskID != nil {
+		if i, ok := taskIDToIdx[*startTaskID]; ok {
+			c.StartNodeIdx = &i
+		}
+	}
+	if endTaskID != nil {
+		if i, ok := taskIDToIdx[*endTaskID]; ok {
+			c.EndNodeIdx = &i
+		}
+	}
+	for _, p := range precedences {
+		bi, bOk := taskIDToIdx[p.BeforeTaskID]
+		ai, aOk := taskIDToIdx[p.AfterTaskID]
+		if bOk && aOk {
+			c.PrecedencePairs = append(c.PrecedencePairs, routeopt.PrecedencePair{
+				Before: bi,
+				After:  ai,
+			})
+		}
+	}
+	return c
+}
+
+// makeStopInputs конвертирует результат оптимизатора в формат, ожидаемый репозиторием.
+func makeStopInputs(result routeopt.Result, tasks []task.Task) []routegate.StopInput {
+	stops := make([]routegate.StopInput, len(result.Order))
+	for pos, nodeIdx := range result.Order {
+		t := result.Timings[pos]
+		arrive := time.Unix(t.ArrivalSec, 0).UTC()
+		serviceStart := time.Unix(t.ServiceStartSec, 0).UTC()
+		serviceEnd := time.Unix(t.ServiceEndSec, 0).UTC()
+		wait := t.WaitSec
+
+		stops[pos] = routegate.StopInput{
+			TaskID:            tasks[nodeIdx].ID,
+			Position:          pos,
+			TravelFromPrevSec: t.TravelFromPrevSec,
+			ArriveTime:        &arrive,
+			ServiceStartTime:  &serviceStart,
+			ServiceEndTime:    &serviceEnd,
+			WaitSec:           &wait,
+		}
+	}
+	return stops
+}
+
+// assembleFull собирает Full-ответ из данных в памяти, без лишнего обращения к БД.
+func assembleFull(rt route.Route, stops []routegate.StopInput, r routeopt.Result) route.Full {
+	routeStops := make([]route.Stop, len(stops))
+	for i, s := range stops {
+		travel := s.TravelFromPrevSec
+		routeStops[i] = route.Stop{
+			RouteID:           rt.ID,
+			TaskID:            s.TaskID,
+			Position:          s.Position,
+			TravelFromPrevSec: &travel,
+			ArriveTime:        s.ArriveTime,
+			ServiceStartTime:  s.ServiceStartTime,
+			ServiceEndTime:    s.ServiceEndTime,
+			WaitSec:           s.WaitSec,
+		}
 	}
 
-	return route.Full{Route: rt, Stops: routeStops, Stats: stats}, nil
+	stats := &route.Stats{
+		RouteID:         rt.ID,
+		TotalDistanceM:  ptrs.Ptr(r.TotalDistanceM),
+		TotalTravelSec:  ptrs.Ptr(r.TotalTravelSec),
+		TotalServiceSec: ptrs.Ptr(r.TotalServiceSec),
+		TotalWaitSec:    ptrs.Ptr(r.TotalWaitSec),
+	}
+
+	return route.Full{Route: rt, Stops: routeStops, Stats: stats}
 }
 
 func (s *Story) List(ctx context.Context, userID string) ([]route.Route, error) {
@@ -273,20 +314,6 @@ func (s *Story) Rename(ctx context.Context, userID, routeID, name string) (bool,
 	return s.routes.RenameRoute(ctx, userID, routeID, name)
 }
 
-func derefInt(p *int) int {
-	if p == nil {
-		return 0
-	}
-	return *p
-}
-
-func derefF64(p *float64) float64 {
-	if p == nil {
-		return 0
-	}
-	return *p
-}
-
 // buildUnixSec собирает Unix-секунды из даты ("YYYY-MM-DD") и времени ("HH:MM").
 // Если дата не задана, но время есть — подставляет fallbackDate (для CSV-импорта
 // с одним только временем). Возвращает -1, если ни дата, ни время не заданы.
@@ -298,11 +325,9 @@ func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time) int64 {
 		return -1
 	}
 
-	var datePart string
+	datePart := fallbackDate.Format("2006-01-02")
 	if hasDate {
 		datePart = *dateStr
-	} else {
-		datePart = fallbackDate.Format("2006-01-02")
 	}
 
 	if !hasTime {

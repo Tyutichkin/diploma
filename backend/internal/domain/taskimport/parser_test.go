@@ -10,15 +10,15 @@ import (
 
 func TestDetectFormat(t *testing.T) {
 	cases := map[string]Format{
-		"tasks.csv":  FormatCSV,
-		"TASKS.CSV":  FormatCSV,
-		"data.xlsx":  FormatXLSX,
-		"data.XLS":   FormatXLSX,
-		"data.xls":   FormatXLSX,
-		"readme.md":  FormatUnknown,
-		"":           FormatUnknown,
-		"noext":      FormatUnknown,
-		"  t.csv  ":  FormatCSV,
+		"tasks.csv": FormatCSV,
+		"TASKS.CSV": FormatCSV,
+		"data.xlsx": FormatXLSX,
+		"data.XLS":  FormatXLSX,
+		"data.xls":  FormatXLSX,
+		"readme.md": FormatUnknown,
+		"":          FormatUnknown,
+		"noext":     FormatUnknown,
+		"  t.csv  ": FormatCSV,
 	}
 	for name, want := range cases {
 		assert.Equal(t, want, DetectFormat(name), name)

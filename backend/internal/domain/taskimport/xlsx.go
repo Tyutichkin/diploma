@@ -132,9 +132,9 @@ type xlsxRow struct {
 // xlsxCell — одна ячейка. T — тип: "s" (sharedString), "str" (формульная строка),
 // "inlineStr" (встроенная строка), "b" (bool), иначе число.
 type xlsxCell struct {
-	R string `xml:"r,attr"`
-	T string `xml:"t,attr"`
-	V string `xml:"v"`
+	R  string `xml:"r,attr"`
+	T  string `xml:"t,attr"`
+	V  string `xml:"v"`
 	Is struct {
 		T string `xml:"t"`
 	} `xml:"is"`

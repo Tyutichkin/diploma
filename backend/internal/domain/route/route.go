@@ -3,11 +3,14 @@ package route
 import "time"
 
 // Route — факт построения маршрута.
+// Status (draft|optimized|failed) и Source (manual|optimized) проставляются в SQL
+// при создании/сохранении и видны во всех ответах API; именно по ним фронт отличает
+// черновик от оптимизированного маршрута.
 type Route struct {
 	ID         string
 	UserID     string
-	Status     string // draft|optimized|failed TODO: какой практический смысл несет это поле? Если его нет, то удалить
-	Source     string // manual|optimized TODO: какой практический смысл несет это поле? Если его нет, то удалить
+	Status     string
+	Source     string
 	Name       *string
 	Algorithm  *string
 	StartedAt  *time.Time
