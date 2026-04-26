@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Task, taskHasAddress, getWindowConflictIds } from '../types/task';
 import { TaskItem } from './TaskItem';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -8,6 +9,8 @@ interface TaskListProps {
   tasks: Task[];
   startTaskId?: string;
   endTaskId?: string;
+  // Если не передан — TaskList посчитает сам (для обратной совместимости с тестами).
+  staticConflictIds?: Set<string>;
   routeConflictIds?: Set<string>;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void | Promise<void>;
@@ -15,13 +18,14 @@ interface TaskListProps {
   onReorder: (dragIndex: number, hoverIndex: number) => void;
   onReorderEnd: () => void | Promise<void>;
   onSetRole: (id: string, role: 'start' | 'end' | null) => void;
-  onClone: (task: Task) => void;
+  onClone?: (task: Task) => void;
 }
 
 export function TaskList({
   tasks,
   startTaskId,
   endTaskId,
+  staticConflictIds,
   routeConflictIds,
   onEdit,
   onDelete,
@@ -31,12 +35,23 @@ export function TaskList({
   onSetRole,
   onClone,
 }: TaskListProps) {
+  const fallbackConflictIds = useMemo(
+    () => (staticConflictIds ? null : getWindowConflictIds(tasks)),
+    [staticConflictIds, tasks],
+  );
+  const baseConflictIds = staticConflictIds ?? fallbackConflictIds!;
+
+  const conflictIds = useMemo(
+    () =>
+      routeConflictIds
+        ? new Set([...baseConflictIds, ...routeConflictIds])
+        : baseConflictIds,
+    [baseConflictIds, routeConflictIds],
+  );
+
   const withAddress = tasks.filter(taskHasAddress);
   const withoutAddress = tasks.filter((t) => !taskHasAddress(t));
-  const staticConflictIds = getWindowConflictIds(tasks);
-  const conflictIds = routeConflictIds
-    ? new Set([...staticConflictIds, ...routeConflictIds])
-    : staticConflictIds;
+  const noClone = onClone ?? (() => {});
 
   return (
     <Card className="h-full flex flex-col">
@@ -51,7 +66,6 @@ export function TaskList({
             </div>
           ) : (
             <div>
-              {/* ── Группа «С адресом» ──────────────────────────── */}
               {withAddress.length > 0 && (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -78,14 +92,13 @@ export function TaskList({
                         onMove={onReorder}
                         onMoveEnd={onReorderEnd}
                         onSetRole={onSetRole}
-                        onClone={onClone}
+                        onClone={noClone}
                       />
                     );
                   })}
                 </div>
               )}
 
-              {/* ── Группа «Без адреса» ─────────────────────────── */}
               {withoutAddress.length > 0 && (
                 <div className={withAddress.length > 0 ? 'mt-4' : ''}>
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -111,7 +124,7 @@ export function TaskList({
                         onMove={onReorder}
                         onMoveEnd={onReorderEnd}
                         onSetRole={onSetRole}
-                        onClone={onClone}
+                        onClone={noClone}
                       />
                     );
                   })}

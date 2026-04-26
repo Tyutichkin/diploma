@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Task } from '../types/task';
-import { GeocodeSuggestion, suggestAddresses } from '../utils/routeOptimizer';
+import { GeocodeSuggestion } from '../utils/routeOptimizer';
+import { todayISO } from '../utils/formatters';
+import { useAddressAutocomplete } from '../hooks/useAddressAutocomplete';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -12,8 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { Loader2, MapPin, Flag, X } from 'lucide-react';
+import { Loader2, MapPin, Flag } from 'lucide-react';
 import { cn } from './ui/utils';
+import { DateTimeFieldWithClear } from './form/DateTimeFieldWithClear';
 
 export type TaskRole = 'start' | 'end' | null;
 
@@ -27,6 +30,40 @@ interface TaskFormProps {
   onClose: () => void;
   onSave: (task: Task, role: TaskRole) => Promise<void>;
   onGeocodeMultiple: (address: string) => Promise<GeocodeSuggestion[]>;
+}
+
+interface PreselectedCoords {
+  lat: number;
+  lng: number;
+  address: string;
+}
+
+function computeWindowMins(
+  windowStartDate: string,
+  windowStartTime: string,
+  windowEndDate: string,
+  windowEndTime: string,
+): number | null {
+  if (!windowStartDate && !windowStartTime && !windowEndDate && !windowEndTime) return null;
+
+  // Без дат, но с обоими временами — сравниваем в рамках одного дня.
+  if (!windowStartDate && !windowEndDate && windowStartTime && windowEndTime) {
+    const [sh, sm] = windowStartTime.split(':').map(Number);
+    const [eh, em] = windowEndTime.split(':').map(Number);
+    return eh * 60 + em - (sh * 60 + sm);
+  }
+
+  const sDate = windowStartDate || windowEndDate;
+  const eDate = windowEndDate || windowStartDate;
+  if (!sDate || !eDate) return null;
+
+  const sTime = windowStartTime || '00:00';
+  const eTime = windowEndTime || '23:59';
+  const start = new Date(`${sDate}T${sTime}`);
+  const end = new Date(`${eDate}T${eTime}`);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+
+  return (end.getTime() - start.getTime()) / 60000;
 }
 
 export function TaskForm({
@@ -52,11 +89,9 @@ export function TaskForm({
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [windowError, setWindowError] = useState<string | null>(null);
 
-  const [autoSuggestions, setAutoSuggestions] = useState<GeocodeSuggestion[]>([]);
-  const [autoSuggestOpen, setAutoSuggestOpen] = useState(false);
-  // координаты из выбранной подсказки — чтобы не геокодировать повторно
-  const [preselectedCoords, setPreselectedCoords] = useState<{ lat: number; lng: number; address: string } | null>(null);
-  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Координаты из выбранной подсказки — чтобы не геокодировать повторно.
+  const [preselectedCoords, setPreselectedCoords] = useState<PreselectedCoords | null>(null);
+  const autocomplete = useAddressAutocomplete();
 
   useEffect(() => {
     if (task) {
@@ -68,7 +103,7 @@ export function TaskForm({
       setWindowEndDate(task.windowEndDate || '');
       setWindowEndTime(task.windowEndTime || '');
     } else {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayISO();
       setTitle('');
       setAddress('');
       setDuration('');
@@ -80,10 +115,10 @@ export function TaskForm({
     setRole(initialRole);
     setGeocodeError(null);
     setWindowError(null);
-    setAutoSuggestions([]);
-    setAutoSuggestOpen(false);
     setPreselectedCoords(null);
-    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    autocomplete.reset();
+    // autocomplete.reset is stable; включать его в deps вызовет лишний прогон при re-create
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task, isOpen, initialRole]);
 
   const handleToggleRole = (toggled: 'start' | 'end') => {
@@ -96,48 +131,14 @@ export function TaskForm({
     if (preselectedCoords && preselectedCoords.address !== value) {
       setPreselectedCoords(null);
     }
-    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
-    if (!value.trim()) {
-      setAutoSuggestions([]);
-      setAutoSuggestOpen(false);
-      return;
-    }
-    suggestTimerRef.current = setTimeout(async () => {
-      try {
-        const results = await suggestAddresses(value);
-        setAutoSuggestions(results);
-        setAutoSuggestOpen(results.length > 0);
-      } catch {
-        // тихо игнорируем — автодополнение не критично
-      }
-    }, 500);
+    autocomplete.query(value);
   };
 
   const handleSelectAutoSuggestion = (suggestion: GeocodeSuggestion) => {
-    setAutoSuggestOpen(false);
-    setAutoSuggestions([]);
+    autocomplete.reset();
     setAddress(suggestion.displayName);
     setGeocodeError(null);
     setPreselectedCoords({ lat: suggestion.lat, lng: suggestion.lng, address: suggestion.displayName });
-  };
-
-  const computeWindowMins = (): number | null => {
-    if (!windowStartDate && !windowStartTime && !windowEndDate && !windowEndTime) return null;
-    // без дат, но с обоими временами — сравниваем в рамках одного дня
-    if (!windowStartDate && !windowEndDate && windowStartTime && windowEndTime) {
-      const [sh, sm] = windowStartTime.split(':').map(Number);
-      const [eh, em] = windowEndTime.split(':').map(Number);
-      return (eh * 60 + em) - (sh * 60 + sm);
-    }
-    const sDate = windowStartDate || windowEndDate;
-    const eDate = windowEndDate || windowStartDate;
-    if (!sDate || !eDate) return null;
-    const sTime = windowStartTime || '00:00';
-    const eTime = windowEndTime || '23:59';
-    const start = new Date(`${sDate}T${sTime}`);
-    const end = new Date(`${eDate}T${eTime}`);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-    return (end.getTime() - start.getTime()) / 60000;
   };
 
   const buildBaseTask = (): Task => ({
@@ -153,44 +154,61 @@ export function TaskForm({
     order: task?.order,
   });
 
+  const submit = async (toSave: Task) => {
+    setIsGeocoding(true);
+    try {
+      await onSave(toSave, role);
+      onClose();
+    } catch {
+      // toast в parent
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setGeocodeError(null);
     setWindowError(null);
 
-    const windowMins = computeWindowMins();
-    if (windowMins !== null && windowMins <= 0) {
-      return;
-    }
+    const windowMins = computeWindowMins(windowStartDate, windowStartTime, windowEndDate, windowEndTime);
+    if (windowMins !== null && windowMins <= 0) return;
+
     if (windowMins !== null) {
       const durationMins = duration.trim() !== '' ? parseInt(duration, 10) : 0;
       if (durationMins > 0 && durationMins > windowMins) {
-        setWindowError(`Длительность (${durationMins} мин) превышает размер окна (${Math.round(windowMins)} мин). Увеличьте окно или уменьшите длительность.`);
+        setWindowError(
+          `Длительность (${durationMins} мин) превышает размер окна (${Math.round(windowMins)} мин). Увеличьте окно или уменьшите длительность.`,
+        );
         return;
       }
     }
 
     // Задача без адреса
     if (!address.trim()) {
-      const t: Task = { ...buildBaseTask(), address: undefined, latitude: undefined, longitude: undefined };
-      setIsGeocoding(true);
-      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ } finally { setIsGeocoding(false); }
+      await submit({ ...buildBaseTask(), address: undefined, latitude: undefined, longitude: undefined });
       return;
     }
 
     // Адрес выбран из автодополнения — координаты уже есть
     if (preselectedCoords && preselectedCoords.address === address) {
-      const t: Task = { ...buildBaseTask(), latitude: preselectedCoords.lat, longitude: preselectedCoords.lng };
-      setIsGeocoding(true);
-      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ } finally { setIsGeocoding(false); }
+      await submit({ ...buildBaseTask(), latitude: preselectedCoords.lat, longitude: preselectedCoords.lng });
       return;
     }
 
     // Адрес не изменился у существующей задачи — пропускаем геокодирование
-    if (task && (task.address ?? '') === address && task.latitude !== undefined && task.longitude !== undefined) {
-      const t: Task = { ...buildBaseTask(), latitude: task.latitude, longitude: task.longitude, completed: task.completed };
-      setIsGeocoding(true);
-      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ } finally { setIsGeocoding(false); }
+    if (
+      task &&
+      (task.address ?? '') === address &&
+      task.latitude !== undefined &&
+      task.longitude !== undefined
+    ) {
+      await submit({
+        ...buildBaseTask(),
+        latitude: task.latitude,
+        longitude: task.longitude,
+        completed: task.completed,
+      });
       return;
     }
 
@@ -208,20 +226,39 @@ export function TaskForm({
         setGeocodeError('Адрес не найден. Выберите вариант из подсказок или уточните запрос.');
         return;
       }
-      const t: Task = { ...buildBaseTask(), latitude: results[0].lat, longitude: results[0].lng, address: results[0].displayName };
-      try { await onSave(t, role); onClose(); } catch { /* toast в parent */ }
+      const toSave: Task = {
+        ...buildBaseTask(),
+        latitude: results[0].lat,
+        longitude: results[0].lng,
+        address: results[0].displayName,
+      };
+      try {
+        await onSave(toSave, role);
+        onClose();
+      } catch {
+        // toast в parent
+      }
     } finally {
       setIsGeocoding(false);
     }
   };
 
-  const hasAnyWindowField = windowStartDate || windowStartTime || windowEndDate || windowEndTime;
-  const windowMinsLive = computeWindowMins();
+  const hasAnyWindowField =
+    Boolean(windowStartDate) || Boolean(windowStartTime) || Boolean(windowEndDate) || Boolean(windowEndTime);
+  const windowMinsLive = useMemo(
+    () => computeWindowMins(windowStartDate, windowStartTime, windowEndDate, windowEndTime),
+    [windowStartDate, windowStartTime, windowEndDate, windowEndTime],
+  );
   const durationMinsNum = duration.trim() !== '' ? parseInt(duration, 10) : 0;
-  const hasLiveWindowError =
-    (hasAnyWindowField && windowMinsLive !== null && windowMinsLive <= 0) ||
-    (hasAnyWindowField && windowMinsLive !== null && windowMinsLive > 0 &&
-      durationMinsNum > 0 && durationMinsNum > windowMinsLive);
+
+  const windowInverted = hasAnyWindowField && windowMinsLive !== null && windowMinsLive <= 0;
+  const durationOverWindow =
+    hasAnyWindowField &&
+    windowMinsLive !== null &&
+    windowMinsLive > 0 &&
+    durationMinsNum > 0 &&
+    durationMinsNum > windowMinsLive;
+  const hasLiveWindowError = windowInverted || durationOverWindow;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -248,8 +285,7 @@ export function TaskForm({
 
             <div className="space-y-2">
               <Label htmlFor="address">
-                Адрес{' '}
-                <span className="text-muted-foreground font-normal">(необязательно)</span>
+                Адрес <span className="text-muted-foreground font-normal">(необязательно)</span>
               </Label>
               <div className="relative">
                 <Input
@@ -257,13 +293,13 @@ export function TaskForm({
                   placeholder="Например: г. Москва, ул. Тверская, д. 1"
                   value={address}
                   onChange={(e) => handleAddressChange(e.target.value)}
-                  onBlur={() => setTimeout(() => setAutoSuggestOpen(false), 150)}
-                  onFocus={() => autoSuggestions.length > 0 && setAutoSuggestOpen(true)}
+                  onBlur={() => setTimeout(() => autocomplete.setOpen(false), 150)}
+                  onFocus={() => autocomplete.suggestions.length > 0 && autocomplete.setOpen(true)}
                   autoComplete="off"
                 />
-                {autoSuggestOpen && autoSuggestions.length > 0 && (
+                {autocomplete.open && autocomplete.suggestions.length > 0 && (
                   <ul className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md text-sm overflow-hidden">
-                    {autoSuggestions.map((s, i) => (
+                    {autocomplete.suggestions.map((s, i) => (
                       <li key={i}>
                         <button
                           type="button"
@@ -281,15 +317,12 @@ export function TaskForm({
               <p className="text-xs text-muted-foreground">
                 Начните вводить адрес — появятся подсказки. Задачи без адреса не включаются в маршрут.
               </p>
-              {geocodeError && (
-                <p className="text-sm text-destructive">{geocodeError}</p>
-              )}
+              {geocodeError && <p className="text-sm text-destructive">{geocodeError}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="duration">
-                Длительность (минуты){' '}
-                <span className="text-muted-foreground font-normal">(необязательно)</span>
+                Длительность (минуты) <span className="text-muted-foreground font-normal">(необязательно)</span>
               </Label>
               <Input
                 id="duration"
@@ -310,114 +343,40 @@ export function TaskForm({
                 Если дата не указана — используется сегодняшняя.
               </p>
 
-              {/* Начало окна */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Начало окна</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-1">
-                    <Input
-                      id="windowStartDate"
-                      type="date"
-                      aria-label="Дата начала окна"
-                      value={windowStartDate}
-                      onChange={(e) => { setWindowStartDate(e.target.value); setWindowError(null); }}
-                      className="flex-1"
-                    />
-                    {windowStartDate && (
-                      <button
-                        type="button"
-                        onClick={() => { setWindowStartDate(''); setWindowError(null); }}
-                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                        aria-label="Очистить дату начала окна"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      id="windowStartTime"
-                      type="time"
-                      aria-label="Время начала окна"
-                      value={windowStartTime}
-                      onChange={(e) => { setWindowStartTime(e.target.value); setWindowError(null); }}
-                      className="flex-1"
-                    />
-                    {windowStartTime && (
-                      <button
-                        type="button"
-                        onClick={() => { setWindowStartTime(''); setWindowError(null); }}
-                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                        aria-label="Очистить время начала окна"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <DateTimeFieldWithClear
+                label="Начало окна"
+                idPrefix="windowStart"
+                date={windowStartDate}
+                time={windowStartTime}
+                onDateChange={(v) => { setWindowStartDate(v); setWindowError(null); }}
+                onTimeChange={(v) => { setWindowStartTime(v); setWindowError(null); }}
+                dateAriaLabel="Дата начала окна"
+                timeAriaLabel="Время начала окна"
+                clearDateAriaLabel="Очистить дату начала окна"
+                clearTimeAriaLabel="Очистить время начала окна"
+              />
 
-              {/* Конец окна */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Конец окна</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-1">
-                    <Input
-                      id="windowEndDate"
-                      type="date"
-                      aria-label="Дата конца окна"
-                      value={windowEndDate}
-                      onChange={(e) => { setWindowEndDate(e.target.value); setWindowError(null); }}
-                      className="flex-1"
-                    />
-                    {windowEndDate && (
-                      <button
-                        type="button"
-                        onClick={() => { setWindowEndDate(''); setWindowError(null); }}
-                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                        aria-label="Очистить дату конца окна"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      id="windowEndTime"
-                      type="time"
-                      aria-label="Время конца окна"
-                      value={windowEndTime}
-                      onChange={(e) => { setWindowEndTime(e.target.value); setWindowError(null); }}
-                      className="flex-1"
-                    />
-                    {windowEndTime && (
-                      <button
-                        type="button"
-                        onClick={() => { setWindowEndTime(''); setWindowError(null); }}
-                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                        aria-label="Очистить время конца окна"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <DateTimeFieldWithClear
+                label="Конец окна"
+                idPrefix="windowEnd"
+                date={windowEndDate}
+                time={windowEndTime}
+                onDateChange={(v) => { setWindowEndDate(v); setWindowError(null); }}
+                onTimeChange={(v) => { setWindowEndTime(v); setWindowError(null); }}
+                dateAriaLabel="Дата конца окна"
+                timeAriaLabel="Время конца окна"
+                clearDateAriaLabel="Очистить дату конца окна"
+                clearTimeAriaLabel="Очистить время конца окна"
+              />
 
-              {hasAnyWindowField && windowMinsLive !== null && windowMinsLive <= 0 && (
+              {windowInverted && (
                 <p className="text-xs text-destructive">Конец окна должен быть позже начала.</p>
               )}
-              {hasAnyWindowField && windowMinsLive !== null && windowMinsLive > 0 && (() => {
-                const durationMins = duration.trim() !== '' ? parseInt(duration, 10) : 0;
-                if (durationMins > 0 && durationMins > windowMinsLive) {
-                  return (
-                    <p className="text-xs text-destructive">
-                      Длительность ({durationMins} мин) превышает размер окна ({Math.round(windowMinsLive)} мин) — задача не сможет уложиться в окно.
-                    </p>
-                  );
-                }
-                return null;
-              })()}
+              {durationOverWindow && (
+                <p className="text-xs text-destructive">
+                  Длительность ({durationMinsNum} мин) превышает размер окна ({Math.round(windowMinsLive!)} мин) — задача не сможет уложиться в окно.
+                </p>
+              )}
               {windowError && <p className="text-sm text-destructive">{windowError}</p>}
             </div>
 

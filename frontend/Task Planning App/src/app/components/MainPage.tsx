@@ -1,42 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
-import { Task, OptimizedRoute, taskHasAddress, windowBoundMs, formatWindowBound, getWindowConflictIds } from '../types/task';
-import { SavedRouteSummary, RouteStopTiming } from '../types/route';
-import { TaskList } from './TaskList';
-import { TaskForm, TaskRole } from './TaskForm';
-import { TaskImport, ImportedTaskRow } from './TaskImport';
-import { MapView, TransportMode, RouteLeg } from './MapView';
-import { RouteStepList } from './RouteStepList';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from './ui/dialog';
-import {
-  Plus,
-  Route,
-  Download,
-  Loader2,
-  Info,
-  Clock,
-  Navigation,
-  History,
-  Trash2,
-  Pencil,
-  Check,
-  X,
-  Upload,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { buildYandexDistanceMatrix, geocodeAddressSuggestions } from '../utils/routeOptimizer';
+
+import { Task, taskHasAddress, getWindowConflictIds } from '../types/task';
+import { SavedRouteSummary } from '../types/route';
+import { TransportMode } from '../types/transport';
 import {
   ApiError,
   PrecedenceConstraint,
@@ -54,129 +24,39 @@ import {
   updateTask,
 } from '../api/client';
 import { useAuth } from '../context/auth-context';
+import { useOptimizedRoute } from '../hooks/useOptimizedRoute';
+import { useTaskExport } from '../hooks/useTaskExport';
+import { buildYandexDistanceMatrix, geocodeAddressSuggestions } from '../utils/routeOptimizer';
+import { getRouteConflictIds } from '../utils/routeConflicts';
+import {
+  normalizeTasksOrder,
+  reorderTasksByIds,
+  userErrorMessage,
+  validateStartEndConstraints,
+} from '../utils/tasks';
 
-interface PrecedencePair {
-  beforeId: string;
-  afterId: string;
-}
+import { TaskList } from './TaskList';
+import { TaskForm, TaskRole } from './TaskForm';
+import { TaskImport, ImportedTaskRow } from './TaskImport';
+import { MapView } from './MapView';
+import { RouteStepList } from './RouteStepList';
+import { Card, CardContent } from './ui/card';
+
+import { MainToolbar } from './main/MainToolbar';
+import { OptimizedRouteSummary } from './main/OptimizedRouteSummary';
+import { PrecedenceConstraintsPanel, PrecedencePair } from './main/PrecedenceConstraintsPanel';
+import { SavedRoutesPanel } from './main/SavedRoutesPanel';
+import { ExportFormatDialog } from './main/ExportFormatDialog';
 
 // Скрываем блок «Сохранённые маршруты» в UI. Бэкенд продолжает сохранять маршрут
 // при оптимизации — это нужно для восстановления активного маршрута.
 const SHOW_SAVED_ROUTES = false;
-
-function normalizeTasksOrder(tasks: Task[]) {
-  return tasks.map((task, index) => ({
-    ...task,
-    order: index,
-  }));
-}
-
-// Сообщение пользователю на русском. Для ApiError (ошибка бэкенда) показываем
-// заготовленный фолбэк, чтобы не выводить сырой английский текст от сервера.
-// Для обычных Error используем их message — там уже русские сообщения фронта.
-function userErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) return fallback;
-  if (error instanceof Error) return error.message;
-  return fallback;
-}
-
-
-function validateStartEndConstraints(
-  tasks: Task[],
-  startTaskId: string,
-  endTaskId: string,
-): string[] {
-  const issues: string[] = [];
-  const startTask = startTaskId ? tasks.find((t) => t.id === startTaskId) : null;
-  const endTask = endTaskId ? tasks.find((t) => t.id === endTaskId) : null;
-
-  if (!startTask && !endTask) return issues;
-
-  // Начальная точка vs конечная точка
-  if (startTask && endTask) {
-    const sWinStart = windowBoundMs(startTask.windowStartDate, startTask.windowStartTime);
-    const sWinEnd = windowBoundMs(startTask.windowEndDate, startTask.windowEndTime);
-    const eWinEnd = windowBoundMs(endTask.windowEndDate, endTask.windowEndTime);
-    const eWinStart = windowBoundMs(endTask.windowStartDate, endTask.windowStartTime);
-
-    if (sWinStart !== null && eWinEnd !== null && sWinStart >= eWinEnd) {
-      issues.push(
-        `Начальная точка "${startTask.title}" начинается в ${formatWindowBound(startTask.windowStartDate, startTask.windowStartTime)}, но конечная точка "${endTask.title}" заканчивается в ${formatWindowBound(endTask.windowEndDate, endTask.windowEndTime)}. Маршрут заведомо невозможен.`,
-      );
-    }
-
-    if (sWinStart !== null && eWinEnd !== null) {
-      const earliestDoneMs = sWinStart + (startTask.duration ?? 0) * 60000;
-      if (earliestDoneMs >= eWinEnd) {
-        issues.push(
-          `После выполнения начальной точки "${startTask.title}" временное окно конечной точки "${endTask.title}" уже закрыто. Маршрут заведомо невозможен.`,
-        );
-      }
-    }
-
-    if (sWinEnd !== null && eWinStart !== null && sWinEnd > eWinStart) {
-      issues.push(
-        `Окно начальной точки "${startTask.title}" перекрывается с окном конечной точки "${endTask.title}". Маршрут может быть невыполним.`,
-      );
-    }
-  }
-
-  // Промежуточные задачи vs начальная точка
-  if (startTask?.windowStartDate) {
-    const sWinStart = windowBoundMs(startTask.windowStartDate, startTask.windowStartTime);
-    if (sWinStart !== null) {
-      for (const task of tasks) {
-        if (task.id === startTaskId || task.id === endTaskId) continue;
-        const tWinEnd = windowBoundMs(task.windowEndDate, task.windowEndTime);
-        if (tWinEnd !== null && tWinEnd <= sWinStart) {
-          issues.push(
-            `Задача "${task.title}" должна быть завершена до ${formatWindowBound(task.windowEndDate, task.windowEndTime)}, но начальная точка "${startTask.title}" не откроется раньше ${formatWindowBound(startTask.windowStartDate, startTask.windowStartTime)}.`,
-          );
-        }
-      }
-    }
-  }
-
-  // Промежуточные задачи vs конечная точка
-  if (endTask?.windowEndDate) {
-    const eWinEnd = windowBoundMs(endTask.windowEndDate, endTask.windowEndTime);
-    if (eWinEnd !== null) {
-      for (const task of tasks) {
-        if (task.id === startTaskId || task.id === endTaskId) continue;
-        const tWinStart = windowBoundMs(task.windowStartDate, task.windowStartTime);
-        if (tWinStart !== null && tWinStart >= eWinEnd) {
-          issues.push(
-            `Задача "${task.title}" начинается не ранее ${formatWindowBound(task.windowStartDate, task.windowStartTime)}, но конечная точка "${endTask.title}" закрывается в ${formatWindowBound(endTask.windowEndDate, endTask.windowEndTime)}.`,
-          );
-        }
-      }
-    }
-  }
-
-  return issues;
-}
-
-function reorderTasksByIds(tasks: Task[], orderedTaskIds: string[]) {
-  if (orderedTaskIds.length === 0) {
-    return tasks;
-  }
-
-  const byId = new Map(tasks.map((task) => [task.id, task]));
-  const ordered = orderedTaskIds
-    .map((taskId) => byId.get(taskId))
-    .filter((task): task is Task => Boolean(task));
-  const missing = tasks.filter((task) => !orderedTaskIds.includes(task.id));
-
-  return [...ordered, ...missing];
-}
 
 export function MainPage() {
   const { session, setSession, logout } = useAuth();
   const tasksRef = useRef<Task[]>([]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
-  const windowConflictIds = useMemo(() => getWindowConflictIds(tasks), [tasks]);
-  const hasWindowConflicts = windowConflictIds.size > 0;
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteSummary[]>([]);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -184,47 +64,35 @@ export function MainPage() {
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isPersistingOrder, setIsPersistingOrder] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [routeOptimized, setRouteOptimized] = useState(false);
-  const [optimizedInfo, setOptimizedInfo] = useState<OptimizedRoute | null>(null);
-  const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
   const [loadingRouteId, setLoadingRouteId] = useState<string | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
   const [editingRouteName, setEditingRouteName] = useState('');
   const [transportMode, setTransportMode] = useState<TransportMode>('auto');
-  const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
-  const [routeStops, setRouteStops] = useState<RouteStopTiming[]>([]);
-
-  // Конфликты, выявленные по фактическому времени прибытия после оптимизации
-  const routeConflictIds = useMemo(() => {
-    if (routeStops.length === 0) return undefined;
-    const stopMap = new Map(routeStops.map((s) => [s.taskId, s]));
-    const ids = new Set<string>();
-    for (const task of tasks) {
-      const stop = stopMap.get(task.id);
-      if (!stop?.arriveTime) continue;
-      if (!task.windowEndDate && !task.windowEndTime) continue;
-      const arrivalMs = new Date(stop.arriveTime).getTime();
-      const deadlineMs = new Date(
-        task.windowEndDate && task.windowEndTime
-          ? `${task.windowEndDate}T${task.windowEndTime}:00Z`
-          : task.windowEndDate
-            ? `${task.windowEndDate}T23:59:59Z`
-            : stop.arriveTime,
-      ).getTime();
-      if (isNaN(deadlineMs)) continue;
-      const serviceDurationMs = (task.duration ?? 0) * 60 * 1000;
-      if (arrivalMs > deadlineMs - serviceDurationMs) {
-        ids.add(task.id);
-      }
-    }
-    return ids.size > 0 ? ids : undefined;
-  }, [tasks, routeStops]);
-
   const [startTaskId, setStartTaskId] = useState<string>('');
   const [endTaskId, setEndTaskId] = useState<string>('');
   const [precedences, setPrecedences] = useState<PrecedencePair[]>([]);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+
+  const route = useOptimizedRoute();
+  const {
+    routeOptimized,
+    optimizedInfo,
+    routeStops,
+    routeLegs,
+    activeRouteId,
+    apply: applyRoute,
+    clear: clearRoute,
+    setActiveRouteId,
+    setRouteLegs,
+  } = route;
+
+  const staticConflictIds = useMemo(() => getWindowConflictIds(tasks), [tasks]);
+  const hasWindowConflicts = staticConflictIds.size > 0;
+  const routeConflictIds = useMemo(() => {
+    const ids = getRouteConflictIds(tasks, routeStops);
+    return ids.size > 0 ? ids : undefined;
+  }, [tasks, routeStops]);
 
   const handleUnauthorized = useCallback(async () => {
     toast.error('Сессия истекла. Выполните вход заново.');
@@ -232,10 +100,7 @@ export function MainPage() {
   }, [logout]);
 
   const requestOptions = useMemo(() => {
-    if (!session) {
-      return null;
-    }
-
+    if (!session) return null;
     return {
       session,
       onSessionChange: setSession,
@@ -249,29 +114,28 @@ export function MainPage() {
     setTasks(normalized);
   }, []);
 
+  // 401 пробрасывается ApiError — toast не показываем (logout уже отработал).
+  const reportError = useCallback((error: unknown, fallback: string) => {
+    if (error instanceof ApiError && error.status === 401) return;
+    toast.error(userErrorMessage(error, fallback));
+  }, []);
+
   const loadData = useCallback(async () => {
-    if (!requestOptions || !session) {
-      return;
-    }
-
+    if (!requestOptions || !session) return;
     setIsLoading(true);
-
     try {
       const [serverTasks, routes] = await Promise.all([
         listTasks(requestOptions),
         SHOW_SAVED_ROUTES ? listRoutes(requestOptions) : Promise.resolve([] as SavedRouteSummary[]),
       ]);
-
       replaceTasks(serverTasks);
       setSavedRoutes(routes);
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось загрузить данные'));
-      }
+      reportError(error, 'Не удалось загрузить данные');
     } finally {
       setIsLoading(false);
     }
-  }, [replaceTasks, requestOptions, session]);
+  }, [replaceTasks, reportError, requestOptions, session]);
 
   useEffect(() => {
     void loadData();
@@ -279,37 +143,58 @@ export function MainPage() {
 
   const persistTaskOrder = useCallback(
     async (orderedTasks: Task[]) => {
-      if (!requestOptions) {
-        return false;
-      }
-
+      if (!requestOptions) return false;
       setIsPersistingOrder(true);
-
       try {
         await reorderTasks(
           orderedTasks.map((task, index) => ({ id: task.id, sortIndex: index })),
           requestOptions,
         );
-
         return true;
       } catch (error) {
-        if (!(error instanceof ApiError && error.status === 401)) {
-          toast.error(userErrorMessage(error, 'Не удалось сохранить порядок задач'));
-        }
-
+        reportError(error, 'Не удалось сохранить порядок задач');
         await loadData();
         return false;
       } finally {
         setIsPersistingOrder(false);
       }
     },
-    [loadData, requestOptions],
+    [loadData, reportError, requestOptions],
+  );
+
+  // Снять роль с задачи, если она удалена/изменена.
+  const releaseRole = useCallback((id: string) => {
+    setStartTaskId((prev) => (prev === id ? '' : prev));
+    setEndTaskId((prev) => (prev === id ? '' : prev));
+  }, []);
+
+  // Установить новую роль для задачи (или снять).
+  const applyRoleChange = useCallback((id: string, role: TaskRole) => {
+    if (role === 'start') {
+      setStartTaskId(id);
+      setEndTaskId((prev) => (prev === id ? '' : prev));
+    } else if (role === 'end') {
+      setEndTaskId(id);
+      setStartTaskId((prev) => (prev === id ? '' : prev));
+    } else {
+      releaseRole(id);
+    }
+  }, [releaseRole]);
+
+  const handleSetRole = useCallback(
+    (id: string, role: TaskRole) => applyRoleChange(id, role),
+    [applyRoleChange],
   );
 
   const handleAddTask = () => {
     setEditingTask(null);
     setIsFormOpen(true);
   };
+
+  const handleEditTask = useCallback((task: Task) => {
+    setEditingTask(task);
+    setIsFormOpen(true);
+  }, []);
 
   const handleImportTasks = async (rows: ImportedTaskRow[]) => {
     if (!requestOptions) return;
@@ -320,7 +205,12 @@ export function MainPage() {
         try {
           const suggestions = await geocodeAddressSuggestions(row.address);
           if (suggestions.length > 0) {
-            return { lat: suggestions[0].lat, lng: suggestions[0].lng, address: suggestions[0].displayName, failed: false };
+            return {
+              lat: suggestions[0].lat,
+              lng: suggestions[0].lng,
+              address: suggestions[0].displayName,
+              failed: false,
+            };
           }
           return { lat: undefined, lng: undefined, address: undefined, failed: true };
         } catch {
@@ -347,40 +237,17 @@ export function MainPage() {
 
     const savedTasks = await createTasksBatch(inputs, requestOptions);
     replaceTasks([...tasksRef.current, ...savedTasks]);
+    clearRoute();
 
     toast.success(
       geocodeFailed > 0
         ? `Импортировано ${savedTasks.length} задач. Геокодирование не удалось для ${geocodeFailed} адресов — они сохранены без координат.`
         : `Импортировано ${savedTasks.length} задач`,
     );
-    setRouteOptimized(false);
-    setOptimizedInfo(null);
-    setRouteStops([]);
-    setActiveRouteId(null);
   };
-
-  const handleEditTask = (task: Task) => {
-    setEditingTask(task);
-    setIsFormOpen(true);
-  };
-
-  const handleSetRole = useCallback((id: string, role: 'start' | 'end' | null) => {
-    if (role === 'start') {
-      setStartTaskId(id);
-      if (endTaskId === id) setEndTaskId('');
-    } else if (role === 'end') {
-      setEndTaskId(id);
-      if (startTaskId === id) setStartTaskId('');
-    } else {
-      if (startTaskId === id) setStartTaskId('');
-      if (endTaskId === id) setEndTaskId('');
-    }
-  }, [startTaskId, endTaskId]);
 
   const handleSaveTask = async (task: Task, role: TaskRole) => {
-    if (!requestOptions) {
-      return;
-    }
+    if (!requestOptions) return;
 
     // TaskForm гарантирует координаты для задач с адресом — защита от гонок
     if (task.address && (task.latitude === undefined || task.longitude === undefined)) {
@@ -388,71 +255,41 @@ export function MainPage() {
     }
 
     setIsSavingTask(true);
-
     try {
+      const payload = {
+        title: task.title,
+        address: task.address,
+        latitude: task.latitude,
+        longitude: task.longitude,
+        duration: task.duration,
+        windowStartDate: task.windowStartDate,
+        windowStartTime: task.windowStartTime,
+        windowEndDate: task.windowEndDate,
+        windowEndTime: task.windowEndTime,
+      };
+
       let savedId: string;
       if (editingTask) {
         const savedTask = await updateTask(
           task.id,
-          {
-            title: task.title,
-            address: task.address,
-            latitude: task.latitude,
-            longitude: task.longitude,
-            duration: task.duration,
-            windowStartDate: task.windowStartDate,
-            windowStartTime: task.windowStartTime,
-            windowEndDate: task.windowEndDate,
-            windowEndTime: task.windowEndTime,
-            sortIndex: task.order ?? 0,
-          },
+          { ...payload, sortIndex: task.order ?? 0 },
           requestOptions,
         );
-
-        replaceTasks(
-          tasksRef.current.map((currentTask) =>
-            currentTask.id === task.id ? savedTask : currentTask,
-          ),
-        );
+        replaceTasks(tasksRef.current.map((t) => (t.id === task.id ? savedTask : t)));
         savedId = task.id;
         toast.success('Задача обновлена');
       } else {
         const savedTask = await createTask(
-          {
-            title: task.title,
-            address: task.address,
-            latitude: task.latitude,
-            longitude: task.longitude,
-            duration: task.duration,
-            windowStartDate: task.windowStartDate,
-            windowStartTime: task.windowStartTime,
-            windowEndDate: task.windowEndDate,
-            windowEndTime: task.windowEndTime,
-            sortIndex: tasksRef.current.length,
-          },
+          { ...payload, sortIndex: tasksRef.current.length },
           requestOptions,
         );
-
         replaceTasks([...tasksRef.current, savedTask]);
         savedId = savedTask.id;
         toast.success('Задача добавлена');
       }
 
-      if (role === 'start') {
-        setStartTaskId(savedId);
-        if (endTaskId === savedId) setEndTaskId('');
-      } else if (role === 'end') {
-        setEndTaskId(savedId);
-        if (startTaskId === savedId) setStartTaskId('');
-      } else {
-        if (startTaskId === savedId) setStartTaskId('');
-        if (endTaskId === savedId) setEndTaskId('');
-      }
-
-      setRouteOptimized(false);
-      setOptimizedInfo(null);
-    setRouteStops([]);
-      setActiveRouteId(null);
+      applyRoleChange(savedId, role);
+      clearRoute();
     } catch (error) {
       toast.error(userErrorMessage(error, 'Не удалось сохранить задачу'));
       throw error;
@@ -462,32 +299,20 @@ export function MainPage() {
   };
 
   const handleDeleteTask = async (id: string) => {
-    if (!requestOptions) {
-      return;
-    }
-
+    if (!requestOptions) return;
     try {
       await deleteTask(id, requestOptions);
       replaceTasks(tasksRef.current.filter((task) => task.id !== id));
-      if (startTaskId === id) setStartTaskId('');
-      if (endTaskId === id) setEndTaskId('');
-      setRouteOptimized(false);
-      setOptimizedInfo(null);
-    setRouteStops([]);
-      setActiveRouteId(null);
+      releaseRole(id);
+      clearRoute();
       toast.success('Задача удалена');
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось удалить задачу'));
-      }
+      reportError(error, 'Не удалось удалить задачу');
     }
   };
 
   const handleCloneTask = async (task: Task) => {
-    if (!requestOptions) {
-      return;
-    }
-
+    if (!requestOptions) return;
     try {
       const cloned = await createTask(
         {
@@ -507,38 +332,22 @@ export function MainPage() {
       replaceTasks([...tasksRef.current, cloned]);
       toast.success('Задача клонирована');
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось клонировать задачу'));
-      }
+      reportError(error, 'Не удалось клонировать задачу');
     }
   };
 
   const handleToggleComplete = async (id: string) => {
-    if (!requestOptions) {
-      return;
-    }
-
+    if (!requestOptions) return;
     const task = tasksRef.current.find((t) => t.id === id);
-    if (!task) {
-      return;
-    }
+    if (!task) return;
 
     const newCompleted = !task.completed;
-
-    replaceTasks(
-      tasksRef.current.map((t) =>
-        t.id === id ? { ...t, completed: newCompleted } : t,
-      ),
-    );
+    replaceTasks(tasksRef.current.map((t) => (t.id === id ? { ...t, completed: newCompleted } : t)));
 
     try {
       await updateTask(id, { completed: newCompleted }, requestOptions);
     } catch (error) {
-      replaceTasks(
-        tasksRef.current.map((t) =>
-          t.id === id ? { ...t, completed: task.completed } : t,
-        ),
-      );
+      replaceTasks(tasksRef.current.map((t) => (t.id === id ? { ...t, completed: task.completed } : t)));
       if (!(error instanceof ApiError && error.status === 401)) {
         toast.error('Не удалось сохранить статус задачи');
       }
@@ -546,19 +355,12 @@ export function MainPage() {
   };
 
   const handleReorderTasks = (dragIndex: number, hoverIndex: number) => {
-    if (dragIndex === hoverIndex) {
-      return;
-    }
-
+    if (dragIndex === hoverIndex) return;
     const reordered = [...tasksRef.current];
     const [draggedTask] = reordered.splice(dragIndex, 1);
     reordered.splice(hoverIndex, 0, draggedTask);
-
     replaceTasks(reordered);
-    setRouteOptimized(false);
-    setOptimizedInfo(null);
-    setRouteStops([]);
-    setActiveRouteId(null);
+    clearRoute();
   };
 
   const handlePersistReorder = async () => {
@@ -566,9 +368,7 @@ export function MainPage() {
   };
 
   const runOptimization = async (mode: TransportMode) => {
-    if (!requestOptions) {
-      return;
-    }
+    if (!requestOptions) return;
 
     const addressTasks = tasksRef.current.filter(taskHasAddress);
     const addresslessTasks = tasksRef.current.filter((t) => !taskHasAddress(t));
@@ -578,15 +378,9 @@ export function MainPage() {
       return;
     }
 
-    const constraintIssues = validateStartEndConstraints(
-      addressTasks,
-      startTaskId,
-      endTaskId,
-    );
+    const constraintIssues = validateStartEndConstraints(addressTasks, startTaskId, endTaskId);
     if (constraintIssues.length > 0) {
-      for (const issue of constraintIssues) {
-        toast.warning(issue, { duration: 8000 });
-      }
+      for (const issue of constraintIssues) toast.warning(issue, { duration: 8000 });
       return;
     }
 
@@ -595,7 +389,6 @@ export function MainPage() {
 
     try {
       const distanceMatrix = await buildYandexDistanceMatrix(addressTasks, mode);
-
       toast.info('Оптимизация маршрута...');
 
       const constraintPairs: PrecedenceConstraint[] = precedences
@@ -612,35 +405,32 @@ export function MainPage() {
         constraintPairs.length > 0 ? constraintPairs : undefined,
       );
 
-      // задачи без адреса уходят в конец списка
       const orderedAddressTasks = reorderTasksByIds(addressTasks, result.orderedTaskIds);
       const orderedTasks = normalizeTasksOrder([...orderedAddressTasks, ...addresslessTasks]);
       replaceTasks(orderedTasks);
 
       const orderSaved = await persistTaskOrder(orderedTasks);
-      if (!orderSaved) {
-        return;
-      }
+      if (!orderSaved) return;
 
-      setSavedRoutes((currentRoutes) => [
+      setSavedRoutes((current) => [
         { id: result.id, status: result.status, source: result.source, createdAt: result.createdAt },
-        ...currentRoutes,
+        ...current,
       ]);
-      setOptimizedInfo({
-        tasks: orderedAddressTasks,
-        totalDistance: result.totalDistanceKm ?? 0,
-        totalTravelTime: result.totalTravelTimeMin ?? 0,
-        totalDuration:
-          result.totalDurationMin ?? orderedAddressTasks.reduce((sum, t) => sum + t.duration, 0),
+      applyRoute({
+        routeOptimized: true,
+        optimizedInfo: {
+          tasks: orderedAddressTasks,
+          totalDistance: result.totalDistanceKm ?? 0,
+          totalTravelTime: result.totalTravelTimeMin ?? 0,
+          totalDuration:
+            result.totalDurationMin ?? orderedAddressTasks.reduce((sum, t) => sum + t.duration, 0),
+        },
+        routeStops: result.stops ?? [],
+        activeRouteId: result.id,
       });
-      setRouteStops(result.stops ?? []);
-      setRouteOptimized(true);
-      setActiveRouteId(result.id);
       toast.success('Маршрут оптимизирован и сохранён');
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Ошибка при оптимизации маршрута'));
-      }
+      reportError(error, 'Ошибка при оптимизации маршрута');
     } finally {
       setIsOptimizing(false);
     }
@@ -650,48 +440,41 @@ export function MainPage() {
 
   const handleTransportModeChange = (mode: TransportMode) => {
     setTransportMode(mode);
-    if (routeOptimized) {
-      void runOptimization(mode);
-    }
+    if (routeOptimized) void runOptimization(mode);
   };
 
   const handleApplyRoute = async (routeId: string) => {
-    if (!requestOptions) {
-      return;
-    }
-
+    if (!requestOptions) return;
     setLoadingRouteId(routeId);
-
     try {
-      const route = await getRoute(routeId, requestOptions);
-      const orderedTasks = normalizeTasksOrder(reorderTasksByIds(tasksRef.current, route.orderedTaskIds));
+      const loaded = await getRoute(routeId, requestOptions);
+      const orderedTasks = normalizeTasksOrder(reorderTasksByIds(tasksRef.current, loaded.orderedTaskIds));
       replaceTasks(orderedTasks);
 
       const orderSaved = await persistTaskOrder(orderedTasks);
-      if (!orderSaved) {
-        return;
-      }
+      if (!orderSaved) return;
 
-      setRouteOptimized(true);
-      setActiveRouteId(routeId);
-      setRouteStops(route.stops ?? []);
-      setOptimizedInfo(
-        route.totalDurationMin !== undefined ||
-          route.totalDistanceKm !== undefined ||
-          route.totalTravelTimeMin !== undefined
+      const hasStats =
+        loaded.totalDurationMin !== undefined ||
+        loaded.totalDistanceKm !== undefined ||
+        loaded.totalTravelTimeMin !== undefined;
+
+      applyRoute({
+        routeOptimized: true,
+        activeRouteId: routeId,
+        routeStops: loaded.stops ?? [],
+        optimizedInfo: hasStats
           ? {
               tasks: orderedTasks,
-              totalDistance: route.totalDistanceKm ?? 0,
-              totalDuration: route.totalDurationMin ?? orderedTasks.reduce((sum, task) => sum + task.duration, 0),
-              totalTravelTime: route.totalTravelTimeMin ?? 0,
+              totalDistance: loaded.totalDistanceKm ?? 0,
+              totalDuration: loaded.totalDurationMin ?? orderedTasks.reduce((sum, t) => sum + t.duration, 0),
+              totalTravelTime: loaded.totalTravelTimeMin ?? 0,
             }
           : null,
-      );
+      });
       toast.success('Сохранённый маршрут применён');
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось загрузить маршрут'));
-      }
+      reportError(error, 'Не удалось загрузить маршрут');
     } finally {
       setLoadingRouteId(null);
     }
@@ -702,17 +485,10 @@ export function MainPage() {
     try {
       await deleteRoute(routeId, requestOptions);
       setSavedRoutes((current) => current.filter((r) => r.id !== routeId));
-      if (activeRouteId === routeId) {
-        setActiveRouteId(null);
-        setRouteOptimized(false);
-        setOptimizedInfo(null);
-    setRouteStops([]);
-      }
+      if (activeRouteId === routeId) clearRoute();
       toast.success('Маршрут удалён');
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось удалить маршрут'));
-      }
+      reportError(error, 'Не удалось удалить маршрут');
     }
   };
 
@@ -721,21 +497,18 @@ export function MainPage() {
     try {
       await deleteAllRoutes(requestOptions);
       setSavedRoutes([]);
-      setActiveRouteId(null);
-      setRouteOptimized(false);
-      setOptimizedInfo(null);
-    setRouteStops([]);
+      clearRoute();
       toast.success('Все маршруты удалены');
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось очистить маршруты'));
-      }
+      reportError(error, 'Не удалось очистить маршруты');
     }
   };
 
   const handleStartRename = (routeId: string, currentName: string | undefined, source: string) => {
     setEditingRouteId(routeId);
-    setEditingRouteName(currentName ?? (source === 'optimized' ? 'Оптимизированный маршрут' : 'Маршрут'));
+    setEditingRouteName(
+      currentName ?? (source === 'optimized' ? 'Оптимизированный маршрут' : 'Маршрут'),
+    );
   };
 
   const handleConfirmRename = async () => {
@@ -747,106 +520,28 @@ export function MainPage() {
     }
     try {
       await renameRoute(editingRouteId, name, requestOptions);
-      setSavedRoutes((current) =>
-        current.map((r) => (r.id === editingRouteId ? { ...r, name } : r)),
-      );
+      setSavedRoutes((current) => current.map((r) => (r.id === editingRouteId ? { ...r, name } : r)));
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) {
-        toast.error(userErrorMessage(error, 'Не удалось переименовать маршрут'));
-      }
+      reportError(error, 'Не удалось переименовать маршрут');
     } finally {
       setEditingRouteId(null);
     }
   };
 
-  const handleExportRoute = () => {
-    const exportData = {
-      exportDate: new Date().toISOString(),
-      optimized: routeOptimized,
-      routeId: activeRouteId,
-      tasks: tasks.map((task, index) => ({
-        order: index + 1,
-        id: task.id,
-        title: task.title,
-        address: task.address,
-        coordinates: {
-          latitude: task.latitude,
-          longitude: task.longitude,
-        },
-        duration: task.duration,
-        timeWindow: {
-          startDate: task.windowStartDate,
-          startTime: task.windowStartTime,
-          endDate: task.windowEndDate,
-          endTime: task.windowEndTime,
-        },
-        completed: task.completed,
-      })),
-      summary: optimizedInfo
-        ? {
-            totalDistance: optimizedInfo.totalDistance,
-            totalDuration: optimizedInfo.totalDuration,
-            totalTravelTime: optimizedInfo.totalTravelTime,
-          }
-        : null,
-    };
+  const { exportCSV, exportXLSX, exportRouteJSON } = useTaskExport(
+    tasks,
+    optimizedInfo,
+    routeOptimized,
+    activeRouteId,
+  );
 
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `route-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    toast.success('Маршрут экспортирован');
-  };
-
-  function buildExportRows() {
-    return tasks.map((task) => ({
-      title: task.title,
-      address: task.address ?? '',
-      duration: task.duration ?? '',
-      date: task.windowStartDate ?? '',
-      window_start: task.windowStartTime ?? '',
-      window_end: task.windowEndTime ?? '',
-    }));
-  }
-
-  const handleExportCSV = () => {
-    if (tasks.length === 0) return;
-    const csv = Papa.unparse(buildExportRows(), {
-      columns: ['title', 'address', 'duration', 'date', 'window_start', 'window_end'],
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `tasks-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success('Задачи экспортированы в CSV');
-  };
-
-  const handleExportXLSX = () => {
-    if (tasks.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(buildExportRows(), {
-      header: ['title', 'address', 'duration', 'date', 'window_start', 'window_end'],
-    });
-    ws['!cols'] = [
-      { wch: 30 }, // title
-      { wch: 35 }, // address
-      { wch: 18 }, // duration
-      { wch: 14 }, // date
-      { wch: 15 }, // window_start
-      { wch: 15 }, // window_end
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Задачи');
-    XLSX.writeFile(wb, `tasks-${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success('Задачи экспортированы в Excel');
-  };
+  const handleEditByTaskId = useCallback(
+    (taskId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) handleEditTask(task);
+    },
+    [tasks, handleEditTask],
+  );
 
   if (isLoading) {
     return (
@@ -864,312 +559,43 @@ export function MainPage() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="container mx-auto px-4 py-6">
-        <div className="sticky top-[80px] z-30 mb-6 flex flex-wrap gap-3 bg-gray-50 py-2 border-b border-gray-100">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={handleAddTask}>
-                <Plus className="mr-2 h-4 w-4" />
-                Добавить задачу
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Создать новую задачу с адресом и временными рамками</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Импорт из файла
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Загрузить задачи из CSV или Excel-файла</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span tabIndex={hasWindowConflicts ? 0 : undefined}>
-                <Button
-                  onClick={handleOptimizeRoute}
-                  disabled={isOptimizing || isPersistingOrder || tasks.length < 2 || hasWindowConflicts}
-                  variant="default"
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isOptimizing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Route className="mr-2 h-4 w-4" />
-                  )}
-                  Оптимизировать маршрут
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{hasWindowConflicts
-                ? 'Исправьте конфликты временных окон перед оптимизацией'
-                : 'Построить маршрут и сохранить его в бэкенде'}</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={() => setIsExportOpen(true)}
-                disabled={tasks.length === 0}
-                variant="outline"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Экспорт
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Скачать задачи в выбранном формате</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        <MainToolbar
+          taskCount={tasks.length}
+          isOptimizing={isOptimizing}
+          isPersistingOrder={isPersistingOrder}
+          hasWindowConflicts={hasWindowConflicts}
+          onAddTask={handleAddTask}
+          onOpenImport={() => setIsImportOpen(true)}
+          onOptimize={handleOptimizeRoute}
+          onOpenExport={() => setIsExportOpen(true)}
+        />
 
-        {optimizedInfo && routeOptimized && (
-          <Card className="mb-6 border-blue-200 bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
-                <div className="flex-1">
-                  <h3 className="mb-2 font-semibold text-blue-900">Информация о маршруте</h3>
-                  <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
-                    <div className="flex items-center gap-2">
-                      <Navigation className="h-4 w-4 text-blue-600" />
-                      <span className="text-gray-700">
-                        Расстояние: <strong>{optimizedInfo.totalDistance} км</strong>
-                      </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-gray-400 cursor-help flex-shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Суммарное расстояние по дорогам между всеми точками маршрута</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-600" />
-                      <span className="text-gray-700">
-                        Время в пути: <strong>{optimizedInfo.totalTravelTime} мин</strong>
-                      </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-gray-400 cursor-help flex-shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Суммарное время переездов между точками (без учёта выполнения задач)</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-600" />
-                      <span className="text-gray-700">
-                        Общее время: <strong>{optimizedInfo.totalDuration} мин</strong>
-                      </span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3.5 w-3.5 text-gray-400 cursor-help flex-shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Время в пути + суммарная длительность выполнения всех задач</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {optimizedInfo && routeOptimized && <OptimizedRouteSummary info={optimizedInfo} />}
 
         {SHOW_SAVED_ROUTES && (
-        <Card className="mb-6">
-          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Сохранённые маршруты
-              <span className="text-sm font-normal text-gray-500">({savedRoutes.length})</span>
-            </CardTitle>
-            {savedRoutes.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-red-600 hover:text-red-700 hover:border-red-300"
-                onClick={() => void handleDeleteAllRoutes()}
-              >
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                Очистить всё
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {savedRoutes.length === 0 ? (
-              <p className="text-sm text-gray-500">Маршруты ещё не сохранялись.</p>
-            ) : (
-              <div className="max-h-64 overflow-y-auto pr-1">
-                <div className="space-y-3">
-                  {savedRoutes.map((route) => (
-                    <div
-                      key={route.id}
-                      className="flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="flex-1 min-w-0">
-                        {editingRouteId === route.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              autoFocus
-                              className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              value={editingRouteName}
-                              onChange={(e) => setEditingRouteName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') void handleConfirmRename();
-                                if (e.key === 'Escape') setEditingRouteId(null);
-                              }}
-                            />
-                            <button
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => void handleConfirmRename()}
-                            >
-                              <Check className="h-4 w-4" />
-                            </button>
-                            <button
-                              className="text-gray-400 hover:text-gray-600"
-                              onClick={() => setEditingRouteId(null)}
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <div className="font-medium text-gray-900 truncate">
-                              {route.name ?? (route.source === 'optimized' ? 'Оптимизированный маршрут' : 'Маршрут')}
-                            </div>
-                            {route.source === 'optimized' && (
-                              <button
-                                className="flex-shrink-0 text-gray-400 hover:text-gray-600"
-                                onClick={() => handleStartRename(route.id, route.name, route.source)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        <div className="text-sm text-gray-500">
-                          {new Date(route.createdAt).toLocaleString('ru-RU')}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="rounded-full bg-gray-100 px-2 py-1 text-xs uppercase text-gray-600">
-                          {route.status}
-                        </span>
-                        <Button
-                          variant={route.id === activeRouteId ? 'default' : 'outline'}
-                          size="sm"
-                          disabled={loadingRouteId === route.id || tasks.length === 0}
-                          onClick={() => void handleApplyRoute(route.id)}
-                        >
-                          {loadingRouteId === route.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Применить
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 px-2"
-                          onClick={() => void handleDeleteRoute(route.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          <SavedRoutesPanel
+            routes={savedRoutes}
+            activeRouteId={activeRouteId}
+            loadingRouteId={loadingRouteId}
+            taskCount={tasks.length}
+            editingRouteId={editingRouteId}
+            editingRouteName={editingRouteName}
+            onApply={(id) => void handleApplyRoute(id)}
+            onDelete={(id) => void handleDeleteRoute(id)}
+            onDeleteAll={() => void handleDeleteAllRoutes()}
+            onStartRename={handleStartRename}
+            onChangeRename={setEditingRouteName}
+            onConfirmRename={() => void handleConfirmRename()}
+            onCancelRename={() => setEditingRouteId(null)}
+          />
         )}
 
         {tasks.length >= 2 && (
-          <Card className="mb-6 border-gray-200">
-            <CardContent className="p-4 space-y-4">
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-gray-700">
-                      Ограничения порядка выполнения задач
-                    </span>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-gray-400 cursor-help flex-shrink-0" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Первая задача выполняется раньше второй.<br />Ограничения учитываются при оптимизации.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPrecedences((prev) => [...prev, { beforeId: '', afterId: '' }])}
-                  >
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    Добавить
-                  </Button>
-                </div>
-                {precedences.length === 0 && (
-                  <p className="text-sm text-gray-400">Ограничения не заданы.</p>
-                )}
-                <div className="space-y-2">
-                  {precedences.map((pair, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <select
-                        className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={pair.beforeId}
-                        onChange={(e) =>
-                          setPrecedences((prev) =>
-                            prev.map((p, i) => (i === idx ? { ...p, beforeId: e.target.value } : p)),
-                          )
-                        }
-                      >
-                        <option value="" disabled>Задача A</option>
-                        {tasks.map((t) => (
-                          <option key={t.id} value={t.id} disabled={t.id === pair.afterId}>
-                            {t.title}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-sm text-gray-500">до</span>
-                      <select
-                        className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={pair.afterId}
-                        onChange={(e) =>
-                          setPrecedences((prev) =>
-                            prev.map((p, i) => (i === idx ? { ...p, afterId: e.target.value } : p)),
-                          )
-                        }
-                      >
-                        <option value="" disabled>Задача B</option>
-                        {tasks.map((t) => (
-                          <option key={t.id} value={t.id} disabled={t.id === pair.beforeId}>
-                            {t.title}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="text-gray-400 hover:text-red-500"
-                        onClick={() => setPrecedences((prev) => prev.filter((_, i) => i !== idx))}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PrecedenceConstraintsPanel
+            tasks={tasks}
+            precedences={precedences}
+            onChange={setPrecedences}
+          />
         )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -1178,6 +604,7 @@ export function MainPage() {
               tasks={tasks}
               startTaskId={startTaskId || undefined}
               endTaskId={endTaskId || undefined}
+              staticConflictIds={staticConflictIds}
               routeConflictIds={routeConflictIds}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
@@ -1205,16 +632,8 @@ export function MainPage() {
             transportMode={transportMode}
             routeLegs={routeLegs}
             stops={routeStops}
-            onEditTask={(taskId) => {
-              const task = tasks.find((t) => t.id === taskId);
-              if (task) {
-                setEditingTask(task);
-                setIsFormOpen(true);
-              }
-            }}
-            onDeleteTask={(taskId) => {
-              void handleDeleteTask(taskId);
-            }}
+            onEditTask={handleEditByTaskId}
+            onDeleteTask={(taskId) => void handleDeleteTask(taskId)}
           />
         )}
 
@@ -1237,51 +656,16 @@ export function MainPage() {
           onSave={handleSaveTask}
           onGeocodeMultiple={geocodeAddressSuggestions}
         />
-        <TaskImport
-          open={isImportOpen}
-          onOpenChange={setIsImportOpen}
-          onImport={handleImportTasks}
-        />
 
-        <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Экспорт задач</DialogTitle>
-              <DialogDescription>
-                Выберите формат файла для скачивания
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="justify-start"
-                onClick={() => { handleExportCSV(); setIsExportOpen(false); }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                CSV
-                <span className="ml-auto text-xs text-gray-400">совместим с импортом</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-start"
-                onClick={() => { handleExportXLSX(); setIsExportOpen(false); }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Excel (.xlsx)
-                <span className="ml-auto text-xs text-gray-400">совместим с импортом</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="justify-start"
-                onClick={() => { handleExportRoute(); setIsExportOpen(false); }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                JSON
-                <span className="ml-auto text-xs text-gray-400">полные данные маршрута</span>
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <TaskImport open={isImportOpen} onOpenChange={setIsImportOpen} onImport={handleImportTasks} />
+
+        <ExportFormatDialog
+          open={isExportOpen}
+          onOpenChange={setIsExportOpen}
+          onCSV={exportCSV}
+          onXLSX={exportXLSX}
+          onJSON={exportRouteJSON}
+        />
       </div>
     </DndProvider>
   );

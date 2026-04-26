@@ -147,7 +147,7 @@ export async function logoutRequest(refreshToken: string) {
 
 export async function listTasks(options: AuthorizedRequestOptions) {
   const tasks = await requestWithAuth<ApiTask[]>('/tasks', { method: 'GET' }, options);
-  return tasks.map((task) => mapTaskFromApi(task));
+  return tasks.map(mapTaskFromApi);
 }
 
 export interface SaveTaskInput {
@@ -164,77 +164,63 @@ export interface SaveTaskInput {
   completed?: boolean;
 }
 
+// Тело POST /tasks и /tasks/batch: пустые поля → null (бэк ждёт явный сброс).
+function taskCreateBody(input: SaveTaskInput) {
+  return {
+    title: input.title,
+    addressText: input.address ?? null,
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+    durationMin: input.duration,
+    windowStartDate: input.windowStartDate || null,
+    windowStartTime: input.windowStartTime || null,
+    windowEndDate: input.windowEndDate || null,
+    windowEndTime: input.windowEndTime || null,
+    sortIndex: input.sortIndex,
+  };
+}
+
+// Тело PATCH /tasks/:id: undefined-поля бэк не трогает (partial update).
+function taskUpdateBody(input: Partial<SaveTaskInput>) {
+  return {
+    title: input.title,
+    addressText: input.address,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    durationMin: input.duration,
+    windowStartDate: input.windowStartDate,
+    windowStartTime: input.windowStartTime,
+    windowEndDate: input.windowEndDate,
+    windowEndTime: input.windowEndTime,
+    sortIndex: input.sortIndex,
+    isCompleted: input.completed,
+  };
+}
+
 export async function createTask(input: SaveTaskInput, options: AuthorizedRequestOptions) {
   const task = await requestWithAuth<ApiTask>(
     '/tasks',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        title: input.title,
-        addressText: input.address ?? null,
-        latitude: input.latitude ?? null,
-        longitude: input.longitude ?? null,
-        durationMin: input.duration,
-        windowStartDate: input.windowStartDate || null,
-        windowStartTime: input.windowStartTime || null,
-        windowEndDate: input.windowEndDate || null,
-        windowEndTime: input.windowEndTime || null,
-        sortIndex: input.sortIndex,
-      }),
-    },
+    { method: 'POST', body: JSON.stringify(taskCreateBody(input)) },
     options,
   );
-
   return mapTaskFromApi(task);
 }
 
 export async function createTasksBatch(inputs: SaveTaskInput[], options: AuthorizedRequestOptions) {
   const tasks = await requestWithAuth<ApiTask[]>(
     '/tasks/batch',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        tasks: inputs.map((input) => ({
-          title: input.title,
-          addressText: input.address ?? null,
-          latitude: input.latitude ?? null,
-          longitude: input.longitude ?? null,
-          durationMin: input.duration,
-          windowStartDate: input.windowStartDate || null,
-          windowStartTime: input.windowStartTime || null,
-          windowEndDate: input.windowEndDate || null,
-          windowEndTime: input.windowEndTime || null,
-          sortIndex: input.sortIndex,
-        })),
-      }),
-    },
+    { method: 'POST', body: JSON.stringify({ tasks: inputs.map(taskCreateBody) }) },
     options,
   );
-  return tasks.map((task) => mapTaskFromApi(task));
+  return tasks.map(mapTaskFromApi);
 }
 
 export async function updateTask(taskId: string, input: Partial<SaveTaskInput>, options: AuthorizedRequestOptions) {
   const task = await requestWithAuth<ApiTask>(
     `/tasks/${taskId}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({
-        title: input.title,
-        addressText: input.address,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        durationMin: input.duration,
-        windowStartDate: input.windowStartDate,
-        windowStartTime: input.windowStartTime,
-        windowEndDate: input.windowEndDate,
-        windowEndTime: input.windowEndTime,
-        sortIndex: input.sortIndex,
-        isCompleted: input.completed,
-      }),
-    },
+    { method: 'PATCH', body: JSON.stringify(taskUpdateBody(input)) },
     options,
   );
-
   return mapTaskFromApi(task);
 }
 
@@ -314,7 +300,7 @@ export async function renameRoute(routeId: string, name: string, options: Author
 
 export async function listRoutes(options: AuthorizedRequestOptions) {
   const routes = await requestWithAuth<ApiRoute[]>('/routes', { method: 'GET' }, options);
-  return routes.map((route) => mapRouteSummary(route));
+  return routes.map(mapRouteSummary);
 }
 
 export async function getRoute(routeId: string, options: AuthorizedRequestOptions) {

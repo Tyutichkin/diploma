@@ -1,9 +1,11 @@
 import { Task } from '../types/task';
 import { RouteStopTiming } from '../types/route';
-import { TransportMode, RouteLeg, RouteSegment, TRANSPORT_TYPE_META } from './MapView';
+import { TransportMode, RouteLeg, RouteSegment, TRANSPORT_TYPE_META } from '../types/transport';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { AlertTriangle, Clock, ListOrdered, MapPin, Pencil, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
+import { fmtDuration, fmtTime } from '../utils/formatters';
+import { isStopConflict } from '../utils/routeConflicts';
 
 interface RouteStepListProps {
   tasks: Task[];
@@ -12,42 +14,6 @@ interface RouteStepListProps {
   stops?: RouteStopTiming[];
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => void;
-}
-
-function fmtTime(iso: string | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-}
-
-function fmtDuration(sec: number | undefined): string {
-  if (sec == null || sec <= 0) return '';
-  if (sec < 60) return `${sec} сек`;
-  const m = Math.floor(sec / 60);
-  if (m < 60) return `${m} мин`;
-  const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return rm > 0 ? `${h} ч ${rm} мин` : `${h} ч`;
-}
-
-function isConflict(stop: RouteStopTiming | undefined, task: Task): boolean {
-  if (!stop?.arriveTime) return false;
-  if (!task.windowEndDate && !task.windowEndTime) return false;
-
-  const arrivalMs = new Date(stop.arriveTime).getTime();
-  const endParts = [task.windowEndDate, task.windowEndTime].filter(Boolean).join('T');
-  if (!endParts) return false;
-  const deadlineMs = new Date(
-    task.windowEndDate && task.windowEndTime
-      ? `${task.windowEndDate}T${task.windowEndTime}:00Z`
-      : task.windowEndDate
-        ? `${task.windowEndDate}T23:59:59Z`
-        : stop.arriveTime, // без даты сравнивать не с чем
-  ).getTime();
-  if (isNaN(deadlineMs)) return false;
-
-  const serviceDurationMs = (task.duration ?? 0) * 60 * 1000;
-  return arrivalMs > deadlineMs - serviceDurationMs;
 }
 
 const MODE_LABEL: Record<TransportMode, string> = {
@@ -200,7 +166,7 @@ export function RouteStepList({ tasks, transportMode, routeLegs, stops, onEditTa
     for (const s of stops) stopMap.set(s.taskId, s);
   }
 
-  const conflicts = validTasks.filter((t) => isConflict(stopMap.get(t.id), t));
+  const conflicts = validTasks.filter((t) => isStopConflict(stopMap.get(t.id), t));
   const hasTimingData = stops != null && stops.length > 0;
 
   return (
@@ -229,7 +195,7 @@ export function RouteStepList({ tasks, transportMode, routeLegs, stops, onEditTa
         <ol className="space-y-0">
           {validTasks.map((task, index) => {
             const stop = stopMap.get(task.id);
-            const conflict = isConflict(stop, task);
+            const conflict = isStopConflict(stop, task);
 
             return (
               <li key={task.id}>

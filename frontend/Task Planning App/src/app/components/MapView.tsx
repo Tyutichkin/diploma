@@ -3,48 +3,23 @@ import { Task } from '../types/task';
 import { loadYandexMaps } from '../utils/yandexMaps';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MapPin, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  RouteLeg,
+  RouteSegment,
+  TransportInfo,
+  TransportMode,
+  TRANSPORT_TYPE_META,
+} from '../types/transport';
 
-export type TransportMode = 'auto' | 'pedestrian' | 'masstransit';
+// Ре-экспорт для обратной совместимости с уже существующими импортами.
+export type { RouteLeg, RouteSegment, TransportInfo, TransportMode };
+export { TRANSPORT_TYPE_META };
 
 const TRANSPORT_MODES: { value: TransportMode; label: string }[] = [
   { value: 'pedestrian', label: 'Пешком' },
   { value: 'masstransit', label: 'Транспорт' },
   { value: 'auto', label: 'Авто' },
 ];
-
-export const TRANSPORT_TYPE_META: Record<string, { icon: string; label: string; bg: string; text: string }> = {
-  subway:      { icon: 'М', label: 'Метро',        bg: 'bg-red-600',    text: 'text-white' },
-  underground: { icon: 'М', label: 'Метро',        bg: 'bg-red-600',    text: 'text-white' },
-  bus:         { icon: '🚌', label: 'Автобус',      bg: 'bg-blue-500',   text: 'text-white' },
-  tram:        { icon: '🚋', label: 'Трамвай',      bg: 'bg-green-600',  text: 'text-white' },
-  trolleybus:  { icon: '🚎', label: 'Троллейбус',   bg: 'bg-purple-600', text: 'text-white' },
-  minibus:     { icon: '🚐', label: 'Маршрутка',    bg: 'bg-yellow-500', text: 'text-white' },
-  rail:        { icon: '🚆', label: 'Электричка',   bg: 'bg-gray-700',   text: 'text-white' },
-};
-
-export type TransportInfo = {
-  name: string;
-  type: string;
-  color?: string;
-};
-
-export type RouteSegment = {
-  kind: 'pedestrian' | 'transport';
-  duration?: string;
-  distance?: string;
-  transports?: TransportInfo[];
-  stopFrom?: string;
-  stopTo?: string;
-  stopsCount?: number;
-};
-
-export type RouteLeg = {
-  fromTitle: string;
-  toTitle: string;
-  duration?: string;
-  distance?: string;
-  segments: RouteSegment[];
-};
 
 interface MapViewProps {
   tasks: Task[];
