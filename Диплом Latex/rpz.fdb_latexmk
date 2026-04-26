@@ -1,9 +1,12 @@
 # Fdb version 3
-["pdflatex"] 1777223228 "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.tex" "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.pdf" "rpz" 1777223228
-  "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.aux" 0 -1 0 ""
+["xdvipdfmx"] 1777233546 "rpz.xdv" "rpz.pdf" "rpz" 1777233550
+  "rpz.xdv" 1777233546 1326832 cbd5e7ee07957225d4a9861e5a2af0cc "xelatex"
+  (generated)
+  "rpz.pdf"
+["xelatex"] 1777233543 "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.tex" "rpz.xdv" "rpz" 1777233550
   "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.tex" 1776634953 1335 f784342c57b7193d4b1ec75e449ff6ea ""
   "/Users/semyontyutichkin/Library/texlive/2021/texmf-var/fonts/tfm/lh/lh-t2a/larm1440.tfm" 1694558148 3256 3daaa33cf35cf3f354983aa3214ecd7f ""
-  "/dev/null" 1777223227 0 d41d8cd98f00b204e9800998ecf8427e ""
+  "/dev/null" 1777233550 0 d41d8cd98f00b204e9800998ecf8427e ""
   "/usr/local/texlive/2021/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2021/texmf-dist/fonts/tfm/public/cm/cmr12.tfm" 1136768653 1288 655e228510b4c2a1abe905c368440826 ""
   "/usr/local/texlive/2021/texmf-dist/tex/generic/atbegshi/atbegshi.sty" 1575674566 24708 5584a51a7101caf7e6bbf1fc27d8f7b1 ""
@@ -203,8 +206,8 @@
   "G7-32.sty" 1776000113 5471 113a01a2f3757bb2a4539c026ec7b6ce ""
   "GostBase.clo" 1770797173 1139 a86fe98930885ff4b84148e0caa79714 ""
   "preamble.inc.tex" 1776193264 7372 639b6bc5f8bfec1aff90378643af997d ""
+  "rpz.aux" 1777233546 2253 624b384ee67fa41d569b9591d7c396f1 "xelatex"
   "rpz.tex" 1776634953 1335 f784342c57b7193d4b1ec75e449ff6ea ""
   (generated)
-  "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.pdf"
   "rpz.log"
-  "/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.log"
+  "rpz.xdv"
