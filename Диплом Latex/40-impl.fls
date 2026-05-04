@@ -1,6 +1,0 @@
-PWD /Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex
-INPUT /usr/local/texlive/2021/texmf.cnf
-INPUT /usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf
-INPUT /usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt
-INPUT 40-impl.tex
-OUTPUT 40-impl.log

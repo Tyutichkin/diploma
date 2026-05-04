@@ -1,11 +1,17 @@
 % !TeX root = ./rpz.tex
+\setcounter{chapter}{5}
 \chapter{{\fontsize{14pt}{21pt}\selectfont\MakeUppercase{ПРИЛОЖЕНИЕ Б}}}
 \label{cha:appendix_code}
 
+\begin{center}\itshape (справочное)\end{center}
+
+\begin{center}{\fontsize{14pt}{21pt}\selectfont\bfseries Листинги ключевых фрагментов кода}\end{center}
+
 \counterwithin{listing}{chapter}
 \setcounter{listing}{0}
+\renewcommand{\thelisting}{Б.\arabic{listing}}
 
-\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами и просмотром вперeд (nearest\_neighbor.go)}{app:lst_optimizer}
+\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами и просмотром вперед (nearest\_neighbor.go)}{app:lst_optimizer}
     \begin{minted}{go}
 package optimizer
 
@@ -14,7 +20,7 @@ import (
     "math"
 )
 
-// NearestNeighborTW — эвристика ближайшего соседа с учeтом временных окон
+// NearestNeighborTW — эвристика ближайшего соседа с учетом временных окон
 // (NNH-TW). Все временные величины хранятся в секундах Unix. Сложность — O(n³).
 type NearestNeighborTW struct{}
 
@@ -48,7 +54,7 @@ func (a *NearestNeighborTW) Optimize(
     totalServiceSec = g.Nodes[cur].DurationMin * 60
 
     for len(order) < n {
-        // Закреплeнный конечный узел — ставим последним.
+        // Закрепленный конечный узел — ставим последним.
         if endIdx >= 0 && !visited[endIdx] {
             allOther := true
             for i := 0; i < n; i++ {
@@ -90,7 +96,7 @@ func (a *NearestNeighborTW) Optimize(
             }
         }
 
-        // Проход 2: fallback — без учeта окна.
+        // Проход 2: fallback — без учета окна.
         if next == -1 {
             bestComp = math.MaxInt64
             for i := 0; i < n; i++ {
@@ -201,7 +207,7 @@ export interface PrecedenceConstraint {
   afterTaskId: string;
 }
 
-// optimizeRoute передаeт идентификаторы задач, матрицу расстояний
+// optimizeRoute передает идентификаторы задач, матрицу расстояний
 // и дополнительные ограничения на бэкенд.
 export async function optimizeRoute(
   taskIds: string[],
@@ -298,7 +304,7 @@ export async function buildYandexDistanceMatrix(
 
   await loadYandexMaps();
 
-  // masstransit через multiRouter не возвращает надeжные данные по времени —
+  // masstransit через multiRouter не возвращает надежные данные по времени —
   // используем 'auto' как приближение.
   const mode = routingMode === 'masstransit' ? 'auto' : routingMode;
 

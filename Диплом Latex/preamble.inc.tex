@@ -38,7 +38,7 @@
 
 % С такими оно полями оно работает по-умолчанию:
 % \RequirePackage[left=20mm,right=10mm,top=20mm,bottom=20mm,headsep=0pt]{geometry}
-% Если вас тошнит от поля в 10мм --- увеличивайте до 20-ти, ну и про переплeт не забывайте:
+% Если вас тошнит от поля в 10мм --- увеличивайте до 20-ти, ну и про переплет не забывайте:
 
 % Пакет Tikz
 \usepackage{tikz}
@@ -59,7 +59,7 @@
 \usepackage{dcolumn} % выравнивание чисел по разделителю
 
 \usepackage{setspace} % полуторный интервал
-\setstretch{1.43}
+\setstretch{1.5}
 
 \newenvironment{compactlist}{%
       \renewcommand{\labelenumi}{\hspace{13mm}\arabic{enumi}.}
@@ -193,6 +193,10 @@
 \AtEndEnvironment{table}{\vspace{-10pt}}
 \AtEndEnvironment{center}{\vspace{-14pt}}
 \AtEndEnvironment{figure}{\vspace{-14pt}}
+
+% Внутри таблиц используется одинарный межстрочный интервал по ГОСТ 7.32-2017
+\AtBeginEnvironment{tabular}{\setstretch{1}}
+\AtBeginEnvironment{tabularx}{\setstretch{1}}
 
 
 \usepackage{fontspec}

@@ -6,7 +6,7 @@
 \PYG{+w}{    }\PYG{l+s}{\PYGZdq{}math\PYGZdq{}}
 \PYG{p}{)}
 
-\PYG{c+c1}{// NearestNeighborTW — эвристика ближайшего соседа с учeтом временных окон}
+\PYG{c+c1}{// NearestNeighborTW — эвристика ближайшего соседа с учетом временных окон}
 \PYG{c+c1}{// (NNH\PYGZhy{}TW). Все временные величины хранятся в секундах Unix. Сложность — O(n³).}
 \PYG{k+kd}{type}\PYG{+w}{ }\PYG{n+nx}{NearestNeighborTW}\PYG{+w}{ }\PYG{k+kd}{struct}\PYG{p}{\PYGZob{}\PYGZcb{}}
 
@@ -40,7 +40,7 @@
 \PYG{+w}{    }\PYG{n+nx}{totalServiceSec}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{g}\PYG{p}{.}\PYG{n+nx}{Nodes}\PYG{p}{[}\PYG{n+nx}{cur}\PYG{p}{].}\PYG{n+nx}{DurationMin}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{l+m+mi}{60}
 
 \PYG{+w}{    }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nb}{len}\PYG{p}{(}\PYG{n+nx}{order}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
-\PYG{+w}{        }\PYG{c+c1}{// Закреплeнный конечный узел — ставим последним.}
+\PYG{+w}{        }\PYG{c+c1}{// Закрепленный конечный узел — ставим последним.}
 \PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{endIdx}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{+w}{ }\PYG{o}{\PYGZam{}\PYGZam{}}\PYG{+w}{ }\PYG{p}{!}\PYG{n+nx}{visited}\PYG{p}{[}\PYG{n+nx}{endIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
 \PYG{+w}{            }\PYG{n+nx}{allOther}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{k+kc}{true}
 \PYG{+w}{            }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{o}{++}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
@@ -82,7 +82,7 @@
 \PYG{+w}{            }\PYG{p}{\PYGZcb{}}
 \PYG{+w}{        }\PYG{p}{\PYGZcb{}}
 
-\PYG{+w}{        }\PYG{c+c1}{// Проход 2: fallback — без учeта окна.}
+\PYG{+w}{        }\PYG{c+c1}{// Проход 2: fallback — без учета окна.}
 \PYG{+w}{        }\PYG{k}{if}\PYG{+w}{ }\PYG{n+nx}{next}\PYG{+w}{ }\PYG{o}{==}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{1}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
 \PYG{+w}{            }\PYG{n+nx}{bestComp}\PYG{+w}{ }\PYG{p}{=}\PYG{+w}{ }\PYG{n+nx}{math}\PYG{p}{.}\PYG{n+nx}{MaxInt64}
 \PYG{+w}{            }\PYG{k}{for}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{o}{:=}\PYG{+w}{ }\PYG{l+m+mi}{0}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{+w}{ }\PYG{p}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nx}{n}\PYG{p}{;}\PYG{+w}{ }\PYG{n+nx}{i}\PYG{o}{++}\PYG{+w}{ }\PYG{p}{\PYGZob{}}

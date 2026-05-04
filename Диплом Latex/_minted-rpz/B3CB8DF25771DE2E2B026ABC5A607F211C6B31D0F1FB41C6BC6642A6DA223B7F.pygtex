@@ -6,7 +6,7 @@
 \PYG{+w}{  }\PYG{n+nx}{afterTaskId}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{;}
 \PYG{p}{\PYGZcb{}}
 
-\PYG{c+c1}{// optimizeRoute передаeт идентификаторы задач, матрицу расстояний}
+\PYG{c+c1}{// optimizeRoute передает идентификаторы задач, матрицу расстояний}
 \PYG{c+c1}{// и дополнительные ограничения на бэкенд.}
 \PYG{k}{export}\PYG{+w}{ }\PYG{k}{async}\PYG{+w}{ }\PYG{k+kd}{function}\PYG{+w}{ }\PYG{n+nx}{optimizeRoute}\PYG{p}{(}
 \PYG{+w}{  }\PYG{n+nx}{taskIds}\PYG{o}{:}\PYG{+w}{ }\PYG{k+kt}{string}\PYG{p}{[],}

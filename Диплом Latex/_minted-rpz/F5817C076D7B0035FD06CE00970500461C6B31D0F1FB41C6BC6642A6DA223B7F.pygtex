@@ -24,7 +24,7 @@
 
 \PYG{+w}{  }\PYG{k}{await}\PYG{+w}{ }\PYG{n+nx}{loadYandexMaps}\PYG{p}{();}
 
-\PYG{+w}{  }\PYG{c+c1}{// masstransit через multiRouter не возвращает надeжные данные по времени —}
+\PYG{+w}{  }\PYG{c+c1}{// masstransit через multiRouter не возвращает надежные данные по времени —}
 \PYG{+w}{  }\PYG{c+c1}{// используем \PYGZsq{}auto\PYGZsq{} как приближение.}
 \PYG{+w}{  }\PYG{k+kd}{const}\PYG{+w}{ }\PYG{n+nx}{mode}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nx}{routingMode}\PYG{+w}{ }\PYG{o}{===}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}masstransit\PYGZsq{}}\PYG{+w}{ }\PYG{o}{?}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}auto\PYGZsq{}}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{n+nx}{routingMode}\PYG{p}{;}
 

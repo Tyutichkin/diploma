@@ -1,9 +1,0 @@
-PWD /Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex
-INPUT /usr/local/texlive/2021/texmf.cnf
-INPUT /usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf
-INPUT /usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt
-INPUT 30-design.tex
-OUTPUT 30-design.log
-INPUT /usr/local/texlive/2021/texmf-dist/fonts/map/fontname/texfonts.map
-INPUT /usr/local/texlive/2021/texmf-dist/fonts/tfm/public/lm/ts1-lmr10.tfm
-OUTPUT 30-design.xdv
