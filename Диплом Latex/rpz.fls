@@ -2,7 +2,7 @@ PWD /Users/semyontyutichkin/Documents/Политех лабы/Диплом/diplo
 INPUT /usr/local/texlive/2021/texmf.cnf
 INPUT /usr/local/texlive/2021/texmf-dist/web2c/texmf.cnf
 INPUT /usr/local/texlive/2021/texmf-var/web2c/xetex/xelatex.fmt
-INPUT rpz.tex
+INPUT /Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/Диплом Latex/rpz.tex
 OUTPUT rpz.log
 INPUT ./G7-32.cls
 INPUT ./G7-32.cls
