@@ -411,6 +411,17 @@ NNH-TW. Для его проверки разработано 35~тест-кей
     \path{TestOptimize_FixedStartAndEnd}            & Одновременное задание начальной и конечной точек                                                                          \\ \hline
     \path{TestOptimize_PrecedenceConstraint}        & Ограничение предшествования: узел $A$ посещается раньше узла $B$                                                          \\ \hline
     \path{TestOptimize_AllVisitedWithConstraints}   & Все узлы посещены при наличии комплексных ограничений                                                                     \\ \hline
+  \end{tabular}
+\end{table}
+
+\newpage
+
+\begin{table}[H]
+  \captionsetup{labelformat=empty}
+  \caption{Продолжение таблицы~\ref{tab:test_cases}}
+  \begin{tabular}{|p{5.5cm}|p{8.5cm}|}
+    \hline
+    \centering\textbf{Название теста}               & \multicolumn{1}{c|}{\textbf{Проверяемое условие}}                                                                         \\ \hline
     \path{TestOptimize_LookAheadPreventsWindowMiss} & Просмотр вперед предотвращает пропуск узла с жестким дедлайном                                                            \\ \hline
     \path{TestOptimize_TightDeadlineTiebreaker}     & Узел с более срочным дедлайном выбирается при равном времени завершения                                                   \\ \hline
     \path{TestOptimize_Timings*} (4~случая)         & Корректность таймингов остановок: длина, стартовый узел, ожидание, длительность обслуживания                              \\ \hline
