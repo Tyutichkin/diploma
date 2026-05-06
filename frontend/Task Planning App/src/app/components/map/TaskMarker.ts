@@ -1,6 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Task } from '../../types/task';
 
+const MARKER_SIZE = 32;
+const MARKER_RADIUS = MARKER_SIZE / 2;
+const MARKER_FONT_SIZE = 14;
+const MARKER_BORDER_WIDTH = 2;
+const ANCHOR_SIZE = 6;
+const ANCHOR_RADIUS = ANCHOR_SIZE / 2;
+
+const Z_ANCHOR = 650;
+const Z_MARKER = 700;
+const Z_STACK_MARKER = 720;
+const Z_MARKER_HOVER = 800;
+
 interface CreateTaskMarkerArgs {
   task: Task;
   number: number;
@@ -13,16 +25,13 @@ let cachedLayout: any = null;
 function getMarkerLayout(): any {
   if (cachedLayout) return cachedLayout;
   cachedLayout = window.ymaps.templateLayoutFactory.createClass(
-    [
-      '<div class="task-marker"',
-      ' style="display:flex;align-items:center;justify-content:center;',
-      'width:32px;height:32px;border-radius:50%;background:#ffffff;',
-      'border:2px solid #2563eb;color:#2563eb;font-weight:700;font-size:14px;',
-      'box-shadow:0 1px 3px rgba(0,0,0,0.25);user-select:none;',
-      'font-family:inherit;line-height:1;">',
-      '$[properties.iconContent]',
-      '</div>',
-    ].join(''),
+    `<div class="task-marker" style="display:flex;align-items:center;justify-content:center;` +
+    `width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;border-radius:50%;background:#ffffff;` +
+    `border:${MARKER_BORDER_WIDTH}px solid #2563eb;color:#2563eb;font-weight:700;font-size:${MARKER_FONT_SIZE}px;` +
+    `box-shadow:0 1px 3px rgba(0,0,0,0.25);user-select:none;` +
+    `font-family:inherit;line-height:1;">` +
+    `$[properties.iconContent]` +
+    `</div>`,
   );
   return cachedLayout;
 }
@@ -49,10 +58,10 @@ export function createTaskMarker({ task, number, iconOffset, isStack }: CreateTa
     },
     {
       iconLayout: getMarkerLayout(),
-      iconShape: { type: 'Circle', coordinates: [0, 0], radius: 16 },
+      iconShape: { type: 'Circle', coordinates: [0, 0], radius: MARKER_RADIUS },
       iconOffset,
-      zIndex: isStack ? 720 : 700,
-      zIndexHover: 800,
+      zIndex: isStack ? Z_STACK_MARKER : Z_MARKER,
+      zIndexHover: Z_MARKER_HOVER,
     },
   );
 }
@@ -63,12 +72,12 @@ interface CreateStackAnchorArgs {
   lineHeightPx: number;
 }
 
-let cachedAnchorLayout: any = null;
-let cachedAnchorLineHeight = -1;
+const anchorLayoutCache = new Map<number, any>();
 
 function getAnchorLayout(lineHeightPx: number): any {
-  if (cachedAnchorLayout && cachedAnchorLineHeight === lineHeightPx) return cachedAnchorLayout;
-  cachedAnchorLayout = window.ymaps.templateLayoutFactory.createClass(
+  let layout = anchorLayoutCache.get(lineHeightPx);
+  if (layout) return layout;
+  layout = window.ymaps.templateLayoutFactory.createClass(
     [
       '<div style="position:relative;width:6px;height:6px;">',
       '<div style="position:absolute;left:50%;bottom:3px;transform:translateX(-50%);',
@@ -78,8 +87,8 @@ function getAnchorLayout(lineHeightPx: number): any {
       '</div>',
     ].join(''),
   );
-  cachedAnchorLineHeight = lineHeightPx;
-  return cachedAnchorLayout;
+  anchorLayoutCache.set(lineHeightPx, layout);
+  return layout;
 }
 
 export function createStackAnchor({ lat, lon, lineHeightPx }: CreateStackAnchorArgs): any {
@@ -88,9 +97,9 @@ export function createStackAnchor({ lat, lon, lineHeightPx }: CreateStackAnchorA
     {},
     {
       iconLayout: getAnchorLayout(lineHeightPx),
-      iconShape: { type: 'Circle', coordinates: [0, 0], radius: 3 },
-      iconOffset: [-3, -3],
-      zIndex: 650,
+      iconShape: { type: 'Circle', coordinates: [0, 0], radius: ANCHOR_RADIUS },
+      iconOffset: [-ANCHOR_RADIUS, -ANCHOR_RADIUS],
+      zIndex: Z_ANCHOR,
       hasBalloon: false,
       hasHint: false,
     },
