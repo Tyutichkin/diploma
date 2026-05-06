@@ -37,7 +37,6 @@ entity "tasks" as tasks {
   * sort_index : int
   * created_at : timestamptz
   * updated_at : timestamptz
-  * is_deleted : boolean
 }
 
 entity "routes" as routes {
@@ -82,18 +81,6 @@ entity "route_geometry" as geom {
   * bbox_json : jsonb <<nullable>>
   * geojson_json : jsonb <<nullable>>
   * updated_at : timestamptz
-}
-
-entity "api_distance_cache" as cache {
-  * id : UUID <<PK>>
-  --
-  * provider : varchar(30)
-  * origin : geometry(Point, 4326)
-  * dest : geometry(Point, 4326)
-  * distance_m : int
-  * duration_sec : int
-  * fetched_at : timestamptz
-  * request_hash : varchar(64) <<UQ>>
 }
 
 users ||--o{ tasks : "1 ко многим"

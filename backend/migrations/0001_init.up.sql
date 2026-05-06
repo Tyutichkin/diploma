@@ -1,6 +1,5 @@
--- Включаем расширения (нужны UUID и PostGIS)
+-- Включаем расширение для генерации UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "postgis";
 
 -- users
 CREATE TABLE IF NOT EXISTS users (
@@ -35,8 +34,7 @@ CREATE TABLE IF NOT EXISTS tasks (
                                      window_end TIME NULL,
                                      sort_index INT NOT NULL DEFAULT 0,
                                      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                                     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                                     is_deleted BOOLEAN NOT NULL DEFAULT false
+                                     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS tasks_user_id_idx ON tasks(user_id);
 CREATE INDEX IF NOT EXISTS tasks_user_sort_idx ON tasks(user_id, sort_index);
@@ -50,9 +48,9 @@ CREATE TABLE IF NOT EXISTS routes (
                                       algorithm VARCHAR(50) NULL,
                                       started_at TIMESTAMPTZ NULL,
                                       finished_at TIMESTAMPTZ NULL,
-                                      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                                      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                                      UNIQUE (user_id)
 );
-CREATE INDEX IF NOT EXISTS routes_user_id_idx ON routes(user_id);
 
 -- route_stats (1:1)
 CREATE TABLE IF NOT EXISTS route_stats (
@@ -68,7 +66,7 @@ CREATE TABLE IF NOT EXISTS route_stats (
 CREATE TABLE IF NOT EXISTS route_stops (
                                            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                                            route_id UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
-                                           task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+                                           task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
                                            position INT NOT NULL,
                                            travel_from_prev_sec INT NULL,
                                            arrive_time TIMESTAMPTZ NULL,

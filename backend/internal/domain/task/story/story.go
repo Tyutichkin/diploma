@@ -136,13 +136,13 @@ func (s *Story) CreateBatch(ctx context.Context, userID string, inputs []task.Cr
 }
 
 func (s *Story) Delete(ctx context.Context, userID, taskID string) (bool, error) {
-	return s.tasks.SoftDelete(ctx, userID, taskID)
+	return s.tasks.Delete(ctx, userID, taskID)
 }
 
-// DeleteAll soft-удаляет все активные задачи пользователя одним SQL-запросом.
+// DeleteAll удаляет все задачи пользователя одним SQL-запросом.
 // Возвращает количество удалённых задач.
 func (s *Story) DeleteAll(ctx context.Context, userID string) (int64, error) {
-	return s.tasks.SoftDeleteAll(ctx, userID)
+	return s.tasks.DeleteAll(ctx, userID)
 }
 
 func (s *Story) Reorder(ctx context.Context, userID string, in task.ReorderInput) error {

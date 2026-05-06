@@ -63,15 +63,6 @@ type ReorderTasksReq struct {
 	Order []TaskOrderItem `json:"order"`
 }
 
-type CreateRouteReq struct {
-	Source         string   `json:"source"`
-	OrderedTaskIDs []string `json:"orderedTaskIds"`
-}
-
-type RenameRouteReq struct {
-	Name string `json:"name"`
-}
-
 // DistanceCellDTO — ячейка матрицы расстояний от клиента.
 type DistanceCellDTO struct {
 	DistanceM   int `json:"distanceM"`

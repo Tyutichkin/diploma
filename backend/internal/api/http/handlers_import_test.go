@@ -46,10 +46,10 @@ func (r *importBatchRepo) BatchCreate(ctx context.Context, userID string, inputs
 func (r *importBatchRepo) Update(context.Context, string, string, task.UpdateInput) (task.Task, bool, error) {
 	return task.Task{}, false, nil
 }
-func (r *importBatchRepo) SoftDelete(context.Context, string, string) (bool, error) {
+func (r *importBatchRepo) Delete(context.Context, string, string) (bool, error) {
 	return false, nil
 }
-func (r *importBatchRepo) SoftDeleteAll(context.Context, string) (int64, error) {
+func (r *importBatchRepo) DeleteAll(context.Context, string) (int64, error) {
 	return 0, nil
 }
 func (r *importBatchRepo) BulkReorder(context.Context, string, task.ReorderInput) error {

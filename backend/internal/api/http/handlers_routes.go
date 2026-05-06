@@ -18,41 +18,8 @@ func NewRouteHandlers(st *routestory.Story) *RouteHandlers {
 	return &RouteHandlers{story: st}
 }
 
-func (h *RouteHandlers) Create(c *gin.Context) {
-	userID, ok := userIDFromCtx(c)
-	if !ok {
-		return
-	}
-
-	var req CreateRouteReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
-		return
-	}
-
-	out, err := h.story.CreateDraft(c.Request.Context(), userID, req.Source, req.OrderedTaskIDs)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, out)
-}
-
-func (h *RouteHandlers) List(c *gin.Context) {
-	userID, ok := userIDFromCtx(c)
-	if !ok {
-		return
-	}
-
-	out, err := h.story.List(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
-		return
-	}
-	c.JSON(http.StatusOK, out)
-}
-
-// Optimize — POST /api/routes/optimize. Ответ такой же, как у GET /api/routes/:id.
+// Optimize — POST /api/routes/optimize. Перезаписывает единственный сохранённый
+// маршрут пользователя (см. RouteRepo.SaveOptimizedRoute) и возвращает его целиком.
 func (h *RouteHandlers) Optimize(c *gin.Context) {
 	userID, ok := userIDFromCtx(c)
 	if !ok {
@@ -117,80 +84,4 @@ func convertPrecedences(in []PrecedencePairDTO) []routestory.PrecedenceConstrain
 		}
 	}
 	return out
-}
-
-func (h *RouteHandlers) Get(c *gin.Context) {
-	userID, ok := userIDFromCtx(c)
-	if !ok {
-		return
-	}
-	routeID := c.Param("id")
-
-	out, found, err := h.story.Get(c.Request.Context(), userID, routeID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return
-	}
-	c.JSON(http.StatusOK, out)
-}
-
-func (h *RouteHandlers) Delete(c *gin.Context) {
-	userID, ok := userIDFromCtx(c)
-	if !ok {
-		return
-	}
-	routeID := c.Param("id")
-
-	found, err := h.story.Delete(c.Request.Context(), userID, routeID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
-		return
-	}
-	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-func (h *RouteHandlers) DeleteAll(c *gin.Context) {
-	userID, ok := userIDFromCtx(c)
-	if !ok {
-		return
-	}
-
-	if err := h.story.DeleteAll(c.Request.Context(), userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-func (h *RouteHandlers) Rename(c *gin.Context) {
-	userID, ok := userIDFromCtx(c)
-	if !ok {
-		return
-	}
-	routeID := c.Param("id")
-
-	var req RenameRouteReq
-	if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
-		return
-	}
-
-	found, err := h.story.Rename(c.Request.Context(), userID, routeID, req.Name)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if !found {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

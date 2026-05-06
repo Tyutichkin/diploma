@@ -23,13 +23,13 @@ func NewTaskRepo(pool *pgxpool.Pool) *TaskRepo {
 // Колонки задач, используемые в SELECT.
 const taskColumns = `id, user_id, title, address_text, latitude, longitude, duration_min,
 	window_start_date, window_start_time, window_end_date, window_end_time,
-	sort_index, created_at, updated_at, is_deleted, is_completed`
+	sort_index, created_at, updated_at, is_completed`
 
 func (r *TaskRepo) ListByUser(ctx context.Context, userID string) ([]task.Task, error) {
 	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
 		SELECT %s
 		FROM tasks
-		WHERE user_id=$1 AND is_deleted=false
+		WHERE user_id=$1
 		ORDER BY sort_index ASC, created_at ASC
 	`, taskColumns), userID)
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *TaskRepo) GetByIDs(ctx context.Context, userID string, ids []string) ([
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM tasks
-		WHERE user_id=$1 AND id IN (%s) AND is_deleted=false
+		WHERE user_id=$1 AND id IN (%s)
 	`, taskColumns, strings.Join(placeholders, ","))
 
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -175,7 +175,7 @@ func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.Up
 			sort_index = COALESCE($10, sort_index),
 			is_completed = COALESCE($11, is_completed),
 			updated_at = $12
-		WHERE id=$13 AND user_id=$14 AND is_deleted=false
+		WHERE id=$13 AND user_id=$14
 		RETURNING %s
 	`, taskColumns),
 		in.Title, in.AddressText, in.Latitude, in.Longitude, in.DurationMin,
@@ -217,28 +217,43 @@ func (r *TaskRepo) BulkReorder(ctx context.Context, userID string, in task.Reord
 		) AS v
 		WHERE tasks.id = v.id
 		  AND tasks.user_id = $4
-		  AND tasks.is_deleted = false
 	`, ids, indexes, time.Now(), userID)
 	return err
 }
 
-func (r *TaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool, error) {
+func (r *TaskRepo) Delete(ctx context.Context, userID, taskID string) (bool, error) {
 	ct, err := r.pool.Exec(ctx, `
-		UPDATE tasks SET is_deleted=true, updated_at=$1
-		WHERE id=$2 AND user_id=$3 AND is_deleted=false
-	`, time.Now(), taskID, userID)
+		DELETE FROM tasks
+		WHERE id=$1 AND user_id=$2
+	`, taskID, userID)
 	if err != nil {
 		return false, err
 	}
 	return ct.RowsAffected() > 0, nil
 }
 
-func (r *TaskRepo) SoftDeleteAll(ctx context.Context, userID string) (int64, error) {
-	ct, err := r.pool.Exec(ctx, `
-		UPDATE tasks SET is_deleted=true, updated_at=$1
-		WHERE user_id=$2 AND is_deleted=false
-	`, time.Now(), userID)
+// DeleteAll удаляет все задачи пользователя и его сохранённый маршрут (один
+// на пользователя) одной транзакцией. Маршрут чистим первым: его удаление
+// каскадно сносит route_stops/route_stats/route_geometry, после чего DELETE
+// по tasks гарантированно не упирается в FK route_stops.task_id (даже если
+// в БД этот FK исторически создан как ON DELETE RESTRICT).
+func (r *TaskRepo) DeleteAll(ctx context.Context, userID string) (int64, error) {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM routes WHERE user_id=$1`, userID); err != nil {
+		return 0, err
+	}
+
+	ct, err := tx.Exec(ctx, `DELETE FROM tasks WHERE user_id=$1`, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
 	return ct.RowsAffected(), nil
@@ -257,7 +272,7 @@ func scanTask(s scanner) (task.Task, error) {
 	if err := s.Scan(
 		&t.ID, &t.UserID, &t.Title, &t.AddressText, &t.Latitude, &t.Longitude, &t.DurationMin,
 		&wsDate, &wsTime, &weDate, &weTime,
-		&t.SortIndex, &t.CreatedAt, &t.UpdatedAt, &t.IsDeleted, &t.IsCompleted,
+		&t.SortIndex, &t.CreatedAt, &t.UpdatedAt, &t.IsCompleted,
 	); err != nil {
 		return task.Task{}, err
 	}

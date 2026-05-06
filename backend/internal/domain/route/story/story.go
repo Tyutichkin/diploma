@@ -36,27 +36,6 @@ func New(
 	}
 }
 
-// CreateDraft сохраняет вручную упорядоченный список задач как черновой маршрут.
-func (s *Story) CreateDraft(ctx context.Context, userID, source string, orderedTaskIDs []string) (route.Route, error) {
-	if source == "" {
-		source = "manual"
-	}
-
-	rt, err := s.routes.CreateDraft(ctx, userID, source)
-	if err != nil {
-		return route.Route{}, err
-	}
-
-	if len(orderedTaskIDs) > 0 {
-		if err := s.routes.ReplaceStops(ctx, rt.ID, orderedTaskIDs); err != nil {
-			_ = s.routes.MarkFailed(ctx, rt.ID)
-			return route.Route{}, err
-		}
-	}
-
-	return rt, nil
-}
-
 // PrecedenceConstraint задаёт попарное ограничение порядка посещения задач:
 // задача BeforeTaskID должна быть выполнена строго до задачи AfterTaskID.
 type PrecedenceConstraint struct {
@@ -334,38 +313,6 @@ func assembleFull(rt route.Route, stops []routegate.StopInput, r routeopt.Result
 	}
 
 	return route.Full{Route: rt, Stops: routeStops, Stats: stats}
-}
-
-func (s *Story) List(ctx context.Context, userID string) ([]route.Route, error) {
-	return s.routes.ListByUser(ctx, userID)
-}
-
-func (s *Story) Get(ctx context.Context, userID, routeID string) (route.Full, bool, error) {
-	if routeID == "" {
-		return route.Full{}, false, errors.New("route_id required")
-	}
-	return s.routes.GetFull(ctx, userID, routeID)
-}
-
-func (s *Story) Delete(ctx context.Context, userID, routeID string) (bool, error) {
-	if routeID == "" {
-		return false, errors.New("route_id required")
-	}
-	return s.routes.DeleteRoute(ctx, userID, routeID)
-}
-
-func (s *Story) DeleteAll(ctx context.Context, userID string) error {
-	return s.routes.DeleteAllRoutes(ctx, userID)
-}
-
-func (s *Story) Rename(ctx context.Context, userID, routeID, name string) (bool, error) {
-	if routeID == "" {
-		return false, errors.New("route_id required")
-	}
-	if name == "" {
-		return false, errors.New("name required")
-	}
-	return s.routes.RenameRoute(ctx, userID, routeID, name)
 }
 
 // boundKind различает, какую границу окна строит buildUnixSec, чтобы корректно

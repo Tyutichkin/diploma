@@ -20,8 +20,8 @@ type mockTaskRepo struct {
 	createFn         func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
 	batchCreateFn    func(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
 	updateFn         func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
-	softDeleteFn     func(ctx context.Context, userID, taskID string) (bool, error)
-	softDeleteAllFn  func(ctx context.Context, userID string) (int64, error)
+	deleteFn     func(ctx context.Context, userID, taskID string) (bool, error)
+	deleteAllFn  func(ctx context.Context, userID string) (int64, error)
 	bulkReorderFn    func(ctx context.Context, userID string, in task.ReorderInput) error
 }
 
@@ -43,12 +43,12 @@ func (m *mockTaskRepo) BatchCreate(ctx context.Context, userID string, inputs []
 func (m *mockTaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
 	return m.updateFn(ctx, userID, taskID, in)
 }
-func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool, error) {
-	return m.softDeleteFn(ctx, userID, taskID)
+func (m *mockTaskRepo) Delete(ctx context.Context, userID, taskID string) (bool, error) {
+	return m.deleteFn(ctx, userID, taskID)
 }
-func (m *mockTaskRepo) SoftDeleteAll(ctx context.Context, userID string) (int64, error) {
-	if m.softDeleteAllFn != nil {
-		return m.softDeleteAllFn(ctx, userID)
+func (m *mockTaskRepo) DeleteAll(ctx context.Context, userID string) (int64, error) {
+	if m.deleteAllFn != nil {
+		return m.deleteAllFn(ctx, userID)
 	}
 	return 0, nil
 }
@@ -479,7 +479,7 @@ func TestUpdate_AnotherUsersTask(t *testing.T) {
 // 2.3.1 Успешное удаление
 func TestDelete_Success(t *testing.T) {
 	repo := &mockTaskRepo{
-		softDeleteFn: func(_ context.Context, _, _ string) (bool, error) {
+		deleteFn: func(_ context.Context, _, _ string) (bool, error) {
 			return true, nil
 		},
 	}
@@ -492,7 +492,7 @@ func TestDelete_Success(t *testing.T) {
 // 2.3.2 Удаление несуществующей задачи
 func TestDelete_TaskNotFound(t *testing.T) {
 	repo := &mockTaskRepo{
-		softDeleteFn: func(_ context.Context, _, _ string) (bool, error) {
+		deleteFn: func(_ context.Context, _, _ string) (bool, error) {
 			return false, nil
 		},
 	}
@@ -505,7 +505,7 @@ func TestDelete_TaskNotFound(t *testing.T) {
 // 2.3.3 Удаление чужой задачи
 func TestDelete_AnotherUsersTask(t *testing.T) {
 	repo := &mockTaskRepo{
-		softDeleteFn: func(_ context.Context, _, _ string) (bool, error) {
+		deleteFn: func(_ context.Context, _, _ string) (bool, error) {
 			return false, nil // isolation
 		},
 	}
@@ -519,7 +519,7 @@ func TestDelete_AnotherUsersTask(t *testing.T) {
 func TestDelete_Twice(t *testing.T) {
 	callCount := 0
 	repo := &mockTaskRepo{
-		softDeleteFn: func(_ context.Context, _, _ string) (bool, error) {
+		deleteFn: func(_ context.Context, _, _ string) (bool, error) {
 			callCount++
 			if callCount == 1 {
 				return true, nil
@@ -539,7 +539,7 @@ func TestDelete_Twice(t *testing.T) {
 func TestDeleteAll_Success(t *testing.T) {
 	uid := uuid.NewString()
 	repo := &mockTaskRepo{
-		softDeleteAllFn: func(_ context.Context, gotUID string) (int64, error) {
+		deleteAllFn: func(_ context.Context, gotUID string) (int64, error) {
 			assert.Equal(t, uid, gotUID)
 			return 5, nil
 		},
@@ -553,7 +553,7 @@ func TestDeleteAll_Success(t *testing.T) {
 // 2.3.6 DeleteAll: пустой список — не ошибка, возвращает 0
 func TestDeleteAll_NoTasks(t *testing.T) {
 	repo := &mockTaskRepo{
-		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+		deleteAllFn: func(_ context.Context, _ string) (int64, error) {
 			return 0, nil
 		},
 	}
@@ -566,7 +566,7 @@ func TestDeleteAll_NoTasks(t *testing.T) {
 // 2.3.7 DeleteAll: ошибка репозитория пробрасывается
 func TestDeleteAll_RepoError(t *testing.T) {
 	repo := &mockTaskRepo{
-		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+		deleteAllFn: func(_ context.Context, _ string) (int64, error) {
 			return 0, errors.New("db error")
 		},
 	}

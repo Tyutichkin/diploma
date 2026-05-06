@@ -19,43 +19,11 @@ import (
 )
 
 type mockRouteRepo struct {
-	createDraftFn        func(ctx context.Context, userID, source string) (route.Route, error)
-	listByUserFn         func(ctx context.Context, userID string) ([]route.Route, error)
-	replaceStopsFn       func(ctx context.Context, routeID string, taskIDs []string) error
-	getFullFn            func(ctx context.Context, userID, routeID string) (route.Full, bool, error)
-	markFailedFn         func(ctx context.Context, routeID string) error
 	saveOptimizedRouteFn func(ctx context.Context, userID, algorithm string, stops []routegate.StopInput, distanceM, travelSec, serviceSec, waitSec int) (route.Route, error)
-	deleteRouteFn        func(ctx context.Context, userID, routeID string) (bool, error)
-	deleteAllRoutesFn    func(ctx context.Context, userID string) error
-	renameRouteFn        func(ctx context.Context, userID, routeID, name string) (bool, error)
 }
 
-func (m *mockRouteRepo) CreateDraft(ctx context.Context, userID, source string) (route.Route, error) {
-	return m.createDraftFn(ctx, userID, source)
-}
-func (m *mockRouteRepo) ListByUser(ctx context.Context, userID string) ([]route.Route, error) {
-	return m.listByUserFn(ctx, userID)
-}
-func (m *mockRouteRepo) ReplaceStops(ctx context.Context, routeID string, taskIDs []string) error {
-	return m.replaceStopsFn(ctx, routeID, taskIDs)
-}
-func (m *mockRouteRepo) GetFull(ctx context.Context, userID, routeID string) (route.Full, bool, error) {
-	return m.getFullFn(ctx, userID, routeID)
-}
-func (m *mockRouteRepo) MarkFailed(ctx context.Context, routeID string) error {
-	return m.markFailedFn(ctx, routeID)
-}
 func (m *mockRouteRepo) SaveOptimizedRoute(ctx context.Context, userID, algorithm string, stops []routegate.StopInput, distanceM, travelSec, serviceSec, waitSec int) (route.Route, error) {
 	return m.saveOptimizedRouteFn(ctx, userID, algorithm, stops, distanceM, travelSec, serviceSec, waitSec)
-}
-func (m *mockRouteRepo) DeleteRoute(ctx context.Context, userID, routeID string) (bool, error) {
-	return m.deleteRouteFn(ctx, userID, routeID)
-}
-func (m *mockRouteRepo) DeleteAllRoutes(ctx context.Context, userID string) error {
-	return m.deleteAllRoutesFn(ctx, userID)
-}
-func (m *mockRouteRepo) RenameRoute(ctx context.Context, userID, routeID, name string) (bool, error) {
-	return m.renameRouteFn(ctx, userID, routeID, name)
 }
 
 type mockTaskRepo struct {
@@ -63,7 +31,7 @@ type mockTaskRepo struct {
 	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
 	createFn      func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
 	updateFn      func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
-	softDeleteFn  func(ctx context.Context, userID, taskID string) (bool, error)
+	deleteFn  func(ctx context.Context, userID, taskID string) (bool, error)
 	bulkReorderFn func(ctx context.Context, userID string, in task.ReorderInput) error
 }
 
@@ -79,10 +47,10 @@ func (m *mockTaskRepo) Create(ctx context.Context, userID string, in task.Create
 func (m *mockTaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
 	return m.updateFn(ctx, userID, taskID, in)
 }
-func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool, error) {
-	return m.softDeleteFn(ctx, userID, taskID)
+func (m *mockTaskRepo) Delete(ctx context.Context, userID, taskID string) (bool, error) {
+	return m.deleteFn(ctx, userID, taskID)
 }
-func (m *mockTaskRepo) SoftDeleteAll(ctx context.Context, _ string) (int64, error) {
+func (m *mockTaskRepo) DeleteAll(ctx context.Context, _ string) (int64, error) {
 	return 0, nil
 }
 func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
@@ -172,52 +140,6 @@ func defaultOptimizer() *mockOptimizer {
 			}, nil
 		},
 	}
-}
-
-// 3.1.1 Создание черновика с задачами
-func TestCreateDraft_WithTasks(t *testing.T) {
-	routeID := uuid.NewString()
-	uid := uuid.NewString()
-	taskIDs := []string{uuid.NewString(), uuid.NewString()}
-	createdRoute := makeRoute(routeID, uid, "draft")
-
-	rRepo := &mockRouteRepo{
-		createDraftFn: func(_ context.Context, _, _ string) (route.Route, error) {
-			return createdRoute, nil
-		},
-		replaceStopsFn: func(_ context.Context, rID string, ids []string) error {
-			assert.Equal(t, routeID, rID)
-			assert.Equal(t, taskIDs, ids)
-			return nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	rt, err := s.CreateDraft(context.Background(), uid, "manual", taskIDs)
-	require.NoError(t, err)
-	assert.Equal(t, routeID, rt.ID)
-	assert.Equal(t, "draft", rt.Status)
-}
-
-// 3.1.2 Пустой список задач
-func TestCreateDraft_EmptyTaskList(t *testing.T) {
-	uid := uuid.NewString()
-	createdRoute := makeRoute(uuid.NewString(), uid, "draft")
-
-	replaceStopsCalled := false
-	rRepo := &mockRouteRepo{
-		createDraftFn: func(_ context.Context, _, _ string) (route.Route, error) {
-			return createdRoute, nil
-		},
-		replaceStopsFn: func(_ context.Context, _ string, _ []string) error {
-			replaceStopsCalled = true
-			return nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	rt, err := s.CreateDraft(context.Background(), uid, "manual", []string{})
-	require.NoError(t, err)
-	assert.NotEmpty(t, rt.ID)
-	assert.False(t, replaceStopsCalled, "ReplaceStops should not be called for empty task list")
 }
 
 // 3.2.1 Успешная оптимизация
@@ -440,144 +362,6 @@ func TestOptimize_SameStartAndEnd(t *testing.T) {
 	s := New(&mockRouteRepo{}, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
 	id := uuid.NewString()
 	_, err := s.Optimize(context.Background(), "uid", []string{id, uuid.NewString()}, 540, nil, &id, &id, nil)
-	assert.Error(t, err)
-}
-
-// 3.3.1 List возвращает только маршруты пользователя
-func TestList_ReturnsUserRoutes(t *testing.T) {
-	uid := uuid.NewString()
-	routes := []route.Route{
-		makeRoute(uuid.NewString(), uid, "draft"),
-		makeRoute(uuid.NewString(), uid, "optimized"),
-	}
-	rRepo := &mockRouteRepo{
-		listByUserFn: func(_ context.Context, id string) ([]route.Route, error) {
-			assert.Equal(t, uid, id)
-			return routes, nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	got, err := s.List(context.Background(), uid)
-	require.NoError(t, err)
-	assert.Len(t, got, 2)
-}
-
-// 3.3.2 Get несуществующего маршрута
-func TestGet_NotFound(t *testing.T) {
-	rRepo := &mockRouteRepo{
-		getFullFn: func(_ context.Context, _, _ string) (route.Full, bool, error) {
-			return route.Full{}, false, nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	_, found, err := s.Get(context.Background(), "uid", uuid.NewString())
-	require.NoError(t, err)
-	assert.False(t, found)
-}
-
-// 3.3.3 Get чужого маршрута
-func TestGet_OtherUsersRoute(t *testing.T) {
-	rRepo := &mockRouteRepo{
-		getFullFn: func(_ context.Context, _, _ string) (route.Full, bool, error) {
-			return route.Full{}, false, nil // isolation
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	_, found, err := s.Get(context.Background(), "user-a", "route-of-user-b")
-	require.NoError(t, err)
-	assert.False(t, found)
-}
-
-// 3.3.4 Delete своего маршрута
-func TestDelete_OwnRoute(t *testing.T) {
-	rRepo := &mockRouteRepo{
-		deleteRouteFn: func(_ context.Context, _, _ string) (bool, error) {
-			return true, nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	found, err := s.Delete(context.Background(), "uid", uuid.NewString())
-	require.NoError(t, err)
-	assert.True(t, found)
-}
-
-// 3.3.5 Delete чужого маршрута
-func TestDelete_OtherUsersRoute(t *testing.T) {
-	rRepo := &mockRouteRepo{
-		deleteRouteFn: func(_ context.Context, _, _ string) (bool, error) {
-			return false, nil // isolation
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	found, err := s.Delete(context.Background(), "user-a", "route-of-user-b")
-	require.NoError(t, err)
-	assert.False(t, found)
-}
-
-// 3.3.6 DeleteAll
-func TestDeleteAll_Success(t *testing.T) {
-	uid := uuid.NewString()
-	rRepo := &mockRouteRepo{
-		deleteAllRoutesFn: func(_ context.Context, id string) error {
-			assert.Equal(t, uid, id)
-			return nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	err := s.DeleteAll(context.Background(), uid)
-	assert.NoError(t, err)
-}
-
-// 3.3.7 Rename существующего маршрута
-func TestRename_Success(t *testing.T) {
-	uid := uuid.NewString()
-	routeID := uuid.NewString()
-	newName := "My Route"
-
-	rRepo := &mockRouteRepo{
-		renameRouteFn: func(_ context.Context, _, rID, name string) (bool, error) {
-			assert.Equal(t, routeID, rID)
-			assert.Equal(t, newName, name)
-			return true, nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	found, err := s.Rename(context.Background(), uid, routeID, newName)
-	require.NoError(t, err)
-	assert.True(t, found)
-}
-
-// 3.3.8 Rename несуществующего маршрута
-func TestRename_NotFound(t *testing.T) {
-	rRepo := &mockRouteRepo{
-		renameRouteFn: func(_ context.Context, _, _, _ string) (bool, error) {
-			return false, nil
-		},
-	}
-	s := New(rRepo, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	found, err := s.Rename(context.Background(), "uid", uuid.NewString(), "name")
-	require.NoError(t, err)
-	assert.False(t, found)
-}
-
-// 3.3.9 Rename пустой строкой → ошибка
-func TestRename_EmptyName(t *testing.T) {
-	s := New(&mockRouteRepo{}, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	_, err := s.Rename(context.Background(), "uid", uuid.NewString(), "")
-	assert.Error(t, err)
-}
-
-// 3.3.2b Get с пустым routeID → ошибка
-func TestGet_EmptyRouteID(t *testing.T) {
-	s := New(&mockRouteRepo{}, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	_, _, err := s.Get(context.Background(), "uid", "")
-	assert.Error(t, err)
-}
-
-// 3.3.4b Delete с пустым routeID → ошибка
-func TestDelete_EmptyRouteID(t *testing.T) {
-	s := New(&mockRouteRepo{}, &mockTaskRepo{}, &mockDistProvider{}, defaultOptimizer())
-	_, err := s.Delete(context.Background(), "uid", "")
 	assert.Error(t, err)
 }
 

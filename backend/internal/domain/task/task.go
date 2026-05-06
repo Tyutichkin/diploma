@@ -26,6 +26,5 @@ type Task struct {
 
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	IsDeleted   bool
 	IsCompleted bool
 }

@@ -5,22 +5,16 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Task, taskHasAddress, getWindowConflictIds } from '../types/task';
-import { SavedRouteSummary } from '../types/route';
 import { TransportMode } from '../types/transport';
 import {
   ApiError,
   PrecedenceConstraint,
   createTask,
   createTasksBatch,
-  deleteAllRoutes,
   deleteAllTasks,
-  deleteRoute,
   deleteTask,
-  getRoute,
-  listRoutes,
   listTasks,
   optimizeRoute,
-  renameRoute,
   reorderTasks,
   updateTask,
 } from '../api/client';
@@ -46,28 +40,19 @@ import { Card, CardContent } from './ui/card';
 import { MainToolbar } from './main/MainToolbar';
 import { OptimizedRouteSummary } from './main/OptimizedRouteSummary';
 import { PrecedenceConstraintsPanel, PrecedencePair } from './main/PrecedenceConstraintsPanel';
-import { SavedRoutesPanel } from './main/SavedRoutesPanel';
 import { ExportFormatDialog } from './main/ExportFormatDialog';
-
-// Скрываем блок «Сохранённые маршруты» в UI. Бэкенд продолжает сохранять маршрут
-// при оптимизации — это нужно для восстановления активного маршрута.
-const SHOW_SAVED_ROUTES = false;
 
 export function MainPage() {
   const { session, setSession, logout } = useAuth();
   const tasksRef = useRef<Task[]>([]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [savedRoutes, setSavedRoutes] = useState<SavedRouteSummary[]>([]);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [isPersistingOrder, setIsPersistingOrder] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [loadingRouteId, setLoadingRouteId] = useState<string | null>(null);
-  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-  const [editingRouteName, setEditingRouteName] = useState('');
   const [transportMode, setTransportMode] = useState<TransportMode>('auto');
   const [startTaskId, setStartTaskId] = useState<string>('');
   const [endTaskId, setEndTaskId] = useState<string>('');
@@ -84,7 +69,6 @@ export function MainPage() {
     activeRouteId,
     apply: applyRoute,
     clear: clearRoute,
-    setActiveRouteId,
     setRouteLegs,
   } = route;
 
@@ -125,12 +109,8 @@ export function MainPage() {
     if (!requestOptions || !session) return;
     setIsLoading(true);
     try {
-      const [serverTasks, routes] = await Promise.all([
-        listTasks(requestOptions),
-        SHOW_SAVED_ROUTES ? listRoutes(requestOptions) : Promise.resolve([] as SavedRouteSummary[]),
-      ]);
+      const serverTasks = await listTasks(requestOptions);
       replaceTasks(serverTasks);
-      setSavedRoutes(routes);
     } catch (error) {
       reportError(error, 'Не удалось загрузить данные');
     } finally {
@@ -429,10 +409,6 @@ export function MainPage() {
       const orderSaved = await persistTaskOrder(orderedTasks);
       if (!orderSaved) return;
 
-      setSavedRoutes((current) => [
-        { id: result.id, status: result.status, source: result.source, createdAt: result.createdAt },
-        ...current,
-      ]);
       applyRoute({
         routeOptimized: true,
         optimizedInfo: {
@@ -458,91 +434,6 @@ export function MainPage() {
   const handleTransportModeChange = (mode: TransportMode) => {
     setTransportMode(mode);
     if (routeOptimized) void runOptimization(mode);
-  };
-
-  const handleApplyRoute = async (routeId: string) => {
-    if (!requestOptions) return;
-    setLoadingRouteId(routeId);
-    try {
-      const loaded = await getRoute(routeId, requestOptions);
-      const orderedTasks = normalizeTasksOrder(reorderTasksByIds(tasksRef.current, loaded.orderedTaskIds));
-      replaceTasks(orderedTasks);
-
-      const orderSaved = await persistTaskOrder(orderedTasks);
-      if (!orderSaved) return;
-
-      const hasStats =
-        loaded.totalDurationMin !== undefined ||
-        loaded.totalDistanceKm !== undefined ||
-        loaded.totalTravelTimeMin !== undefined;
-
-      applyRoute({
-        routeOptimized: true,
-        activeRouteId: routeId,
-        routeStops: loaded.stops ?? [],
-        optimizedInfo: hasStats
-          ? {
-              tasks: orderedTasks,
-              totalDistance: loaded.totalDistanceKm ?? 0,
-              totalDuration: loaded.totalDurationMin ?? orderedTasks.reduce((sum, t) => sum + t.duration, 0),
-              totalTravelTime: loaded.totalTravelTimeMin ?? 0,
-            }
-          : null,
-      });
-      toast.success('Сохранённый маршрут применён');
-    } catch (error) {
-      reportError(error, 'Не удалось загрузить маршрут');
-    } finally {
-      setLoadingRouteId(null);
-    }
-  };
-
-  const handleDeleteRoute = async (routeId: string) => {
-    if (!requestOptions) return;
-    try {
-      await deleteRoute(routeId, requestOptions);
-      setSavedRoutes((current) => current.filter((r) => r.id !== routeId));
-      if (activeRouteId === routeId) clearRoute();
-      toast.success('Маршрут удалён');
-    } catch (error) {
-      reportError(error, 'Не удалось удалить маршрут');
-    }
-  };
-
-  const handleDeleteAllRoutes = async () => {
-    if (!requestOptions) return;
-    try {
-      await deleteAllRoutes(requestOptions);
-      setSavedRoutes([]);
-      clearRoute();
-      toast.success('Все маршруты удалены');
-    } catch (error) {
-      reportError(error, 'Не удалось очистить маршруты');
-    }
-  };
-
-  const handleStartRename = (routeId: string, currentName: string | undefined, source: string) => {
-    setEditingRouteId(routeId);
-    setEditingRouteName(
-      currentName ?? (source === 'optimized' ? 'Оптимизированный маршрут' : 'Маршрут'),
-    );
-  };
-
-  const handleConfirmRename = async () => {
-    if (!requestOptions || !editingRouteId) return;
-    const name = editingRouteName.trim();
-    if (!name) {
-      setEditingRouteId(null);
-      return;
-    }
-    try {
-      await renameRoute(editingRouteId, name, requestOptions);
-      setSavedRoutes((current) => current.map((r) => (r.id === editingRouteId ? { ...r, name } : r)));
-    } catch (error) {
-      reportError(error, 'Не удалось переименовать маршрут');
-    } finally {
-      setEditingRouteId(null);
-    }
   };
 
   const { exportCSV, exportXLSX, exportRouteJSON } = useTaskExport(
@@ -588,24 +479,6 @@ export function MainPage() {
         />
 
         {optimizedInfo && routeOptimized && <OptimizedRouteSummary info={optimizedInfo} />}
-
-        {SHOW_SAVED_ROUTES && (
-          <SavedRoutesPanel
-            routes={savedRoutes}
-            activeRouteId={activeRouteId}
-            loadingRouteId={loadingRouteId}
-            taskCount={tasks.length}
-            editingRouteId={editingRouteId}
-            editingRouteName={editingRouteName}
-            onApply={(id) => void handleApplyRoute(id)}
-            onDelete={(id) => void handleDeleteRoute(id)}
-            onDeleteAll={() => void handleDeleteAllRoutes()}
-            onStartRename={handleStartRename}
-            onChangeRename={setEditingRouteName}
-            onConfirmRename={() => void handleConfirmRename()}
-            onCancelRename={() => setEditingRouteId(null)}
-          />
-        )}
 
         {tasks.length >= 2 && (
           <PrecedenceConstraintsPanel

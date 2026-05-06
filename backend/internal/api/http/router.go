@@ -52,13 +52,7 @@ func NewRouter(d Deps) *gin.Engine {
 	secured.DELETE("/tasks", taskH.DeleteAll)
 	secured.DELETE("/tasks/:id", taskH.Delete)
 
-	secured.POST("/routes", routeH.Create)
 	secured.POST("/routes/optimize", routeH.Optimize)
-	secured.GET("/routes", routeH.List)
-	secured.DELETE("/routes", routeH.DeleteAll)
-	secured.GET("/routes/:id", routeH.Get)
-	secured.DELETE("/routes/:id", routeH.Delete)
-	secured.PATCH("/routes/:id/name", routeH.Rename)
 
 	return r
 }

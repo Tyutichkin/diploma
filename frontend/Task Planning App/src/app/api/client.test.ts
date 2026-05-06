@@ -12,12 +12,6 @@ import {
   updateTask,
   deleteTask,
   reorderTasks,
-  saveRoute,
-  listRoutes,
-  getRoute,
-  deleteRoute,
-  deleteAllRoutes,
-  renameRoute,
   optimizeRoute,
   ApiError,
 } from './client';
@@ -78,13 +72,7 @@ const server = setupServer(
   http.patch(`${BASE}/tasks/task-1`, () => HttpResponse.json(apiTaskResponse)),
   http.delete(`${BASE}/tasks/task-1`, () => HttpResponse.json({ ok: true })),
   http.patch(`${BASE}/tasks/order`, () => HttpResponse.json({ ok: true })),
-  http.post(`${BASE}/routes`, () => HttpResponse.json(apiRouteResponse)),
   http.post(`${BASE}/routes/optimize`, () => HttpResponse.json(apiRouteFullResponse)),
-  http.get(`${BASE}/routes`, () => HttpResponse.json([apiRouteResponse])),
-  http.get(`${BASE}/routes/route-1`, () => HttpResponse.json(apiRouteFullResponse)),
-  http.delete(`${BASE}/routes/route-1`, () => HttpResponse.json({ ok: true })),
-  http.delete(`${BASE}/routes`, () => HttpResponse.json({ ok: true })),
-  http.patch(`${BASE}/routes/route-1/name`, () => HttpResponse.json({ ok: true })),
   http.post(`${BASE}/auth/refresh`, () => HttpResponse.json(makeTokenPair())),
 );
 
@@ -281,71 +269,15 @@ describe('reorderTasks', () => {
   });
 });
 
-// ── 7.3 Маршруты ──────────────────────────────────────────────────────────────
-
-describe('saveRoute', () => {
-  // 7.3.1 saveRoute() → SavedRouteSummary
-  it('7.3.1: returns SavedRouteSummary', async () => {
-    const route = await saveRoute(['task-1'], 'manual', authOptions());
-    expect(route.id).toBe('route-1');
-    expect(route.status).toBe('optimized');
-  });
-});
+// ── 7.3 Оптимизация маршрута ──────────────────────────────────────────────────
 
 describe('optimizeRoute', () => {
-  // 7.3.2 optimizeRoute() → SavedRouteDetails
-  it('7.3.2: returns SavedRouteDetails with taskIds and stats', async () => {
+  // 7.3.1 optimizeRoute() → SavedRouteDetails
+  it('7.3.1: returns SavedRouteDetails with taskIds and stats', async () => {
     const route = await optimizeRoute(['task-1', 'task-2'], authOptions(), 540);
     expect(route.orderedTaskIds).toHaveLength(2);
     expect(route.totalDistanceKm).toBe(5); // 5000m / 1000
     expect(route.totalTravelTimeMin).toBe(20); // 1200s / 60
-  });
-});
-
-describe('listRoutes', () => {
-  // 7.3.3 listRoutes() → SavedRouteSummary[]
-  it('7.3.3: returns array of routes', async () => {
-    const routes = await listRoutes(authOptions());
-    expect(routes).toHaveLength(1);
-    expect(routes[0].id).toBe('route-1');
-  });
-});
-
-describe('getRoute', () => {
-  // 7.3.4 getRoute() → SavedRouteDetails
-  it('7.3.4: returns SavedRouteDetails', async () => {
-    const route = await getRoute('route-1', authOptions());
-    expect(route.id).toBe('route-1');
-    expect(route.orderedTaskIds).toEqual(['task-1', 'task-2']);
-  });
-});
-
-describe('deleteRoute', () => {
-  // 7.3.5 deleteRoute() → без ошибки
-  it('7.3.5: completes without error', async () => {
-    await expect(deleteRoute('route-1', authOptions())).resolves.toBeUndefined();
-  });
-});
-
-describe('deleteAllRoutes', () => {
-  // 7.3.6 deleteAllRoutes() → без ошибки
-  it('7.3.6: completes without error', async () => {
-    await expect(deleteAllRoutes(authOptions())).resolves.toBeUndefined();
-  });
-});
-
-describe('renameRoute', () => {
-  // 7.3.7 renameRoute() → PATCH /api/routes/:id/name
-  it('7.3.7: sends PATCH to /api/routes/:id/name', async () => {
-    let capturedUrl = '';
-    server.use(
-      http.patch(`${BASE}/routes/route-1/name`, ({ request }) => {
-        capturedUrl = request.url;
-        return HttpResponse.json({ ok: true });
-      }),
-    );
-    await renameRoute('route-1', 'New Name', authOptions());
-    expect(capturedUrl).toContain('/routes/route-1/name');
   });
 });
 

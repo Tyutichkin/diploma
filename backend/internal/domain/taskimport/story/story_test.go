@@ -33,10 +33,10 @@ func (m *mockTaskRepo) BatchCreate(ctx context.Context, userID string, inputs []
 func (m *mockTaskRepo) Update(context.Context, string, string, task.UpdateInput) (task.Task, bool, error) {
 	return task.Task{}, false, nil
 }
-func (m *mockTaskRepo) SoftDelete(context.Context, string, string) (bool, error) {
+func (m *mockTaskRepo) Delete(context.Context, string, string) (bool, error) {
 	return false, nil
 }
-func (m *mockTaskRepo) SoftDeleteAll(context.Context, string) (int64, error) {
+func (m *mockTaskRepo) DeleteAll(context.Context, string) (int64, error) {
 	return 0, nil
 }
 func (m *mockTaskRepo) BulkReorder(context.Context, string, task.ReorderInput) error {

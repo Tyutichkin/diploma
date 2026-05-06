@@ -1,6 +1,6 @@
 import { AuthSession } from "../types/auth";
 import { Task } from "../types/task";
-import { SavedRouteDetails, SavedRouteSummary } from "../types/route";
+import { SavedRouteDetails } from "../types/route";
 import { DistanceCell } from "../utils/routeOptimizer";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(
@@ -266,26 +266,6 @@ export async function reorderTasks(
     );
 }
 
-export async function saveRoute(
-    taskIds: string[],
-    source: string,
-    options: AuthorizedRequestOptions,
-) {
-    const route = await requestWithAuth<ApiRoute>(
-        "/routes",
-        {
-            method: "POST",
-            body: JSON.stringify({
-                source,
-                orderedTaskIds: taskIds,
-            }),
-        },
-        options,
-    );
-
-    return mapRouteSummary(route);
-}
-
 export interface PrecedenceConstraint {
     beforeTaskId: string;
     afterTaskId: string;
@@ -318,50 +298,6 @@ export async function optimizeRoute(
                     : undefined,
             }),
         },
-        options,
-    );
-    return mapRouteDetails(route);
-}
-
-export async function deleteRoute(
-    routeId: string,
-    options: AuthorizedRequestOptions,
-) {
-    await requestWithAuth(`/routes/${routeId}`, { method: "DELETE" }, options);
-}
-
-export async function deleteAllRoutes(options: AuthorizedRequestOptions) {
-    await requestWithAuth("/routes", { method: "DELETE" }, options);
-}
-
-export async function renameRoute(
-    routeId: string,
-    name: string,
-    options: AuthorizedRequestOptions,
-) {
-    await requestWithAuth(
-        `/routes/${routeId}/name`,
-        { method: "PATCH", body: JSON.stringify({ name }) },
-        options,
-    );
-}
-
-export async function listRoutes(options: AuthorizedRequestOptions) {
-    const routes = await requestWithAuth<ApiRoute[]>(
-        "/routes",
-        { method: "GET" },
-        options,
-    );
-    return routes.map(mapRouteSummary);
-}
-
-export async function getRoute(
-    routeId: string,
-    options: AuthorizedRequestOptions,
-) {
-    const route = await requestWithAuth<ApiRouteFull>(
-        `/routes/${routeId}`,
-        { method: "GET" },
         options,
     );
     return mapRouteDetails(route);

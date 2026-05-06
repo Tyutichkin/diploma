@@ -48,7 +48,14 @@ export function createTaskMarker({ task, number, iconOffset, isStack }: CreateTa
       : '',
   ].filter(Boolean).join('');
 
-  return new window.ymaps.Placemark(
+  // Кликабельная зона должна совпадать с визуальным положением кружка:
+  // iconOffset сдвигает отрисовку, поэтому центр Circle тоже смещаем.
+  const shapeCenter: [number, number] = [
+    iconOffset[0] + MARKER_RADIUS,
+    iconOffset[1] + MARKER_RADIUS,
+  ];
+
+  const placemark = new window.ymaps.Placemark(
     [task.latitude!, task.longitude!],
     {
       iconContent: String(number),
@@ -58,12 +65,20 @@ export function createTaskMarker({ task, number, iconOffset, isStack }: CreateTa
     },
     {
       iconLayout: getMarkerLayout(),
-      iconShape: { type: 'Circle', coordinates: [0, 0], radius: MARKER_RADIUS },
+      iconShape: { type: 'Circle', coordinates: shapeCenter, radius: MARKER_RADIUS },
       iconOffset,
       zIndex: isStack ? Z_STACK_MARKER : Z_MARKER,
       zIndexHover: Z_MARKER_HOVER,
     },
   );
+
+  // Явно открываем балун при клике — на случай, если кастомный iconLayout
+  // съедает дефолтное поведение, и чтобы клик по номеру задачи всегда показывал её данные.
+  placemark.events.add('click', () => {
+    placemark.balloon.open();
+  });
+
+  return placemark;
 }
 
 interface CreateStackAnchorArgs {

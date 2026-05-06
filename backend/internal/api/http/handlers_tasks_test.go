@@ -23,8 +23,8 @@ type handlerTaskRepo struct {
 	getByIDsFn      func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
 	createFn        func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
 	updateFn        func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
-	softDeleteFn    func(ctx context.Context, userID, taskID string) (bool, error)
-	softDeleteAllFn func(ctx context.Context, userID string) (int64, error)
+	deleteFn    func(ctx context.Context, userID, taskID string) (bool, error)
+	deleteAllFn func(ctx context.Context, userID string) (int64, error)
 	bulkReorderFn   func(ctx context.Context, userID string, in task.ReorderInput) error
 }
 
@@ -52,15 +52,15 @@ func (m *handlerTaskRepo) Update(ctx context.Context, userID, taskID string, in 
 	}
 	return task.Task{}, false, nil
 }
-func (m *handlerTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool, error) {
-	if m.softDeleteFn != nil {
-		return m.softDeleteFn(ctx, userID, taskID)
+func (m *handlerTaskRepo) Delete(ctx context.Context, userID, taskID string) (bool, error) {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, userID, taskID)
 	}
 	return false, nil
 }
-func (m *handlerTaskRepo) SoftDeleteAll(ctx context.Context, userID string) (int64, error) {
-	if m.softDeleteAllFn != nil {
-		return m.softDeleteAllFn(ctx, userID)
+func (m *handlerTaskRepo) DeleteAll(ctx context.Context, userID string) (int64, error) {
+	if m.deleteAllFn != nil {
+		return m.deleteAllFn(ctx, userID)
 	}
 	return 0, nil
 }
@@ -331,7 +331,7 @@ func TestTaskHandler_Update_OtherUsersTask(t *testing.T) {
 func TestTaskHandler_Delete_Success(t *testing.T) {
 	taskID := uuid.NewString()
 	repo := &handlerTaskRepo{
-		softDeleteFn: func(_ context.Context, _, id string) (bool, error) {
+		deleteFn: func(_ context.Context, _, id string) (bool, error) {
 			assert.Equal(t, taskID, id)
 			return true, nil
 		},
@@ -347,7 +347,7 @@ func TestTaskHandler_Delete_Success(t *testing.T) {
 // 5.3.11 DELETE /api/tasks/:id — не найдено → 404
 func TestTaskHandler_Delete_NotFound(t *testing.T) {
 	repo := &handlerTaskRepo{
-		softDeleteFn: func(_ context.Context, _, _ string) (bool, error) {
+		deleteFn: func(_ context.Context, _, _ string) (bool, error) {
 			return false, nil
 		},
 	}
@@ -360,7 +360,7 @@ func TestTaskHandler_Delete_NotFound(t *testing.T) {
 func TestTaskHandler_DeleteAll_Success(t *testing.T) {
 	called := false
 	repo := &handlerTaskRepo{
-		softDeleteAllFn: func(_ context.Context, gotUID string) (int64, error) {
+		deleteAllFn: func(_ context.Context, gotUID string) (int64, error) {
 			called = true
 			assert.Equal(t, taskTestUserID, gotUID)
 			return 3, nil
@@ -379,7 +379,7 @@ func TestTaskHandler_DeleteAll_Success(t *testing.T) {
 // 5.3.11b DELETE /api/tasks — пустой список → 200, deleted=0
 func TestTaskHandler_DeleteAll_NoTasks(t *testing.T) {
 	repo := &handlerTaskRepo{
-		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+		deleteAllFn: func(_ context.Context, _ string) (int64, error) {
 			return 0, nil
 		},
 	}
@@ -394,7 +394,7 @@ func TestTaskHandler_DeleteAll_NoTasks(t *testing.T) {
 // 5.3.11c DELETE /api/tasks — ошибка БД → 500
 func TestTaskHandler_DeleteAll_RepoError(t *testing.T) {
 	repo := &handlerTaskRepo{
-		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+		deleteAllFn: func(_ context.Context, _ string) (int64, error) {
 			return 0, assert.AnError
 		},
 	}
