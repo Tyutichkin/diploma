@@ -36,6 +36,9 @@ func (m *mockTaskRepo) Update(context.Context, string, string, task.UpdateInput)
 func (m *mockTaskRepo) SoftDelete(context.Context, string, string) (bool, error) {
 	return false, nil
 }
+func (m *mockTaskRepo) SoftDeleteAll(context.Context, string) (int64, error) {
+	return 0, nil
+}
 func (m *mockTaskRepo) BulkReorder(context.Context, string, task.ReorderInput) error {
 	return nil
 }

@@ -14,6 +14,9 @@ type Repository interface {
 	BatchCreate(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
 	Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
 	SoftDelete(ctx context.Context, userID, taskID string) (bool, error)
+	// SoftDeleteAll помечает удалёнными все активные задачи userID одним запросом.
+	// Возвращает количество затронутых строк.
+	SoftDeleteAll(ctx context.Context, userID string) (int64, error)
 	// BulkReorder массово обновляет sort_index у задач userID одним запросом.
 	BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error
 }

@@ -49,6 +49,7 @@ func NewRouter(d Deps) *gin.Engine {
 	secured.POST("/tasks/import", importH.Import)
 	secured.PATCH("/tasks/order", taskH.Reorder)
 	secured.PATCH("/tasks/:id", taskH.Update)
+	secured.DELETE("/tasks", taskH.DeleteAll)
 	secured.DELETE("/tasks/:id", taskH.Delete)
 
 	secured.POST("/routes", routeH.Create)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Task, getWindowConflictIds } from './task';
+import { Task, getWindowConflictIds, isTaskWindowConflict } from './task';
 
 function makeTask(id: string, overrides: Partial<Task> = {}): Task {
   return { id, title: id, ...overrides };
@@ -87,5 +87,37 @@ describe('getWindowConflictIds', () => {
 
     const conflicts = getWindowConflictIds(tasks);
     expect(conflicts.has('a')).toBe(true);
+  });
+
+  // Корнер-кейс из CSV-импорта: окно задано только датой (без времён).
+  // Подразумевается полный день (00:00–23:59), а не пустой интервал.
+  // Две таких задачи с короткой длительностью не должны конфликтовать.
+  it('не помечает конфликтом две задачи без времён, у которых окно — только дата', () => {
+    const tasks: Task[] = [
+      makeTask('zaharov', {
+        duration: 20,
+        windowStartDate: '2026-04-19',
+        windowEndDate: '2026-04-19',
+      }),
+      makeTask('warehouse', {
+        duration: 20,
+        windowStartDate: '2026-04-19',
+        windowEndDate: '2026-04-19',
+      }),
+    ];
+
+    const conflicts = getWindowConflictIds(tasks);
+    expect(conflicts.size).toBe(0);
+  });
+
+  // То же, но через индивидуальный конфликт: окно «только дата» не должно
+  // помечаться как нулевое (end <= start).
+  it('isTaskWindowConflict не помечает окно из одних дат без времени', () => {
+    const t = makeTask('a', {
+      duration: 30,
+      windowStartDate: '2026-04-19',
+      windowEndDate: '2026-04-19',
+    });
+    expect(isTaskWindowConflict(t)).toBe(false);
   });
 });

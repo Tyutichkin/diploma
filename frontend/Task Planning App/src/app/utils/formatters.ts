@@ -4,10 +4,12 @@ export function fmtTime(iso: string | undefined): string {
   return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
+// Длительность всегда показывается в целых минутах с округлением вверх:
+// 32 мин 10 сек → "33 мин", 30 сек → "1 мин". Минимум — "1 мин" для любого
+// положительного значения (см. utils/time.ts).
 export function fmtDuration(sec: number | undefined): string {
   if (sec == null || sec <= 0) return '';
-  if (sec < 60) return `${sec} сек`;
-  const m = Math.floor(sec / 60);
+  const m = Math.ceil(sec / 60);
   if (m < 60) return `${m} мин`;
   const h = Math.floor(m / 60);
   const rm = m % 60;

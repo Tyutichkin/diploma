@@ -251,6 +251,10 @@ export async function deleteTask(
     await requestWithAuth(`/tasks/${taskId}`, { method: "DELETE" }, options);
 }
 
+export async function deleteAllTasks(options: AuthorizedRequestOptions) {
+    await requestWithAuth("/tasks", { method: "DELETE" }, options);
+}
+
 export async function reorderTasks(
     order: { id: string; sortIndex: number }[],
     options: AuthorizedRequestOptions,
@@ -518,13 +522,16 @@ function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
         route.Stats?.TotalDistanceM != null
             ? route.Stats.TotalDistanceM / 1000
             : undefined;
+    // Бэкенд хранит секунды, но они уже минутно-выровнены (округление вверх
+    // делается на границе ввода, см. internal/common/timing). Ceil здесь —
+    // защита от любого случайного «грязного» значения.
     const totalTravelTimeMin =
         route.Stats?.TotalTravelSec != null
-            ? Math.round(route.Stats.TotalTravelSec / 60)
+            ? Math.ceil(route.Stats.TotalTravelSec / 60)
             : undefined;
     const serviceTimeMin =
         route.Stats?.TotalServiceSec != null
-            ? Math.round(route.Stats.TotalServiceSec / 60)
+            ? Math.ceil(route.Stats.TotalServiceSec / 60)
             : undefined;
 
     return {

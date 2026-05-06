@@ -96,6 +96,11 @@ export function TaskItem({
   const handleToggleStart = () => onSetRole?.(task.id, isStart ? null : 'start');
   const handleToggleEnd = () => onSetRole?.(task.id, isEnd ? null : 'end');
 
+  const requestDelete = () => {
+    if (!window.confirm(`Удалить задачу «${task.title}»?`)) return;
+    void onDelete(task.id);
+  };
+
   const RoleMenuItems = ({ Item, Sep }: {
     Item: React.ComponentType<{ disabled?: boolean; onClick?: () => void; className?: string; children: React.ReactNode }>;
     Sep: React.ComponentType;
@@ -122,7 +127,7 @@ export function TaskItem({
         <Copy className="mr-2 h-3.5 w-3.5 text-gray-400" />
         Клонировать
       </Item>
-      <Item onClick={() => void onDelete(task.id)} className="text-destructive focus:text-destructive">
+      <Item onClick={requestDelete} className="text-destructive focus:text-destructive">
         <Trash2 className="mr-2 h-3.5 w-3.5" />
         Удалить
       </Item>
@@ -199,7 +204,7 @@ export function TaskItem({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => void onDelete(task.id)}
+                        onClick={requestDelete}
                         className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                         title="Удалить"
                       >

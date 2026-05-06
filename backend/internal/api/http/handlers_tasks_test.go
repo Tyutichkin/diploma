@@ -19,12 +19,13 @@ import (
 )
 
 type handlerTaskRepo struct {
-	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
-	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
-	createFn      func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
-	updateFn      func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
-	softDeleteFn  func(ctx context.Context, userID, taskID string) (bool, error)
-	bulkReorderFn func(ctx context.Context, userID string, in task.ReorderInput) error
+	listByUserFn    func(ctx context.Context, userID string) ([]task.Task, error)
+	getByIDsFn      func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
+	createFn        func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
+	updateFn        func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
+	softDeleteFn    func(ctx context.Context, userID, taskID string) (bool, error)
+	softDeleteAllFn func(ctx context.Context, userID string) (int64, error)
+	bulkReorderFn   func(ctx context.Context, userID string, in task.ReorderInput) error
 }
 
 func (m *handlerTaskRepo) ListByUser(ctx context.Context, userID string) ([]task.Task, error) {
@@ -57,6 +58,12 @@ func (m *handlerTaskRepo) SoftDelete(ctx context.Context, userID, taskID string)
 	}
 	return false, nil
 }
+func (m *handlerTaskRepo) SoftDeleteAll(ctx context.Context, userID string) (int64, error) {
+	if m.softDeleteAllFn != nil {
+		return m.softDeleteAllFn(ctx, userID)
+	}
+	return 0, nil
+}
 func (m *handlerTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	if m.bulkReorderFn != nil {
 		return m.bulkReorderFn(ctx, userID, in)
@@ -86,6 +93,7 @@ func newTaskTestRouter(repo *handlerTaskRepo) *gin.Engine {
 	api.POST("/tasks", taskH.Create)
 	api.PATCH("/tasks/order", taskH.Reorder)
 	api.PATCH("/tasks/:id", taskH.Update)
+	api.DELETE("/tasks", taskH.DeleteAll)
 	api.DELETE("/tasks/:id", taskH.Delete)
 	return r
 }
@@ -346,6 +354,53 @@ func TestTaskHandler_Delete_NotFound(t *testing.T) {
 	r := newTaskTestRouter(repo)
 	w := doJSON(t, r, "DELETE", "/api/tasks/"+uuid.NewString(), nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// 5.3.11a DELETE /api/tasks — массовый soft-delete
+func TestTaskHandler_DeleteAll_Success(t *testing.T) {
+	called := false
+	repo := &handlerTaskRepo{
+		softDeleteAllFn: func(_ context.Context, gotUID string) (int64, error) {
+			called = true
+			assert.Equal(t, taskTestUserID, gotUID)
+			return 3, nil
+		},
+	}
+	r := newTaskTestRouter(repo)
+	w := doJSON(t, r, "DELETE", "/api/tasks", nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Equal(t, true, resp["ok"])
+	assert.EqualValues(t, 3, resp["deleted"])
+	assert.True(t, called)
+}
+
+// 5.3.11b DELETE /api/tasks — пустой список → 200, deleted=0
+func TestTaskHandler_DeleteAll_NoTasks(t *testing.T) {
+	repo := &handlerTaskRepo{
+		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+			return 0, nil
+		},
+	}
+	r := newTaskTestRouter(repo)
+	w := doJSON(t, r, "DELETE", "/api/tasks", nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.EqualValues(t, 0, resp["deleted"])
+}
+
+// 5.3.11c DELETE /api/tasks — ошибка БД → 500
+func TestTaskHandler_DeleteAll_RepoError(t *testing.T) {
+	repo := &handlerTaskRepo{
+		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+			return 0, assert.AnError
+		},
+	}
+	r := newTaskTestRouter(repo)
+	w := doJSON(t, r, "DELETE", "/api/tasks", nil)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 // 5.3.12 PATCH /api/tasks/order — успех

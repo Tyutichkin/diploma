@@ -28,16 +28,22 @@ export function formatWindowBound(date?: string, time?: string): string | undefi
   return time;
 }
 
-export function windowBoundMs(date?: string, time?: string): number | null {
+// Окно, заданное только датой без времени, трактуется как полный день:
+// начало — 00:00, конец — 23:59 (согласовано с бэкендом, см. validateWindow).
+export function windowBoundMs(
+  date: string | undefined,
+  time: string | undefined,
+  kind: 'start' | 'end' = 'start',
+): number | null {
   if (!date) return null;
-  const str = time ? `${date}T${time}` : date;
-  const ms = new Date(str).getTime();
+  const effectiveTime = time ? time : kind === 'end' ? '23:59' : '00:00';
+  const ms = new Date(`${date}T${effectiveTime}`).getTime();
   return isNaN(ms) ? null : ms;
 }
 
 export function isTaskWindowConflict(task: Task): boolean {
-  const startMs = windowBoundMs(task.windowStartDate, task.windowStartTime);
-  const endMs = windowBoundMs(task.windowEndDate, task.windowEndTime);
+  const startMs = windowBoundMs(task.windowStartDate, task.windowStartTime, 'start');
+  const endMs = windowBoundMs(task.windowEndDate, task.windowEndTime, 'end');
   if (startMs == null || endMs == null) return false;
 
   // Некорректное окно: конец <= начало
@@ -69,8 +75,8 @@ export function getWindowConflictIds(tasks: Task[]): Set<string> {
       ids.add(task.id);
     }
 
-    const startMs = windowBoundMs(task.windowStartDate, task.windowStartTime);
-    const endMs = windowBoundMs(task.windowEndDate, task.windowEndTime);
+    const startMs = windowBoundMs(task.windowStartDate, task.windowStartTime, 'start');
+    const endMs = windowBoundMs(task.windowEndDate, task.windowEndTime, 'end');
     if (startMs != null && endMs != null && endMs > startMs) {
       windowed.push({ task, startMs, endMs, durationMs: (task.duration ?? 0) * 60 * 1000 });
     }

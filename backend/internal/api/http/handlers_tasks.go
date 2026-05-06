@@ -200,3 +200,17 @@ func (h *TaskHandlers) Delete(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
+
+func (h *TaskHandlers) DeleteAll(c *gin.Context) {
+	userID, ok := userIDFromCtx(c)
+	if !ok {
+		return
+	}
+
+	deleted, err := h.story.DeleteAll(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "deleted": deleted})
+}

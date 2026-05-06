@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { Task, taskHasAddress, getWindowConflictIds } from '../types/task';
 import { TaskItem } from './TaskItem';
+import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import { MapPin, MapPinOff } from 'lucide-react';
+import { MapPin, MapPinOff, Trash2 } from 'lucide-react';
 
 interface TaskListProps {
   tasks: Task[];
@@ -14,6 +15,7 @@ interface TaskListProps {
   routeConflictIds?: Set<string>;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void | Promise<void>;
+  onDeleteAll?: () => void | Promise<void>;
   onToggleComplete: (id: string) => void;
   onReorder: (dragIndex: number, hoverIndex: number) => void;
   onReorderEnd: () => void | Promise<void>;
@@ -29,12 +31,18 @@ export function TaskList({
   routeConflictIds,
   onEdit,
   onDelete,
+  onDeleteAll,
   onToggleComplete,
   onReorder,
   onReorderEnd,
   onSetRole,
   onClone,
 }: TaskListProps) {
+  const handleDeleteAll = () => {
+    if (!onDeleteAll) return;
+    if (!window.confirm(`Удалить все задачи (${tasks.length})? Действие необратимо.`)) return;
+    void onDeleteAll();
+  };
   const fallbackConflictIds = useMemo(
     () => (staticConflictIds ? null : getWindowConflictIds(tasks)),
     [staticConflictIds, tasks],
@@ -55,8 +63,19 @@ export function TaskList({
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0">
+      <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between gap-4 space-y-0">
         <CardTitle>Список задач ({tasks.length})</CardTitle>
+        {onDeleteAll && tasks.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-red-600 hover:text-red-700 hover:border-red-300"
+            onClick={handleDeleteAll}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Очистить всё
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-4">
         <ScrollArea className="h-full pr-4">

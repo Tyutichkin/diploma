@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TaskList } from './TaskList';
@@ -28,13 +29,19 @@ function makeNoAddressTask(id: string, title: string): Task {
 
 const noop = vi.fn();
 
-function renderTaskList(tasks: Task[]) {
+interface RenderOpts {
+  onDelete?: (id: string) => void | Promise<void>;
+  onDeleteAll?: () => void | Promise<void>;
+}
+
+function renderTaskList(tasks: Task[], opts: RenderOpts = {}) {
   return render(
     <DndProvider backend={HTML5Backend}>
       <TaskList
         tasks={tasks}
         onEdit={noop}
-        onDelete={noop}
+        onDelete={opts.onDelete ?? noop}
+        onDeleteAll={opts.onDeleteAll}
         onToggleComplete={noop}
         onReorder={noop}
         onReorderEnd={noop}
@@ -357,5 +364,80 @@ describe('TaskList — конфликт временного окна', () => {
     expect(free.className).not.toContain('border-red-400');
     expect(confA.className).toContain('border-red-400');
     expect(confB.className).toContain('border-red-400');
+  });
+});
+
+describe('TaskList — массовое удаление', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('кнопка «Очистить всё» не показывается при пустом списке', () => {
+    renderTaskList([], { onDeleteAll: vi.fn() });
+    expect(screen.queryByRole('button', { name: /Очистить всё/i })).not.toBeInTheDocument();
+  });
+
+  it('кнопка «Очистить всё» не показывается, если onDeleteAll не передан', () => {
+    renderTaskList([makeAddressTask('a1', 'A')]);
+    expect(screen.queryByRole('button', { name: /Очистить всё/i })).not.toBeInTheDocument();
+  });
+
+  it('кнопка «Очистить всё» показывается при наличии задач и колбэка', () => {
+    renderTaskList([makeAddressTask('a1', 'A')], { onDeleteAll: vi.fn() });
+    expect(screen.getByRole('button', { name: /Очистить всё/i })).toBeInTheDocument();
+  });
+
+  it('по клику запрашивает подтверждение и вызывает onDeleteAll, если пользователь согласился', async () => {
+    const onDeleteAll = vi.fn();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderTaskList([makeAddressTask('a1', 'A'), makeAddressTask('a2', 'B')], { onDeleteAll });
+
+    await userEvent.click(screen.getByRole('button', { name: /Очистить всё/i }));
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy.mock.calls[0][0]).toMatch(/Удалить все задачи \(2\)/);
+    expect(onDeleteAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('по клику не вызывает onDeleteAll, если пользователь отменил подтверждение', async () => {
+    const onDeleteAll = vi.fn();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderTaskList([makeAddressTask('a1', 'A')], { onDeleteAll });
+
+    await userEvent.click(screen.getByRole('button', { name: /Очистить всё/i }));
+
+    expect(onDeleteAll).not.toHaveBeenCalled();
+  });
+});
+
+describe('TaskItem — подтверждение одиночного удаления', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('по клику на иконку удаления запрашивает подтверждение и вызывает onDelete', async () => {
+    const onDelete = vi.fn();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderTaskList([makeAddressTask('a1', 'Купить молоко')], { onDelete });
+
+    const card = screen.getByText('Купить молоко').closest('[class*="card"]')!;
+    const deleteBtn = card.querySelector('button[title="Удалить"]')!;
+    await userEvent.click(deleteBtn);
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy.mock.calls[0][0]).toMatch(/Удалить задачу «Купить молоко»\?/);
+    expect(onDelete).toHaveBeenCalledWith('a1');
+  });
+
+  it('не вызывает onDelete, если пользователь отменил подтверждение', async () => {
+    const onDelete = vi.fn();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderTaskList([makeAddressTask('a1', 'Купить молоко')], { onDelete });
+
+    const card = screen.getByText('Купить молоко').closest('[class*="card"]')!;
+    const deleteBtn = card.querySelector('button[title="Удалить"]')!;
+    await userEvent.click(deleteBtn);
+
+    expect(onDelete).not.toHaveBeenCalled();
   });
 });

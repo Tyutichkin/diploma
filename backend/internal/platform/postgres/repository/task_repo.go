@@ -233,6 +233,17 @@ func (r *TaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool,
 	return ct.RowsAffected() > 0, nil
 }
 
+func (r *TaskRepo) SoftDeleteAll(ctx context.Context, userID string) (int64, error) {
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE tasks SET is_deleted=true, updated_at=$1
+		WHERE user_id=$2 AND is_deleted=false
+	`, time.Now(), userID)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 // scanner — общий интерфейс над pgx.Row и pgx.Rows: оба умеют Scan(...).
 type scanner interface {
 	Scan(dest ...any) error

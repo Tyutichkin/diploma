@@ -273,7 +273,7 @@ export function TaskImport({ open, onOpenChange, onImport }: TaskImportProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl w-[96vw] flex flex-col max-h-[90vh] overflow-hidden">
+      <DialogContent className="w-[80vw] max-w-[80vw] sm:max-w-[80vw] flex flex-col max-h-[90vh] overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle>Импорт задач из файла</DialogTitle>
           <DialogDescription>

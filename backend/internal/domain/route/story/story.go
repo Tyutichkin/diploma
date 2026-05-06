@@ -166,8 +166,8 @@ func buildGraph(
 			TaskID:      t.ID,
 			Lat:         ptrs.Deref(t.Latitude),
 			Lng:         ptrs.Deref(t.Longitude),
-			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime, fallbackDate),
-			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime, fallbackDate),
+			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime, fallbackDate, boundStart),
+			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime, fallbackDate, boundEnd),
 			DurationMin: ptrs.Deref(t.DurationMin),
 		}
 		idx[t.ID] = i
@@ -314,10 +314,21 @@ func (s *Story) Rename(ctx context.Context, userID, routeID, name string) (bool,
 	return s.routes.RenameRoute(ctx, userID, routeID, name)
 }
 
+// boundKind различает, какую границу окна строит buildUnixSec, чтобы корректно
+// раскрывать «только дата» в полный день: 00:00 для начала, 23:59 для конца.
+type boundKind int
+
+const (
+	boundStart boundKind = iota
+	boundEnd
+)
+
 // buildUnixSec собирает Unix-секунды из даты ("YYYY-MM-DD") и времени ("HH:MM").
 // Если дата не задана, но время есть — подставляет fallbackDate (для CSV-импорта
-// с одним только временем). Возвращает -1, если ни дата, ни время не заданы.
-func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time) int64 {
+// с одним только временем). Если задана только дата без времени, окно трактуется
+// как полный день: 00:00 для начала, 23:59 для конца. Возвращает -1, если ни
+// дата, ни время не заданы.
+func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time, kind boundKind) int64 {
 	hasDate := dateStr != nil && *dateStr != ""
 	hasTime := timeStr != nil && *timeStr != ""
 
@@ -330,15 +341,16 @@ func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time) int64 {
 		datePart = *dateStr
 	}
 
-	if !hasTime {
-		t, err := time.Parse("2006-01-02", datePart)
-		if err != nil {
-			return -1
-		}
-		return t.Unix()
+	timePart := ""
+	if hasTime {
+		timePart = *timeStr
+	} else if kind == boundEnd {
+		timePart = "23:59"
+	} else {
+		timePart = "00:00"
 	}
 
-	t, err := time.Parse("2006-01-02 15:04", datePart+" "+*timeStr)
+	t, err := time.Parse("2006-01-02 15:04", datePart+" "+timePart)
 	if err != nil {
 		return -1
 	}

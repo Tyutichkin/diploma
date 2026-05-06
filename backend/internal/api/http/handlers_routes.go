@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"planner-backend/internal/common/timing"
 	routestory "planner-backend/internal/domain/route/story"
 	"planner-backend/internal/platform/distance"
 )
@@ -68,6 +69,9 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
 	if startTime <= 0 {
 		startTime = time.Now().Unix()
 	}
+	// Округляем стартовое время вверх до целой минуты — система оперирует только
+	// минутно-выровненными секундами.
+	startTime = timing.RoundUpUnixToMinute(startTime)
 
 	matrix := convertMatrix(req.DistanceMatrix)
 	precedences := convertPrecedences(req.PrecedenceConstraints)
@@ -94,8 +98,10 @@ func convertMatrix(in [][]DistanceCellDTO) [][]distance.Edge {
 		out[i] = make([]distance.Edge, len(row))
 		for j, cell := range row {
 			out[i][j] = distance.Edge{
-				DistanceM:   cell.DistanceM,
-				DurationSec: cell.DurationSec,
+				DistanceM: cell.DistanceM,
+				// Защита от клиентов, которые могут прислать «грязные» секунды:
+				// внутри проекта длительности всегда минутно-выровнены.
+				DurationSec: timing.RoundUpSecToMinute(cell.DurationSec),
 			}
 		}
 	}

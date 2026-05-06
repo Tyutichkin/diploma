@@ -82,6 +82,9 @@ func (m *mockTaskRepo) Update(ctx context.Context, userID, taskID string, in tas
 func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool, error) {
 	return m.softDeleteFn(ctx, userID, taskID)
 }
+func (m *mockTaskRepo) SoftDeleteAll(ctx context.Context, _ string) (int64, error) {
+	return 0, nil
+}
 func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	return m.bulkReorderFn(ctx, userID, in)
 }
@@ -585,14 +588,50 @@ func TestBuildUnixSec_DateAndTime(t *testing.T) {
 	d := "2024-01-15"
 	tm := "09:30"
 	expected := time.Date(2024, 1, 15, 9, 30, 0, 0, time.UTC).Unix()
-	assert.Equal(t, expected, buildUnixSec(&d, &tm, fallbackDate))
+	assert.Equal(t, expected, buildUnixSec(&d, &tm, fallbackDate, boundStart))
 }
 
-// 4.3.2 Только дата без времени — начало дня
-func TestBuildUnixSec_DateOnly(t *testing.T) {
+// 4.3.2 Только дата без времени, граница "start" — начало дня (00:00)
+func TestBuildUnixSec_DateOnly_Start(t *testing.T) {
 	d := "2024-01-15"
 	expected := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC).Unix()
-	assert.Equal(t, expected, buildUnixSec(&d, nil, fallbackDate))
+	assert.Equal(t, expected, buildUnixSec(&d, nil, fallbackDate, boundStart))
+}
+
+// 4.3.2b Только дата без времени, граница "end" — конец дня (23:59).
+// Без этого окно из одной даты схлопывается в точку и оптимизатор считает,
+// что уложиться невозможно (баг при импорте задач без временных окон).
+func TestBuildUnixSec_DateOnly_End(t *testing.T) {
+	d := "2024-01-15"
+	expected := time.Date(2024, 1, 15, 23, 59, 0, 0, time.UTC).Unix()
+	assert.Equal(t, expected, buildUnixSec(&d, nil, fallbackDate, boundEnd))
+}
+
+// Окно "только дата" должно давать ненулевой интервал (00:00–23:59),
+// иначе две задачи с одинаковой датой и без времён помечаются как невыполнимые.
+func TestBuildGraph_DateOnlyWindow_FullDay(t *testing.T) {
+	d := "2024-01-15"
+	tasks := []task.Task{
+		{
+			ID: "a", Latitude: ptrs.Ptr(0.0), Longitude: ptrs.Ptr(0.0),
+			DurationMin:     ptrs.Ptr(20),
+			WindowStartDate: &d, WindowEndDate: &d,
+		},
+		{
+			ID: "b", Latitude: ptrs.Ptr(0.0), Longitude: ptrs.Ptr(0.0),
+			DurationMin:     ptrs.Ptr(20),
+			WindowStartDate: &d, WindowEndDate: &d,
+		},
+	}
+	matrix := [][]distancepkg.Edge{
+		{{DistanceM: 0, DurationSec: 0}, {DistanceM: 100, DurationSec: 60}},
+		{{DistanceM: 100, DurationSec: 60}, {DistanceM: 0, DurationSec: 0}},
+	}
+	graph, _ := buildGraph(tasks, matrix, fallbackDate)
+	for _, n := range graph.Nodes {
+		assert.Less(t, n.WindowStart, n.WindowEnd, "окно должно быть положительной длительности")
+		assert.Equal(t, int64(86340), n.WindowEnd-n.WindowStart, "ровно полный день минус минута")
+	}
 }
 
 // 4.3.3 Время без даты → используется fallbackDate
@@ -601,23 +640,23 @@ func TestBuildUnixSec_TimeOnly_UsesFallback(t *testing.T) {
 	tm := "09:30"
 	// fallbackDate = 2024-06-10 → результат: 2024-06-10 09:30 UTC
 	expected := time.Date(2024, 6, 10, 9, 30, 0, 0, time.UTC).Unix()
-	assert.Equal(t, expected, buildUnixSec(&empty, &tm, fallbackDate))
+	assert.Equal(t, expected, buildUnixSec(&empty, &tm, fallbackDate, boundStart))
 }
 
 // 4.3.4 nil дата + nil время → -1
 func TestBuildUnixSec_NilDate(t *testing.T) {
-	assert.Equal(t, int64(-1), buildUnixSec(nil, nil, fallbackDate))
+	assert.Equal(t, int64(-1), buildUnixSec(nil, nil, fallbackDate, boundStart))
 }
 
 // 4.3.5 Некорректный формат даты
 func TestBuildUnixSec_InvalidDate(t *testing.T) {
 	d := "not-a-date"
-	assert.Equal(t, int64(-1), buildUnixSec(&d, nil, fallbackDate))
+	assert.Equal(t, int64(-1), buildUnixSec(&d, nil, fallbackDate, boundStart))
 }
 
 // 4.3.6 nil дата + время → fallback
 func TestBuildUnixSec_NilDateWithTime(t *testing.T) {
 	tm := "14:00"
 	expected := time.Date(2024, 6, 10, 14, 0, 0, 0, time.UTC).Unix()
-	assert.Equal(t, expected, buildUnixSec(nil, &tm, fallbackDate))
+	assert.Equal(t, expected, buildUnixSec(nil, &tm, fallbackDate, boundStart))
 }

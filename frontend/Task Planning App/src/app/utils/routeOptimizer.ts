@@ -1,5 +1,6 @@
 import { Task } from '../types/task';
 import { loadYandexMaps } from './yandexMaps';
+import { roundUpSecToMinute } from './time';
 
 export interface GeocodeSuggestion {
   lat: number;
@@ -75,7 +76,9 @@ export async function buildYandexDistanceMatrix(
                 const durObj: any = activeRoute.properties.get('duration');
                 resolve({
                   distanceM: Math.round(typeof distObj?.value === 'number' ? distObj.value : 0),
-                  durationSec: Math.round(
+                  // Округляем секунды вверх до минуты — внутри системы работаем только
+                  // с минутно-выровненными значениями (см. utils/time.ts).
+                  durationSec: roundUpSecToMinute(
                     typeof durObj?.value === 'number' ? durObj.value : fallbackSec,
                   ),
                 });
@@ -101,7 +104,7 @@ export async function buildYandexDistanceMatrix(
                 });
                 resolve({
                   distanceM: Math.round(totalDistM),
-                  durationSec: totalDurSec > 0 ? Math.round(totalDurSec) : fallbackSec,
+                  durationSec: totalDurSec > 0 ? roundUpSecToMinute(totalDurSec) : fallbackSec,
                 });
                 return;
               }

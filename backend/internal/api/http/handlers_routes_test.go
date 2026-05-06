@@ -107,6 +107,9 @@ func (m *hTaskRepo) Update(ctx context.Context, _, _ string, _ task.UpdateInput)
 	return task.Task{}, false, nil
 }
 func (m *hTaskRepo) SoftDelete(ctx context.Context, _, _ string) (bool, error) { return false, nil }
+func (m *hTaskRepo) SoftDeleteAll(ctx context.Context, _ string) (int64, error) {
+	return 0, nil
+}
 func (m *hTaskRepo) BulkReorder(ctx context.Context, _ string, _ task.ReorderInput) error {
 	return nil
 }

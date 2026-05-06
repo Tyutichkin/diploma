@@ -139,6 +139,12 @@ func (s *Story) Delete(ctx context.Context, userID, taskID string) (bool, error)
 	return s.tasks.SoftDelete(ctx, userID, taskID)
 }
 
+// DeleteAll soft-удаляет все активные задачи пользователя одним SQL-запросом.
+// Возвращает количество удалённых задач.
+func (s *Story) DeleteAll(ctx context.Context, userID string) (int64, error) {
+	return s.tasks.SoftDeleteAll(ctx, userID)
+}
+
 func (s *Story) Reorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	return s.tasks.BulkReorder(ctx, userID, in)
 }

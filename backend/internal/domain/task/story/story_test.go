@@ -15,13 +15,14 @@ import (
 )
 
 type mockTaskRepo struct {
-	listByUserFn  func(ctx context.Context, userID string) ([]task.Task, error)
-	getByIDsFn    func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
-	createFn      func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
-	batchCreateFn func(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
-	updateFn      func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
-	softDeleteFn  func(ctx context.Context, userID, taskID string) (bool, error)
-	bulkReorderFn func(ctx context.Context, userID string, in task.ReorderInput) error
+	listByUserFn     func(ctx context.Context, userID string) ([]task.Task, error)
+	getByIDsFn       func(ctx context.Context, userID string, ids []string) ([]task.Task, error)
+	createFn         func(ctx context.Context, userID string, in task.CreateInput) (task.Task, error)
+	batchCreateFn    func(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
+	updateFn         func(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error)
+	softDeleteFn     func(ctx context.Context, userID, taskID string) (bool, error)
+	softDeleteAllFn  func(ctx context.Context, userID string) (int64, error)
+	bulkReorderFn    func(ctx context.Context, userID string, in task.ReorderInput) error
 }
 
 func (m *mockTaskRepo) ListByUser(ctx context.Context, userID string) ([]task.Task, error) {
@@ -44,6 +45,12 @@ func (m *mockTaskRepo) Update(ctx context.Context, userID, taskID string, in tas
 }
 func (m *mockTaskRepo) SoftDelete(ctx context.Context, userID, taskID string) (bool, error) {
 	return m.softDeleteFn(ctx, userID, taskID)
+}
+func (m *mockTaskRepo) SoftDeleteAll(ctx context.Context, userID string) (int64, error) {
+	if m.softDeleteAllFn != nil {
+		return m.softDeleteAllFn(ctx, userID)
+	}
+	return 0, nil
 }
 func (m *mockTaskRepo) BulkReorder(ctx context.Context, userID string, in task.ReorderInput) error {
 	return m.bulkReorderFn(ctx, userID, in)
@@ -526,6 +533,46 @@ func TestDelete_Twice(t *testing.T) {
 	found2, _ := s.Delete(context.Background(), "uid", taskID)
 	assert.True(t, found1)
 	assert.False(t, found2)
+}
+
+// 2.3.5 DeleteAll: успешный массовый soft-delete
+func TestDeleteAll_Success(t *testing.T) {
+	uid := uuid.NewString()
+	repo := &mockTaskRepo{
+		softDeleteAllFn: func(_ context.Context, gotUID string) (int64, error) {
+			assert.Equal(t, uid, gotUID)
+			return 5, nil
+		},
+	}
+	s := New(repo)
+	deleted, err := s.DeleteAll(context.Background(), uid)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), deleted)
+}
+
+// 2.3.6 DeleteAll: пустой список — не ошибка, возвращает 0
+func TestDeleteAll_NoTasks(t *testing.T) {
+	repo := &mockTaskRepo{
+		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+			return 0, nil
+		},
+	}
+	s := New(repo)
+	deleted, err := s.DeleteAll(context.Background(), "uid")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), deleted)
+}
+
+// 2.3.7 DeleteAll: ошибка репозитория пробрасывается
+func TestDeleteAll_RepoError(t *testing.T) {
+	repo := &mockTaskRepo{
+		softDeleteAllFn: func(_ context.Context, _ string) (int64, error) {
+			return 0, errors.New("db error")
+		},
+	}
+	s := New(repo)
+	_, err := s.DeleteAll(context.Background(), "uid")
+	assert.Error(t, err)
 }
 
 // 2.4.1 Успешная перестановка

@@ -13,6 +13,7 @@ import {
   createTask,
   createTasksBatch,
   deleteAllRoutes,
+  deleteAllTasks,
   deleteRoute,
   deleteTask,
   getRoute,
@@ -308,6 +309,22 @@ export function MainPage() {
       toast.success('Задача удалена');
     } catch (error) {
       reportError(error, 'Не удалось удалить задачу');
+    }
+  };
+
+  const handleDeleteAllTasks = async () => {
+    if (!requestOptions) return;
+    if (tasksRef.current.length === 0) return;
+    try {
+      await deleteAllTasks(requestOptions);
+      replaceTasks([]);
+      setStartTaskId('');
+      setEndTaskId('');
+      setPrecedences([]);
+      clearRoute();
+      toast.success('Все задачи удалены');
+    } catch (error) {
+      reportError(error, 'Не удалось удалить задачи');
     }
   };
 
@@ -608,6 +625,7 @@ export function MainPage() {
               routeConflictIds={routeConflictIds}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
+              onDeleteAll={handleDeleteAllTasks}
               onToggleComplete={handleToggleComplete}
               onReorder={handleReorderTasks}
               onReorderEnd={handlePersistReorder}

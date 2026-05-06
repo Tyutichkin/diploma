@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"planner-backend/internal/common/timing"
 )
 
 // OSRMProvider — клиент к OSRM Table API
@@ -101,5 +103,7 @@ func edgeFromOSRM(durations, distances [][]float64, i, j int) Edge {
 		}
 	}
 
-	return Edge{DistanceM: distM, DurationSec: durSec}
+	// Округляем длительность вверх до целой минуты, чтобы дальше система
+	// работала только с минутно-выровненными секундами (см. internal/common/timing).
+	return Edge{DistanceM: distM, DurationSec: timing.RoundUpSecToMinute(durSec)}
 }
