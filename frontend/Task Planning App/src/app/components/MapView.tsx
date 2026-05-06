@@ -255,26 +255,26 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
   }, [validTasks, routeOptimized, transportMode, isLoading]);
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0">
+    <Card className="h-full flex flex-col py-0 gap-0">
+      <CardHeader className="flex-shrink-0 px-3 py-2 border-b">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-1.5 text-sm font-semibold">
+            <MapPin className="h-4 w-4" />
             Карта маршрута
             {routeOptimized && (
-              <span className="text-sm font-normal text-green-600">
+              <span className="text-xs font-normal text-green-600">
                 (оптимизирован)
               </span>
             )}
           </CardTitle>
 
           {routeOptimized && (
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
               {TRANSPORT_MODES.map((mode) => (
                 <button
                   key={mode.value}
                   onClick={() => { setTransportMode(mode.value); onTransportModeChange?.(mode.value); }}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
                     transportMode === mode.value
                       ? 'bg-white shadow text-blue-600 font-medium'
                       : 'text-gray-600 hover:text-gray-900'
@@ -288,7 +288,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-4 overflow-hidden flex flex-col gap-3">
+      <CardContent className="flex-1 p-2 sm:p-3 overflow-hidden flex flex-col gap-2 min-h-0">
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-gray-100 rounded-lg">
             <div className="text-center text-red-500 px-4">

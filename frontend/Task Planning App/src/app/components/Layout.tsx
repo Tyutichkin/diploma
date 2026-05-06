@@ -15,17 +15,23 @@ export function Layout() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Планировщик задач</h1>
-              <p className="text-sm text-gray-600">Оптимизация маршрутов с учётом временных окон</p>
+        <div className="container mx-auto px-4 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-gray-900 leading-tight truncate">
+                Планировщик задач
+              </h1>
+              <p className="hidden md:block text-xs lg:text-sm text-gray-600 leading-tight">
+                Оптимизация маршрутов с учётом временных окон
+              </p>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 hidden sm:inline">{session?.email}</span>
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+              <span className="text-xs lg:text-sm text-gray-600 hidden md:inline truncate max-w-[180px]">
+                {session?.email}
+              </span>
               <Button variant="outline" size="sm" onClick={() => void logout()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Выйти
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Выйти</span>
               </Button>
             </div>
           </div>
@@ -37,11 +43,12 @@ export function Layout() {
         <div className="container mx-auto px-4">
           <div className="flex gap-1">
             <Link to="/">
-              <Button 
-                variant="ghost" 
-                className={`rounded-none border-b-2 ${
-                  isActive('/') 
-                    ? 'border-blue-600 text-blue-600' 
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`rounded-none border-b-2 h-9 ${
+                  isActive('/')
+                    ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -50,11 +57,12 @@ export function Layout() {
               </Button>
             </Link>
             <Link to="/instructions">
-              <Button 
+              <Button
                 variant="ghost"
-                className={`rounded-none border-b-2 ${
-                  isActive('/instructions') 
-                    ? 'border-blue-600 text-blue-600' 
+                size="sm"
+                className={`rounded-none border-b-2 h-9 ${
+                  isActive('/instructions')
+                    ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >

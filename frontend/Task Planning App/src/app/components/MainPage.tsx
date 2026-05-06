@@ -464,9 +464,14 @@ export function MainPage() {
     );
   }
 
+  const showSummary = !!(optimizedInfo && routeOptimized);
+  const showPrecedence = tasks.length >= 2;
+  const extraOffset = (showSummary ? 56 : 0) + (showPrecedence ? 84 : 0);
+  const gridHeight = `calc(100vh - ${220 + extraOffset}px)`;
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3">
         <MainToolbar
           taskCount={tasks.length}
           isOptimizing={isOptimizing}
@@ -478,9 +483,9 @@ export function MainPage() {
           onOpenExport={() => setIsExportOpen(true)}
         />
 
-        {optimizedInfo && routeOptimized && <OptimizedRouteSummary info={optimizedInfo} />}
+        {showSummary && <OptimizedRouteSummary info={optimizedInfo!} />}
 
-        {tasks.length >= 2 && (
+        {showPrecedence && (
           <PrecedenceConstraintsPanel
             tasks={tasks}
             precedences={precedences}
@@ -488,8 +493,11 @@ export function MainPage() {
           />
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="h-[calc(100vh-420px)] min-h-[400px]">
+        <div
+          className="grid grid-cols-1 gap-3 lg:gap-4 lg:grid-cols-2"
+          style={{ ['--grid-h' as string]: gridHeight }}
+        >
+          <div className="h-[60vh] min-h-[300px] lg:h-[var(--grid-h)] lg:min-h-[360px]">
             <TaskList
               tasks={tasks}
               startTaskId={startTaskId || undefined}
@@ -507,7 +515,7 @@ export function MainPage() {
             />
           </div>
 
-          <div className="h-[calc(100vh-420px)] min-h-[400px]">
+          <div className="h-[60vh] min-h-[300px] lg:h-[var(--grid-h)] lg:min-h-[360px]">
             <MapView
               tasks={tasks}
               routeOptimized={routeOptimized}

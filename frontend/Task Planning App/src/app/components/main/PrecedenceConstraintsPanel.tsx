@@ -25,8 +25,8 @@ export function PrecedenceConstraintsPanel({
   };
 
   return (
-    <Card className="mb-6 border-gray-200">
-      <CardContent className="p-4 space-y-4">
+    <Card className="mb-3 border-gray-200 py-0">
+      <CardContent className="px-3 py-2 space-y-2">
         <div>
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-1.5">

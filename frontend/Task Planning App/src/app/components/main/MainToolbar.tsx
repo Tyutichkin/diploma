@@ -24,12 +24,12 @@ export function MainToolbar({
   onOpenExport,
 }: MainToolbarProps) {
   return (
-    <div className="sticky top-[80px] z-30 mb-6 flex flex-wrap gap-3 bg-gray-50 py-2 border-b border-gray-100">
+    <div className="sticky top-[72px] z-30 mb-3 flex flex-wrap gap-2 bg-gray-50 py-1.5 border-b border-gray-100">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button onClick={onAddTask}>
-            <Plus className="mr-2 h-4 w-4" />
-            Добавить задачу
+          <Button onClick={onAddTask} size="sm">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Добавить задачу</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
@@ -39,9 +39,9 @@ export function MainToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" onClick={onOpenImport}>
-            <Upload className="mr-2 h-4 w-4" />
-            Импорт из файла
+          <Button variant="outline" onClick={onOpenImport} size="sm">
+            <Upload className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Импорт из файла</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
@@ -56,14 +56,15 @@ export function MainToolbar({
               onClick={onOptimize}
               disabled={isOptimizing || isPersistingOrder || taskCount < 2 || hasWindowConflicts}
               variant="default"
+              size="sm"
               className="bg-blue-600 hover:bg-blue-700"
             >
               {isOptimizing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
               ) : (
-                <Route className="mr-2 h-4 w-4" />
+                <Route className="h-4 w-4 sm:mr-2" />
               )}
-              Оптимизировать маршрут
+              <span className="hidden sm:inline">Оптимизировать маршрут</span>
             </Button>
           </span>
         </TooltipTrigger>
@@ -78,9 +79,9 @@ export function MainToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button onClick={onOpenExport} disabled={taskCount === 0} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Экспорт
+          <Button onClick={onOpenExport} disabled={taskCount === 0} variant="outline" size="sm">
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Экспорт</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>

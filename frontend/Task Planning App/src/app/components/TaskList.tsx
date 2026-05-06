@@ -62,23 +62,23 @@ export function TaskList({
   const noClone = onClone ?? (() => {});
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between gap-4 space-y-0">
-        <CardTitle>Список задач ({tasks.length})</CardTitle>
+    <Card className="h-full flex flex-col py-0 gap-0">
+      <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between gap-2 space-y-0 px-3 py-2 border-b">
+        <CardTitle className="text-sm font-semibold">Список задач ({tasks.length})</CardTitle>
         {onDeleteAll && tasks.length > 0 && (
           <Button
             variant="outline"
             size="sm"
-            className="text-red-600 hover:text-red-700 hover:border-red-300"
+            className="h-7 text-red-600 hover:text-red-700 hover:border-red-300"
             onClick={handleDeleteAll}
           >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            Очистить всё
+            <Trash2 className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Очистить всё</span>
           </Button>
         )}
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden p-4">
-        <ScrollArea className="h-full pr-4">
+      <CardContent className="flex-1 overflow-hidden p-2 sm:p-3">
+        <ScrollArea className="h-full pr-2">
           {tasks.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               Нет задач. Добавьте первую задачу.
