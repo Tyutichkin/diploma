@@ -5,6 +5,7 @@ import { haversineMeters } from './geo';
 import { getSegmentIcon, SegmentIconResult } from './segmentTransportIcon';
 
 const MIN_SEGMENT_DISTANCE_M = 50;
+const MIN_DISTANCE_TO_OTHER_TASK_M = 80;
 
 interface CreateSegmentLabelArgs {
   fromTask: Task;
@@ -14,6 +15,7 @@ interface CreateSegmentLabelArgs {
   distance?: string;
   mode: TransportMode;
   segments: RouteSegment[];
+  allTasks: Task[];
 }
 
 let cachedLayout: any = null;
@@ -53,16 +55,28 @@ function buildLabelContent(icon: SegmentIconResult, duration?: string, distance?
 }
 
 export function createSegmentLabel({
-  fromTask, toTask, legIndex, duration, distance, mode, segments,
+  fromTask, toTask, legIndex, duration, distance, mode, segments, allTasks,
 }: CreateSegmentLabelArgs): any | null {
+  // Без полезного текста плашка — это лишний шум; не показываем
+  if (!duration && !distance) return null;
+
   if (!shouldShowSegmentLabel(fromTask, toTask)) return null;
 
   const lat = (fromTask.latitude! + toTask.latitude!) / 2;
   const lon = (fromTask.longitude! + toTask.longitude!) / 2;
+
+  // Если midpoint близко к любой другой задаче (не fromTask и не toTask), плашка перекроет её маркер
+  for (const t of allTasks) {
+    if (t === fromTask || t === toTask) continue;
+    if (t.latitude === undefined || t.longitude === undefined) continue;
+    const d = haversineMeters(lat, lon, t.latitude, t.longitude);
+    if (d < MIN_DISTANCE_TO_OTHER_TASK_M) return null;
+  }
+
   const icon = getSegmentIcon(mode, segments);
   const iconContent = buildLabelContent(icon, duration, distance);
 
-  const verticalOffset = legIndex % 2 === 0 ? -14 : 14;
+  const verticalOffset = legIndex % 2 === 0 ? -28 : 28;
 
   return new window.ymaps.Placemark(
     [lat, lon],

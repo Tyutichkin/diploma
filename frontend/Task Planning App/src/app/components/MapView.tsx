@@ -14,7 +14,6 @@ import { groupTasksByCoord, computeStackPlacements } from './map/stackLayout';
 import { getRouteStyleOptions } from './map/routeStyle';
 import { createTaskMarker, createStackAnchor } from './map/TaskMarker';
 import { createSegmentLabel } from './map/SegmentLabel';
-import { MapLegend } from './map/MapLegend';
 import { RouteSegmentsPanel } from './map/RouteSegmentsPanel';
 
 interface LegBounds {
@@ -220,6 +219,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
                 fromTask, toTask, legIndex,
                 duration: legDuration, distance: legDistance,
                 mode: transportMode, segments,
+                allTasks: validTasks,
               });
               if (label) map.geoObjects.add(label);
             }
@@ -320,7 +320,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
                 </div>
               )}
 
-              {!isLoading && !loadError && validTasks.length > 0 && <MapLegend />}
+
             </div>
 
             {routeOptimized && routeLegs.length > 0 && (
