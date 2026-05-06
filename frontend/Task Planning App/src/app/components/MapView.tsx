@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Task } from '../types/task';
 import { loadYandexMaps } from '../utils/yandexMaps';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { MapPin, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, Loader2 } from 'lucide-react';
 import {
   RouteLeg,
   RouteSegment,
@@ -10,6 +10,17 @@ import {
   TransportMode,
   TRANSPORT_TYPE_META,
 } from '../types/transport';
+import { groupTasksByCoord, computeStackPlacements } from './map/stackLayout';
+import { getRouteStyleOptions } from './map/routeStyle';
+import { createTaskMarker, createStackAnchor } from './map/TaskMarker';
+import { createSegmentLabel } from './map/SegmentLabel';
+import { MapLegend } from './map/MapLegend';
+import { RouteSegmentsPanel } from './map/RouteSegmentsPanel';
+
+interface LegBounds {
+  from: [number, number];
+  to: [number, number];
+}
 
 // Ре-экспорт для обратной совместимости с уже существующими импортами.
 export type { RouteLeg, RouteSegment, TransportInfo, TransportMode };
@@ -36,7 +47,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [transportMode, setTransportMode] = useState<TransportMode>('auto');
   const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [legBounds, setLegBounds] = useState<LegBounds[]>([]);
 
   // дедупликация и дебаунс — лимиты Yandex API
   const lastRouteKeyRef = useRef('');
@@ -99,69 +110,39 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
     map.geoObjects.removeAll();
     setRouteLegs([]);
     onRouteLegsChange?.([]);
+    setLegBounds([]);
 
     if (validTasks.length === 0) return;
 
-    // группируем по координатам, чтобы маркеры не перекрывались
-    const tasksByCoord = new Map<string, { task: Task; index: number }[]>();
-    validTasks.forEach((task, index) => {
-      const key = `${task.latitude}|${task.longitude}`;
-      if (!tasksByCoord.has(key)) tasksByCoord.set(key, []);
-      tasksByCoord.get(key)!.push({ task, index });
-    });
-
-    tasksByCoord.forEach((entries) => {
-      const isSingle = entries.length === 1;
-      const numbers = entries.map((e) => e.index + 1);
-      const iconContent = numbers.length > 2 ? '…' : numbers.join(',');
-
-      const balloonHeader = isSingle
-        ? `#${numbers[0]} ${entries[0].task.title}`
-        : `#${iconContent} — ${entries.length} задачи по одному адресу`;
-
-      const balloonBody = entries
-        .map(({ task, index }) =>
-          [
-            isSingle ? '' : `<div style="font-weight:600;margin-top:8px">#${index + 1} ${task.title}</div>`,
-            `<div style="color:#555">${task.address}</div>`,
-            task.duration != null ? `<div style="color:#555;margin-top:2px">Длительность: ${task.duration} мин</div>` : '',
-            (task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime)
-              ? `<div style="color:#555">Окно: ${[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'} – ${[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}</div>`
-              : '',
-          ]
-            .filter(Boolean)
-            .join(''),
-        )
-        .join('<hr style="margin:6px 0;border-color:#ddd">');
-
-      const hintContent = isSingle
-        ? entries[0].task.title
-        : `Задачи ${iconContent}: ${entries.map((e) => e.task.title).join(', ')}`;
-
-      const placemark = new window.ymaps.Placemark(
-        [entries[0].task.latitude!, entries[0].task.longitude!],
-        { iconContent, balloonContentHeader: balloonHeader, balloonContentBody: balloonBody, hintContent },
-        { preset: isSingle ? 'islands#blueCircleIcon' : 'islands#orangeCircleIcon' },
-      );
-      map.geoObjects.add(placemark);
+    const groups = groupTasksByCoord(validTasks);
+    groups.forEach((group) => {
+      const info = computeStackPlacements(group);
+      if (info.anchorLineHeightPx !== null) {
+        map.geoObjects.add(
+          createStackAnchor({
+            lat: group.lat,
+            lon: group.lon,
+            lineHeightPx: info.anchorLineHeightPx,
+          }),
+        );
+      }
+      info.placements.forEach((p) => {
+        const entry = group.entries.find((e) => e.index === p.taskIndex)!;
+        map.geoObjects.add(
+          createTaskMarker({
+            task: entry.task,
+            number: entry.index + 1,
+            iconOffset: p.iconOffset,
+            isStack: info.anchorLineHeightPx !== null,
+          }),
+        );
+      });
     });
 
     if (routeOptimized && validTasks.length > 1) {
       const referencePoints = validTasks.map((t) => [t.latitude!, t.longitude!]);
 
-      // в masstransit цвета линий задаются ymaps (метро, автобус и т.д.) — не переопределяем
-      const routeOptions =
-        transportMode === 'masstransit'
-          ? { boundsAutoApply: true, wayPointVisible: false }
-          : {
-              boundsAutoApply: true,
-              wayPointVisible: false,
-              routeActiveStrokeWidth: 4,
-              routeActiveStrokeColor: transportMode === 'auto' ? '#3b82f6' : '#16a34a',
-              routeActiveStrokeStyle: 'solid',
-              routeStrokeWidth: 2,
-              routeStrokeColor: transportMode === 'auto' ? '#93c5fd' : '#86efac',
-            };
+      const routeOptions = getRouteStyleOptions(transportMode);
 
       const multiRoute = new window.ymaps.multiRouter.MultiRoute(
         { referencePoints, params: { routingMode: transportMode, optimizeWaypoints: false } },
@@ -189,30 +170,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
               typeof legDurationObj === 'object' ? legDurationObj?.text : legDurationObj;
             const legDistance: string | undefined =
               typeof legDistanceObj === 'object' ? legDistanceObj?.text : legDistanceObj;
-
-            // метка на середине отрезка — показывает время в пути
-            if (legIndex < validTasks.length - 1) {
-              const lat1 = validTasks[legIndex].latitude!;
-              const lon1 = validTasks[legIndex].longitude!;
-              const lat2 = validTasks[legIndex + 1].latitude!;
-              const lon2 = validTasks[legIndex + 1].longitude!;
-
-              const midPlacemark = new window.ymaps.Placemark(
-                [(lat1 + lat2) / 2, (lon1 + lon2) / 2],
-                {
-                  iconContent: legDuration || '',
-                  balloonContentHeader: `${fromTitle} &rarr; ${toTitle}`,
-                  balloonContentBody:
-                    `<div style="font-size:13px">` +
-                    `<div>Время в пути: <b>${legDuration || '\u2014'}</b></div>` +
-                    `<div>Расстояние: <b>${legDistance || '\u2014'}</b></div>` +
-                    `</div>`,
-                  hintContent: `${fromTitle} \u2192 ${toTitle}: ${legDuration || '\u2014'}`,
-                },
-                { preset: 'islands#grayStretchyIcon' },
-              );
-              map.geoObjects.add(midPlacemark);
-            }
 
             const segments: RouteSegment[] = [];
 
@@ -256,12 +213,30 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
               });
             }
 
+            const fromTask = validTasks[legIndex];
+            const toTask = validTasks[legIndex + 1];
+            if (fromTask && toTask) {
+              const label = createSegmentLabel({
+                fromTask, toTask, legIndex,
+                duration: legDuration, distance: legDistance,
+                mode: transportMode, segments,
+              });
+              if (label) map.geoObjects.add(label);
+            }
+
             legs.push({ fromTitle, toTitle, duration: legDuration, distance: legDistance, segments });
           });
 
           setRouteLegs(legs);
           onRouteLegsChange?.(legs);
-          if (transportMode === 'masstransit') setPanelOpen(true);
+
+          const bounds: LegBounds[] = [];
+          for (let i = 0; i < validTasks.length - 1; i++) {
+            const a = validTasks[i];
+            const b = validTasks[i + 1];
+            bounds.push({ from: [a.latitude!, a.longitude!], to: [b.latitude!, b.longitude!] });
+          }
+          setLegBounds(bounds);
         } catch {
           // не распарсили — панель просто не показываем
         }
@@ -278,9 +253,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
 
     return () => clearTimeout(debounceTimerRef.current);
   }, [validTasks, routeOptimized, transportMode, isLoading]);
-
-  const showTransitPanel =
-    transportMode === 'masstransit' && routeLegs.length > 0;
 
   return (
     <Card className="h-full flex flex-col">
@@ -347,96 +319,28 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
                   </div>
                 </div>
               )}
+
+              {!isLoading && !loadError && validTasks.length > 0 && <MapLegend />}
             </div>
 
-            {showTransitPanel && (
-              <div className="flex-shrink-0 border border-blue-200 rounded-lg bg-blue-50 overflow-hidden">
-                <button
-                  onClick={() => setPanelOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100 transition-colors"
-                >
-                  <span>Маршрут общественного транспорта</span>
-                  {panelOpen ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </button>
-
-                {panelOpen && (
-                  <div className="max-h-52 overflow-y-auto px-4 pb-3 space-y-4">
-                    {routeLegs.map((leg, li) => (
-                      <div key={li}>
-                        <div className="text-xs font-semibold text-blue-700 mb-1 pt-2">
-                          {leg.fromTitle} → {leg.toTitle}
-                        </div>
-
-                        <div className="space-y-1">
-                          {leg.segments.map((seg, si) => (
-                            <div key={si} className="flex items-start gap-2">
-                              {seg.kind === 'pedestrian' ? (
-                                <>
-                                  <span className="text-base leading-none mt-0.5">🚶</span>
-                                  <div className="text-sm text-gray-700">
-                                    <span>Пешком</span>
-                                    {seg.distance && (
-                                      <span className="text-gray-500"> · {seg.distance}</span>
-                                    )}
-                                    {seg.duration && (
-                                      <span className="text-gray-500"> · {seg.duration}</span>
-                                    )}
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {(seg.transports ?? []).map((tr, ti) => {
-                                      const meta =
-                                        TRANSPORT_TYPE_META[tr.type] ??
-                                        TRANSPORT_TYPE_META['bus'];
-                                      const bgStyle = tr.color
-                                        ? { backgroundColor: tr.color }
-                                        : undefined;
-                                      return (
-                                        <span
-                                          key={ti}
-                                          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-bold ${meta.text} ${!tr.color ? meta.bg : ''}`}
-                                          style={bgStyle}
-                                          title={`${meta.label} ${tr.name}`}
-                                        >
-                                          {tr.type === 'subway' || tr.type === 'underground'
-                                            ? 'М'
-                                            : meta.icon}{' '}
-                                          {tr.name}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                  <div className="text-sm text-gray-700">
-                                    {seg.stopFrom && (
-                                      <span>
-                                        от <span className="font-medium">{seg.stopFrom}</span>
-                                      </span>
-                                    )}
-                                    {seg.stopTo && (
-                                      <span>
-                                        {' '}до <span className="font-medium">{seg.stopTo}</span>
-                                      </span>
-                                    )}
-                                    {seg.duration && (
-                                      <span className="text-gray-500"> · {seg.duration}</span>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            {routeOptimized && routeLegs.length > 0 && (
+              <RouteSegmentsPanel
+                legs={routeLegs}
+                mode={transportMode}
+                onLegFocus={(li) => {
+                  if (!mapRef.current) return;
+                  const lb = legBounds[li];
+                  if (!lb) return;
+                  const minLat = Math.min(lb.from[0], lb.to[0]);
+                  const maxLat = Math.max(lb.from[0], lb.to[0]);
+                  const minLon = Math.min(lb.from[1], lb.to[1]);
+                  const maxLon = Math.max(lb.from[1], lb.to[1]);
+                  mapRef.current.setBounds(
+                    [[minLat, minLon], [maxLat, maxLon]],
+                    { checkZoomRange: true, zoomMargin: 60 },
+                  );
+                }}
+              />
             )}
           </>
         )}
