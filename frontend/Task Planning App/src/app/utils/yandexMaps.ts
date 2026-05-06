@@ -7,17 +7,12 @@ declare global {
 
 let loadPromise: Promise<void> | null = null;
 
-/**
- * Загружает Yandex Maps JS API 2.1 и ждёт готовности ymaps.
- * Повторные вызовы возвращают тот же Promise (singleton).
- */
+// Singleton: повторные вызовы возвращают тот же Promise.
 export function loadYandexMaps(): Promise<void> {
-  // Уже загружен и готов
   if (window.ymaps && typeof window.ymaps.Map === 'function') {
     return Promise.resolve();
   }
 
-  // Загрузка уже началась
   if (loadPromise) return loadPromise;
 
   const apiKey =
@@ -31,7 +26,7 @@ export function loadYandexMaps(): Promise<void> {
   }
 
   loadPromise = new Promise<void>((resolve, reject) => {
-    // Если скрипт уже в DOM (HMR), дождёмся ymaps.ready
+    // HMR: скрипт уже в DOM — ждём ymaps.ready.
     const existing = document.querySelector(
       'script[src^="https://api-maps.yandex.ru"]',
     );

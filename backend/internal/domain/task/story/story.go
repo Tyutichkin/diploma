@@ -103,10 +103,7 @@ func combineDatetime(dateStr, timeStr string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04", fmt.Sprintf("%s %s", dateStr, timeStr))
 }
 
-// fillDefaultDate: если время задано (непустая строка), а дата отсутствует или
-// равна "" — подставляет сегодняшнюю дату. Корректно работает и для CreateInput
-// (timePtr — обычный *string), и для UpdateInput (3-state *string), потому что
-// nil timePtr всегда означает "не трогать".
+// Если время задано, а дата пустая — подставляет сегодняшнюю.
 func fillDefaultDate(datePtr **string, timePtr *string) {
 	if datePtr == nil || timePtr == nil || *timePtr == "" {
 		return
@@ -139,8 +136,6 @@ func (s *Story) Delete(ctx context.Context, userID, taskID string) (bool, error)
 	return s.tasks.Delete(ctx, userID, taskID)
 }
 
-// DeleteAll удаляет все задачи пользователя одним SQL-запросом.
-// Возвращает количество удалённых задач.
 func (s *Story) DeleteAll(ctx context.Context, userID string) (int64, error) {
 	return s.tasks.DeleteAll(ctx, userID)
 }

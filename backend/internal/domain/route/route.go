@@ -2,10 +2,6 @@ package route
 
 import "time"
 
-// Route — факт построения маршрута.
-// Status (draft|optimized|failed) и Source (manual|optimized) проставляются в SQL
-// при создании/сохранении и видны во всех ответах API; именно по ним фронт отличает
-// черновик от оптимизированного маршрута.
 type Route struct {
 	ID         string
 	UserID     string

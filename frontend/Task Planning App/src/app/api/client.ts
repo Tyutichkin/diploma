@@ -171,7 +171,7 @@ export interface SaveTaskInput {
     completed?: boolean;
 }
 
-// Тело POST /tasks и /tasks/batch: пустые поля → null (бэк ждёт явный сброс).
+// Пустые поля → null (бэк ждёт явный сброс).
 function taskCreateBody(input: SaveTaskInput) {
     return {
         title: input.title,
@@ -187,7 +187,7 @@ function taskCreateBody(input: SaveTaskInput) {
     };
 }
 
-// Тело PATCH /tasks/:id: undefined-поля бэк не трогает (partial update).
+// undefined-поля бэк не трогает (partial update).
 function taskUpdateBody(input: Partial<SaveTaskInput>) {
     return {
         title: input.title,
@@ -272,8 +272,6 @@ export interface PrecedenceConstraint {
 }
 
 // startTimeUnix: 0 — бэкенд подставит сегодня 09:00 UTC.
-// distanceMatrix, посчитанная через buildYandexDistanceMatrix, синхронизирует
-// расстояния оптимизатора с теми, что показываются на карте.
 export async function optimizeRoute(
     taskIds: string[],
     options: AuthorizedRequestOptions,
@@ -458,9 +456,6 @@ function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
         route.Stats?.TotalDistanceM != null
             ? route.Stats.TotalDistanceM / 1000
             : undefined;
-    // Бэкенд хранит секунды, но они уже минутно-выровнены (округление вверх
-    // делается на границе ввода, см. internal/common/timing). Ceil здесь —
-    // защита от любого случайного «грязного» значения.
     const totalTravelTimeMin =
         route.Stats?.TotalTravelSec != null
             ? Math.ceil(route.Stats.TotalTravelSec / 60)

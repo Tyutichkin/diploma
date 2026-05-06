@@ -5,16 +5,13 @@ import (
 	"math"
 )
 
-// NearestNeighborTW — эвристика ближайшего соседа с учётом временных окон (NNH-TW).
-// Все временные величины хранятся в секундах Unix. Сложность — O(n³).
+// Эвристика ближайшего соседа с временными окнами (NNH-TW). O(n³).
 type NearestNeighborTW struct{}
 
 func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
 
 func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
 
-// traversal — изменяемое состояние одного запуска оптимизации: где мы сейчас,
-// какие узлы посещены, накопленные тайминги и метрики маршрута.
 type traversal struct {
 	g           *Graph
 	cur         int
@@ -29,7 +26,6 @@ type traversal struct {
 	totalWaitSec    int
 }
 
-// appendNode добавляет узел next к маршруту и обновляет агрегаты + текущее время.
 func (t *traversal) appendNode(next int) {
 	e := t.g.Edges[t.cur][next]
 	node := t.g.Nodes[next]

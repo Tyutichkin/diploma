@@ -21,7 +21,6 @@ interface LegBounds {
   to: [number, number];
 }
 
-// Ре-экспорт для обратной совместимости с уже существующими импортами.
 export type { RouteLeg, RouteSegment, TransportInfo, TransportMode };
 export { TRANSPORT_TYPE_META };
 

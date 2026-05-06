@@ -13,9 +13,8 @@ export interface DistanceCell {
   durationSec: number;
 }
 
-// Матрица n×n через ymaps multiRouter. matrix[i][j] — стоимость i→j, диагональ = 0.
-// Берём тот же движок, что рисует маршрут на карте, чтобы оптимизация и отображение совпадали.
-// masstransit не даёт надёжных времён — подменяется на 'auto'.
+// matrix[i][j] — стоимость i→j через ymaps multiRouter; диагональ = 0.
+// masstransit подменяется на 'auto' — у него нет надёжных времён.
 export async function buildYandexDistanceMatrix(
   tasks: Task[],
   routingMode: 'auto' | 'pedestrian' | 'masstransit' = 'auto',
@@ -76,8 +75,6 @@ export async function buildYandexDistanceMatrix(
                 const durObj: any = activeRoute.properties.get('duration');
                 resolve({
                   distanceM: Math.round(typeof distObj?.value === 'number' ? distObj.value : 0),
-                  // Округляем секунды вверх до минуты — внутри системы работаем только
-                  // с минутно-выровненными значениями (см. utils/time.ts).
                   durationSec: roundUpSecToMinute(
                     typeof durObj?.value === 'number' ? durObj.value : fallbackSec,
                   ),
@@ -130,7 +127,6 @@ export async function buildYandexDistanceMatrix(
   return matrix;
 }
 
-// Геокодирование через ymaps.geocode — до 5 вариантов адреса с координатами.
 export async function geocodeAddressSuggestions(address: string): Promise<GeocodeSuggestion[]> {
   const trimmedAddress = address.trim();
   if (!trimmedAddress) return [];
@@ -162,8 +158,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
   return { lat: suggestions[0].lat, lng: suggestions[0].lng };
 }
 
-// Подсказки адресов через Yandex Geocoder REST API (до 5 вариантов).
-// ymaps.suggest недоступен на бесплатном тарифе, поэтому используется REST.
+// ymaps.suggest недоступен на бесплатном тарифе — используется REST.
 export async function suggestAddresses(query: string): Promise<GeocodeSuggestion[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];

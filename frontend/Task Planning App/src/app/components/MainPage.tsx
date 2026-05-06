@@ -143,13 +143,11 @@ export function MainPage() {
     [loadData, reportError, requestOptions],
   );
 
-  // Снять роль с задачи, если она удалена/изменена.
   const releaseRole = useCallback((id: string) => {
     setStartTaskId((prev) => (prev === id ? '' : prev));
     setEndTaskId((prev) => (prev === id ? '' : prev));
   }, []);
 
-  // Установить новую роль для задачи (или снять).
   const applyRoleChange = useCallback((id: string, role: TaskRole) => {
     if (role === 'start') {
       setStartTaskId(id);

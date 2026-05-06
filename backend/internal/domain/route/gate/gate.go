@@ -7,7 +7,6 @@ import (
 	"planner-backend/internal/domain/route"
 )
 
-// StopInput — данные для сохранения одной остановки маршрута.
 type StopInput struct {
 	TaskID            string
 	Position          int
@@ -15,14 +14,11 @@ type StopInput struct {
 	ArriveTime        *time.Time
 	ServiceStartTime  *time.Time
 	ServiceEndTime    *time.Time
-	WaitSec           *int // секунды ожидания открытия окна
+	WaitSec           *int
 }
 
-// Repository хранит ровно один маршрут на пользователя: каждое сохранение
-// перезаписывает предыдущий (DELETE + INSERT в одной транзакции).
+// Один маршрут на пользователя: SaveOptimizedRoute перезаписывает предыдущий.
 type Repository interface {
-	// SaveOptimizedRoute сохраняет маршрут, остановки и статистику в одной транзакции.
-	// Если у пользователя уже был маршрут — он удаляется (CASCADE сносит stops/stats/geometry).
 	SaveOptimizedRoute(
 		ctx context.Context,
 		userID, algorithm string,

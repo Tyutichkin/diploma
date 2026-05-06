@@ -20,7 +20,6 @@ func NewTaskRepo(pool *pgxpool.Pool) *TaskRepo {
 	return &TaskRepo{pool: pool}
 }
 
-// Колонки задач, используемые в SELECT.
 const taskColumns = `id, user_id, title, address_text, latitude, longitude, duration_min,
 	window_start_date, window_start_time, window_end_date, window_end_time,
 	sort_index, created_at, updated_at, is_completed`
@@ -232,11 +231,8 @@ func (r *TaskRepo) Delete(ctx context.Context, userID, taskID string) (bool, err
 	return ct.RowsAffected() > 0, nil
 }
 
-// DeleteAll удаляет все задачи пользователя и его сохранённый маршрут (один
-// на пользователя) одной транзакцией. Маршрут чистим первым: его удаление
-// каскадно сносит route_stops/route_stats/route_geometry, после чего DELETE
-// по tasks гарантированно не упирается в FK route_stops.task_id (даже если
-// в БД этот FK исторически создан как ON DELETE RESTRICT).
+// Маршрут удаляется первым: каскад сносит route_stops, что снимает FK на tasks
+// (FK исторически мог быть ON DELETE RESTRICT).
 func (r *TaskRepo) DeleteAll(ctx context.Context, userID string) (int64, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

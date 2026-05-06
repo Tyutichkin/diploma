@@ -10,7 +10,6 @@ interface TaskListProps {
   tasks: Task[];
   startTaskId?: string;
   endTaskId?: string;
-  // Если не передан — TaskList посчитает сам (для обратной совместимости с тестами).
   staticConflictIds?: Set<string>;
   routeConflictIds?: Set<string>;
   onEdit: (task: Task) => void;

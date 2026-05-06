@@ -12,14 +12,11 @@ import (
 	"planner-backend/internal/common/timing"
 )
 
-// OSRMProvider — клиент к OSRM Table API
-// (http://project-osrm.org/docs/v5.24.0/api/#table-service).
 type OSRMProvider struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// NewOSRMProvider — если baseURL пустой, использует http://router.project-osrm.org.
 func NewOSRMProvider(baseURL string) *OSRMProvider {
 	if baseURL == "" {
 		baseURL = "http://router.project-osrm.org"
@@ -32,19 +29,17 @@ func NewOSRMProvider(baseURL string) *OSRMProvider {
 
 type osrmTableResp struct {
 	Code      string      `json:"code"`
-	Durations [][]float64 `json:"durations"` // секунды; null — недостижимо
-	Distances [][]float64 `json:"distances"` // метры; null — недостижимо
+	Durations [][]float64 `json:"durations"`
+	Distances [][]float64 `json:"distances"`
 }
 
-// GetMatrix — вызов OSRM Table и построение n×n матрицы. Недостижимым парам
-// ставится большое значение, чтобы оптимизатор мог построить маршрут.
 func (p *OSRMProvider) GetMatrix(ctx context.Context, points []Point) ([][]Edge, error) {
 	n := len(points)
 	if n == 0 {
 		return nil, nil
 	}
 
-	// OSRM ждёт координаты в порядке "lng,lat".
+	// OSRM требует "lng,lat".
 	coords := make([]string, n)
 	for i, pt := range points {
 		coords[i] = fmt.Sprintf("%.6f,%.6f", pt.Lng, pt.Lat)
@@ -85,9 +80,8 @@ func (p *OSRMProvider) GetMatrix(ctx context.Context, points []Point) ([][]Edge,
 	return matrix, nil
 }
 
-// edgeFromOSRM — NaN и отрицательные значения (недостижимые пары) заменяются большим fallback.
 func edgeFromOSRM(durations, distances [][]float64, i, j int) Edge {
-	const unreachableDurSec = 99_999 // ~27 часов — заведомо избегается оптимизатором
+	const unreachableDurSec = 99_999
 
 	durSec := unreachableDurSec
 	if durations != nil && i < len(durations) && j < len(durations[i]) {
@@ -103,7 +97,5 @@ func edgeFromOSRM(durations, distances [][]float64, i, j int) Edge {
 		}
 	}
 
-	// Округляем длительность вверх до целой минуты, чтобы дальше система
-	// работала только с минутно-выровненными секундами (см. internal/common/timing).
 	return Edge{DistanceM: distM, DurationSec: timing.RoundUpSecToMinute(durSec)}
 }

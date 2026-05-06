@@ -36,24 +36,13 @@ func New(
 	}
 }
 
-// PrecedenceConstraint задаёт попарное ограничение порядка посещения задач:
-// задача BeforeTaskID должна быть выполнена строго до задачи AfterTaskID.
 type PrecedenceConstraint struct {
 	BeforeTaskID string
 	AfterTaskID  string
 }
 
-// Optimize строит маршрут: получает матрицу расстояний (от фронта или через OSRM),
-// запускает алгоритм оптимизации с учётом временны́х окон и сохраняет результат.
-//
-// externalMatrix[i][j] соответствует порядку taskIDs (DTO-контракт). Репозиторий
-// может вернуть задачи в произвольном порядке — выравниваем здесь, иначе рёбра
-// графа окажутся привязаны не к тем узлам, и оптимизатор примет некорректные
-// решения по временным окнам. Если externalMatrix nil — матрица запрашивается у
-// настроенного distance.Provider (OSRM).
-//
-// startTaskID и endTaskID фиксируют первую и последнюю точку маршрута соответственно.
-// precedences задаёт попарные ограничения порядка посещения.
+// externalMatrix[i][j] индексируется по taskIDs (DTO-контракт), а репозиторий может
+// вернуть задачи в произвольном порядке — поэтому tasks выравниваются по taskIDs.
 func (s *Story) Optimize(
 	ctx context.Context,
 	userID string,
@@ -112,10 +101,8 @@ func (s *Story) Optimize(
 	return assembleFull(rt, stops, result), nil
 }
 
-// alignTasksToIDs возвращает задачи в порядке, заданном taskIDs, и индексы
-// найденных задач в исходном taskIDs (для согласования с внешней матрицей
-// расстояний — её i,j индексируются по taskIDs). Неизвестные id пропускаются;
-// дубли в taskIDs игнорируются после первого вхождения.
+// Возвращает задачи в порядке taskIDs и индексы найденных в исходном taskIDs.
+// Неизвестные id пропускаются; дубли игнорируются после первого вхождения.
 func alignTasksToIDs(fetched []task.Task, taskIDs []string) ([]task.Task, []int) {
 	byID := make(map[string]task.Task, len(fetched))
 	for _, t := range fetched {
@@ -137,8 +124,6 @@ func alignTasksToIDs(fetched []task.Task, taskIDs []string) ([]task.Task, []int)
 	return aligned, indices
 }
 
-// subMatrix выбирает подматрицу matrix по индексам indices (по обеим осям).
-// Используется для согласования внешней матрицы с отфильтрованным набором задач.
 func subMatrix(matrix [][]distancepkg.Edge, indices []int) [][]distancepkg.Edge {
 	n := len(indices)
 	out := make([][]distancepkg.Edge, n)
@@ -158,8 +143,6 @@ func subMatrix(matrix [][]distancepkg.Edge, indices []int) [][]distancepkg.Edge 
 	return out
 }
 
-// resolveMatrix отдаёт матрицу из externalMatrix (если передана) или запрашивает её
-// у настроенного distance.Provider. Все задачи должны иметь координаты.
 func (s *Story) resolveMatrix(
 	ctx context.Context,
 	tasks []task.Task,
@@ -184,8 +167,6 @@ func (s *Story) resolveMatrix(
 	return matrix, nil
 }
 
-// buildGraph переводит список задач + матрицу расстояний в граф оптимизатора.
-// Возвращает индекс TaskID→позиция узла для последующего разрешения констрейнтов.
 func buildGraph(
 	tasks []task.Task,
 	matrix [][]distancepkg.Edge,
@@ -220,9 +201,8 @@ func buildGraph(
 	return &routeopt.Graph{Nodes: nodes, Edges: edges}, idx
 }
 
-// adjustStartTime сдвигает начало оптимизации к самому раннему WindowStart, если он
-// раньше startTimeUnix. Это нужно для случая, когда фронтенд передаёт 0 (бэк подставляет
-// time.Now()), а у задач утренние окна — иначе все они считались бы просроченными.
+// Сдвигает старт к самому раннему WindowStart, если он раньше startTimeUnix —
+// иначе утренние окна сочлись бы просроченными при startTimeUnix=time.Now().
 func adjustStartTime(nodes []routeopt.Node, startTimeUnix int64) int64 {
 	for _, nd := range nodes {
 		if nd.WindowStart >= 0 && nd.WindowStart < startTimeUnix {
@@ -264,7 +244,6 @@ func buildConstraints(
 	return c
 }
 
-// makeStopInputs конвертирует результат оптимизатора в формат, ожидаемый репозиторием.
 func makeStopInputs(result routeopt.Result, tasks []task.Task) []routegate.StopInput {
 	stops := make([]routegate.StopInput, len(result.Order))
 	for pos, nodeIdx := range result.Order {
@@ -287,7 +266,6 @@ func makeStopInputs(result routeopt.Result, tasks []task.Task) []routegate.StopI
 	return stops
 }
 
-// assembleFull собирает Full-ответ из данных в памяти, без лишнего обращения к БД.
 func assembleFull(rt route.Route, stops []routegate.StopInput, r routeopt.Result) route.Full {
 	routeStops := make([]route.Stop, len(stops))
 	for i, s := range stops {
@@ -315,8 +293,6 @@ func assembleFull(rt route.Route, stops []routegate.StopInput, r routeopt.Result
 	return route.Full{Route: rt, Stops: routeStops, Stats: stats}
 }
 
-// boundKind различает, какую границу окна строит buildUnixSec, чтобы корректно
-// раскрывать «только дата» в полный день: 00:00 для начала, 23:59 для конца.
 type boundKind int
 
 const (
@@ -324,11 +300,8 @@ const (
 	boundEnd
 )
 
-// buildUnixSec собирает Unix-секунды из даты ("YYYY-MM-DD") и времени ("HH:MM").
-// Если дата не задана, но время есть — подставляет fallbackDate (для CSV-импорта
-// с одним только временем). Если задана только дата без времени, окно трактуется
-// как полный день: 00:00 для начала, 23:59 для конца. Возвращает -1, если ни
-// дата, ни время не заданы.
+// «Только дата» раскрывается в полный день: 00:00 для начала, 23:59 для конца.
+// Возвращает -1, если ни дата, ни время не заданы.
 func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time, kind boundKind) int64 {
 	hasDate := dateStr != nil && *dateStr != ""
 	hasTime := timeStr != nil && *timeStr != ""

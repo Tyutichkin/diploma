@@ -13,16 +13,11 @@ const (
 	cacheTTL  = 24 * time.Hour
 )
 
-// CachedProvider оборачивает Provider и кэширует значения Edge по парам точек
-// в экспирационном LRU-кэше (hashicorp/golang-lru/v2). Ключ — округлённые до
-// 6 знаков координаты пары, чтобы одни и те же адреса не порождали повторных
-// обращений к внешнему провайдеру.
 type CachedProvider struct {
 	inner Provider
 	cache *expirable.LRU[string, Edge]
 }
 
-// NewCachedProvider оборачивает переданный провайдер LRU-кэшем с TTL.
 func NewCachedProvider(inner Provider) *CachedProvider {
 	return &CachedProvider{
 		inner: inner,
@@ -34,8 +29,6 @@ func pairKey(a, b Point) string {
 	return fmt.Sprintf("%.6f,%.6f->%.6f,%.6f", a.Lat, a.Lng, b.Lat, b.Lng)
 }
 
-// GetMatrix возвращает матрицу, заполняя из кэша уже известные пары и
-// запрашивая у нижележащего провайдера только при наличии пропусков.
 func (c *CachedProvider) GetMatrix(ctx context.Context, points []Point) ([][]Edge, error) {
 	n := len(points)
 	if n == 0 {

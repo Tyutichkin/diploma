@@ -12,7 +12,6 @@ import (
 	importstory "planner-backend/internal/domain/taskimport/story"
 )
 
-// maxImportFileSize — верхний предел размера загружаемого файла (защита от DoS).
 const maxImportFileSize = 10 << 20 // 10 MB
 
 type ImportHandlers struct {
@@ -23,15 +22,12 @@ func NewImportHandlers(st *importstory.Story) *ImportHandlers {
 	return &ImportHandlers{story: st}
 }
 
-// Import обрабатывает POST /api/tasks/import (multipart/form-data, поле "file").
-// Необязательный query-параметр startSortIndex задаёт sort_index первой задачи.
 func (h *ImportHandlers) Import(c *gin.Context) {
 	userID, ok := userIDFromCtx(c)
 	if !ok {
 		return
 	}
 
-	// Ограничиваем размер тела, чтобы злоумышленник не мог отправить огромный файл.
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxImportFileSize)
 
 	file, header, err := c.Request.FormFile("file")

@@ -27,10 +27,6 @@ func NewRouteRepo(pool *pgxpool.Pool) *RouteRepo {
 	return &RouteRepo{pool: pool}
 }
 
-// SaveOptimizedRoute перезаписывает единственный маршрут пользователя:
-// существующая запись (если есть) удаляется вместе со всеми зависимостями
-// (route_stops/route_stats/route_geometry — через ON DELETE CASCADE), затем
-// вставляется новая. Всё в одной транзакции.
 func (r *RouteRepo) SaveOptimizedRoute(
 	ctx context.Context,
 	userID, algorithm string,

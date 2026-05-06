@@ -1,6 +1,4 @@
-// Package story реализует use case массового импорта задач из файла.
-// Парсит CSV / XLSX, делегирует создание задач task.Story.CreateBatch,
-// собирает ошибки построчно и возвращает сводный результат.
+// Package story реализует массовый импорт задач из CSV/XLSX.
 package story
 
 import (
@@ -11,8 +9,6 @@ import (
 	"planner-backend/internal/domain/taskimport"
 )
 
-// Story — use case импорта задач. Зависит только от taskstory.Story,
-// т. е. не знает ни про БД, ни про HTTP — чистый domain-слой.
 type Story struct {
 	tasks *taskstory.Story
 }
@@ -21,16 +17,11 @@ func New(tasks *taskstory.Story) *Story {
 	return &Story{tasks: tasks}
 }
 
-// Result — что вернуть клиенту после импорта.
 type Result struct {
 	Imported []task.Task
 	Errors   []taskimport.RowError
 }
 
-// Import разбирает файл data с именем filename и создаёт задачи в БД.
-// startSortIndex — значение sort_index для первой созданной задачи
-// (последующие получают +1, +2, …), чтобы импортированные задачи
-// не конфликтовали с существующими.
 func (s *Story) Import(
 	ctx context.Context,
 	userID string,
