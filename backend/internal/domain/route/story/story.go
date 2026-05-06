@@ -67,8 +67,11 @@ type PrecedenceConstraint struct {
 // Optimize строит маршрут: получает матрицу расстояний (от фронта или через OSRM),
 // запускает алгоритм оптимизации с учётом временны́х окон и сохраняет результат.
 //
-// externalMatrix[i][j] должна соответствовать порядку задач из GetByIDs.
-// Если nil — матрица запрашивается у настроенного distance.Provider (OSRM).
+// externalMatrix[i][j] соответствует порядку taskIDs (DTO-контракт). Репозиторий
+// может вернуть задачи в произвольном порядке — выравниваем здесь, иначе рёбра
+// графа окажутся привязаны не к тем узлам, и оптимизатор примет некорректные
+// решения по временным окнам. Если externalMatrix nil — матрица запрашивается у
+// настроенного distance.Provider (OSRM).
 //
 // startTaskID и endTaskID фиксируют первую и последнюю точку маршрута соответственно.
 // precedences задаёт попарные ограничения порядка посещения.
@@ -88,12 +91,17 @@ func (s *Story) Optimize(
 		return route.Full{}, errors.New("start and end task must be different")
 	}
 
-	tasks, err := s.tasks.GetByIDs(ctx, userID, taskIDs)
+	fetched, err := s.tasks.GetByIDs(ctx, userID, taskIDs)
 	if err != nil {
 		return route.Full{}, fmt.Errorf("fetch tasks: %w", err)
 	}
+
+	tasks, foundIdxs := alignTasksToIDs(fetched, taskIDs)
 	if len(tasks) < 2 {
 		return route.Full{}, errors.New("at least 2 valid tasks required")
+	}
+	if len(externalMatrix) > 0 {
+		externalMatrix = subMatrix(externalMatrix, foundIdxs)
 	}
 
 	matrix, err := s.resolveMatrix(ctx, tasks, externalMatrix)
@@ -123,6 +131,52 @@ func (s *Story) Optimize(
 	}
 
 	return assembleFull(rt, stops, result), nil
+}
+
+// alignTasksToIDs возвращает задачи в порядке, заданном taskIDs, и индексы
+// найденных задач в исходном taskIDs (для согласования с внешней матрицей
+// расстояний — её i,j индексируются по taskIDs). Неизвестные id пропускаются;
+// дубли в taskIDs игнорируются после первого вхождения.
+func alignTasksToIDs(fetched []task.Task, taskIDs []string) ([]task.Task, []int) {
+	byID := make(map[string]task.Task, len(fetched))
+	for _, t := range fetched {
+		byID[t.ID] = t
+	}
+	aligned := make([]task.Task, 0, len(fetched))
+	indices := make([]int, 0, len(fetched))
+	seen := make(map[string]struct{}, len(taskIDs))
+	for i, id := range taskIDs {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		if t, ok := byID[id]; ok {
+			aligned = append(aligned, t)
+			indices = append(indices, i)
+		}
+	}
+	return aligned, indices
+}
+
+// subMatrix выбирает подматрицу matrix по индексам indices (по обеим осям).
+// Используется для согласования внешней матрицы с отфильтрованным набором задач.
+func subMatrix(matrix [][]distancepkg.Edge, indices []int) [][]distancepkg.Edge {
+	n := len(indices)
+	out := make([][]distancepkg.Edge, n)
+	for i, ri := range indices {
+		out[i] = make([]distancepkg.Edge, n)
+		if ri >= len(matrix) {
+			continue
+		}
+		row := matrix[ri]
+		for j, rj := range indices {
+			if rj >= len(row) {
+				continue
+			}
+			out[i][j] = row[rj]
+		}
+	}
+	return out
 }
 
 // resolveMatrix отдаёт матрицу из externalMatrix (если передана) или запрашивает её

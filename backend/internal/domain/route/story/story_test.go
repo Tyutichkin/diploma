@@ -660,3 +660,213 @@ func TestBuildUnixSec_NilDateWithTime(t *testing.T) {
 	expected := time.Date(2024, 6, 10, 14, 0, 0, 0, time.UTC).Unix()
 	assert.Equal(t, expected, buildUnixSec(nil, &tm, fallbackDate, boundStart))
 }
+
+// 3.2.10 Регрессия: репозиторий вернул задачи в произвольном порядке,
+// внешняя матрица проиндексирована по taskIDs (DTO-контракт). Story должна
+// выровнять tasks в порядок taskIDs и переставить матрицу, иначе рёбра графа
+// привяжутся не к тем узлам.
+//
+// Воспроизводит баг "после двух нажатий «Оптимизировать маршрут» ПитерСервис
+// вылетает за окно": после первой оптимизации фронт шлёт taskIDs в новом
+// порядке, БД возвращает строки в физическом порядке, и матрица перекашивается
+// относительно узлов.
+func TestOptimize_AlignsMatrixWithTaskIDsOrder(t *testing.T) {
+	uid := uuid.NewString()
+	t1 := makeRouteTask(uuid.NewString(), uid)
+	t2 := makeRouteTask(uuid.NewString(), uid)
+	t3 := makeRouteTask(uuid.NewString(), uid)
+
+	// Фронт шлёт задачи в порядке [t1, t2, t3].
+	taskIDs := []string{t1.ID, t2.ID, t3.ID}
+
+	// Матрица соответствует taskIDs: t1↔t2 дешёвые рёбра, t3 — далеко.
+	matrix := [][]distancepkg.Edge{
+		{{}, {DistanceM: 100, DurationSec: 60}, {DistanceM: 9000, DurationSec: 5400}},
+		{{DistanceM: 100, DurationSec: 60}, {}, {DistanceM: 9000, DurationSec: 5400}},
+		{{DistanceM: 9000, DurationSec: 5400}, {DistanceM: 9000, DurationSec: 5400}, {}},
+	}
+
+	// Репозиторий возвращает задачи в РАЗНОМ порядке: [t3, t1, t2] —
+	// это поведение Postgres `WHERE id IN (...)` без ORDER BY.
+	tRepo := &mockTaskRepo{
+		getByIDsFn: func(_ context.Context, _ string, _ []string) ([]task.Task, error) {
+			return []task.Task{t3, t1, t2}, nil
+		},
+	}
+
+	var capturedGraph *routeopt.Graph
+	opt := &mockOptimizer{
+		nameFn: func() string { return "nearest-neighbor-tw" },
+		optimizeFn: func(_ context.Context, g *routeopt.Graph, startTime int64, _ routeopt.Constraints) (routeopt.Result, error) {
+			capturedGraph = g
+			order := make([]int, len(g.Nodes))
+			timings := make([]routeopt.StopTiming, len(g.Nodes))
+			cur := startTime
+			for i := range order {
+				order[i] = i
+				timings[i] = routeopt.StopTiming{NodeIdx: i, ArrivalSec: cur, ServiceStartSec: cur, ServiceEndSec: cur + 600}
+				cur = timings[i].ServiceEndSec + int64(g.Edges[i][i].DurationSec)
+			}
+			return routeopt.Result{Order: order, Timings: timings}, nil
+		},
+	}
+	rRepo := &mockRouteRepo{
+		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
+			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+		},
+	}
+
+	s := New(rRepo, tRepo, &mockDistProvider{}, opt)
+	_, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix, nil, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, capturedGraph)
+	require.Len(t, capturedGraph.Nodes, 3)
+
+	// Порядок узлов графа должен совпадать с порядком taskIDs.
+	assert.Equal(t, t1.ID, capturedGraph.Nodes[0].TaskID)
+	assert.Equal(t, t2.ID, capturedGraph.Nodes[1].TaskID)
+	assert.Equal(t, t3.ID, capturedGraph.Nodes[2].TaskID)
+
+	// Рёбра графа должны соответствовать тем же индексам, что и матрица.
+	// Конкретно: ребро t1→t2 (узлы 0→1) — короткое, t1→t3 (0→2) — длинное.
+	assert.Equal(t, 60, capturedGraph.Edges[0][1].DurationSec, "t1→t2 должно быть быстрым")
+	assert.Equal(t, 5400, capturedGraph.Edges[0][2].DurationSec, "t1→t3 должно быть медленным")
+	assert.Equal(t, 5400, capturedGraph.Edges[1][2].DurationSec, "t2→t3 должно быть медленным")
+}
+
+// 3.2.11 Регрессия e2e на реальном оптимизаторе: демо-сценарий из CSV
+// (СевЗап, Захаров, Фармакор, ПитерСервис, Новикова, Склад, ИнтерТек). Перед
+// фиксом в story.go при произвольном порядке возврата из репозитория ПитерСервис
+// (окно 11:30–13:30) ставился последним и вылетал за дедлайн.
+//
+// Сценарий пользователя: после первой оптимизации фронт сохраняет новый порядок
+// в БД и шлёт taskIDs в этом порядке на втором клике, а Postgres `WHERE id IN (...)`
+// без ORDER BY возвращает строки в физическом heap-порядке — рассогласование
+// с матрицей. Здесь это моделируется reverse-shuffle ответа репозитория.
+func TestOptimize_DemoCSV_PitersServisFitsWindow(t *testing.T) {
+	uid := uuid.NewString()
+	day := "2026-05-06"
+	mkWindowed := func(title, ws, we string, dur int) task.Task {
+		lat, lon := 59.93, 30.36 // координаты не важны: матрица передаётся явно
+		wsCopy, weCopy, dayCopy := ws, we, day
+		return task.Task{
+			ID:              uuid.NewString(),
+			UserID:          uid,
+			Title:           title,
+			AddressText:     title,
+			Latitude:        &lat,
+			Longitude:       &lon,
+			DurationMin:     ptrs.Ptr(dur),
+			WindowStartDate: &dayCopy,
+			WindowStartTime: &wsCopy,
+			WindowEndDate:   &dayCopy,
+			WindowEndTime:   &weCopy,
+		}
+	}
+	mkNoWindow := func(title string, dur int) task.Task {
+		lat, lon := 59.93, 30.36
+		return task.Task{
+			ID:          uuid.NewString(),
+			UserID:      uid,
+			Title:       title,
+			AddressText: title,
+			Latitude:    &lat,
+			Longitude:   &lon,
+			DurationMin: ptrs.Ptr(dur),
+		}
+	}
+
+	// Порядок CSV: СевЗап, Захаров, Фармакор, ПитерСервис, Новикова, Склад, ИнтерТек.
+	tasks := []task.Task{
+		mkWindowed("СевЗап Логистик", "09:30", "11:00", 30),       // 0
+		mkNoWindow("Клиент Захаров", 20),                           // 1
+		mkWindowed("Аптечная сеть Фармакор", "10:00", "12:00", 15), // 2
+		mkWindowed("ООО ПитерСервис", "11:30", "13:30", 45),        // 3
+		mkWindowed("Клиент Новикова", "13:00", "15:00", 30),        // 4
+		mkNoWindow("Склад №2", 20),                                 // 5
+		mkWindowed("ЗАО ИнтерТек", "15:30", "17:30", 40),           // 6
+	}
+	taskIDs := make([]string, len(tasks))
+	for i, t := range tasks {
+		taskIDs[i] = t.ID
+	}
+
+	// Матрица собрана так, чтобы единственный путь, при котором ПитерСервис
+	// (idx 3) укладывается в окно 11:30–13:30, проходил через Фармакор (idx 2):
+	// matrix[2][3] = 60 сек (короткий «эксклюзивный» переход), все остальные
+	// рёбра, ведущие к ПитерСервису, — 4 часа. При корректном выравнивании
+	// matrix↔tasks алгоритм находит этот путь. При перепутанных индексах
+	// «эксклюзивная» 60-секундная ячейка применяется к чужой паре узлов, и
+	// ПитерСервис становится недостижимым в окне → попадает в pickNextFallback
+	// и приезд оказывается после дедлайна.
+	n := len(tasks)
+	const fast = 600
+	const slow = 14400
+	matrix := make([][]distancepkg.Edge, n)
+	for i := range matrix {
+		matrix[i] = make([]distancepkg.Edge, n)
+		for j := range matrix[i] {
+			if i == j {
+				continue
+			}
+			matrix[i][j] = distancepkg.Edge{DistanceM: 5000, DurationSec: fast}
+		}
+	}
+	// Все рёбра «куда-то к ПитерСервису» — медленные, кроме Фармакор→ПитерСервис.
+	for i := 0; i < n; i++ {
+		if i == 3 {
+			continue
+		}
+		matrix[i][3] = distancepkg.Edge{DistanceM: 50000, DurationSec: slow}
+	}
+	matrix[2][3] = distancepkg.Edge{DistanceM: 200, DurationSec: 60}
+
+	// Репозиторий возвращает задачи в обратном порядке — самый агрессивный кейс
+	// несоответствия порядка taskIDs и физического порядка строк в БД.
+	shuffled := make([]task.Task, n)
+	for i, t := range tasks {
+		shuffled[n-1-i] = t
+	}
+	tRepo := &mockTaskRepo{
+		getByIDsFn: func(_ context.Context, _ string, _ []string) ([]task.Task, error) {
+			return shuffled, nil
+		},
+	}
+
+	rRepo := &mockRouteRepo{
+		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
+			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+		},
+	}
+
+	// startTimeUnix = 09:30 этого дня — типичное начало рабочего дня; алгоритм
+	// внутри сдвигает старт к самому раннему окну, если оно ещё раньше.
+	startTimeUnix := time.Date(2026, 5, 6, 9, 30, 0, 0, time.UTC).Unix()
+
+	realOpt := routeopt.NewNearestNeighborTW()
+	s := New(rRepo, tRepo, &mockDistProvider{}, realOpt)
+
+	full, err := s.Optimize(context.Background(), uid, taskIDs, startTimeUnix, matrix, nil, nil, nil)
+	require.NoError(t, err)
+	require.Len(t, full.Stops, n)
+
+	// Находим стоп ПитерСервиса и проверяем, что он укладывается в окно 11:30–13:30
+	// (start_service ≤ window_end - duration). Без выравнивания матрицы оптимизатор
+	// сваливался в pickNextFallback и приезд оказывался после 17:00.
+	piterID := tasks[3].ID
+	piterEnd := time.Date(2026, 5, 6, 13, 30, 0, 0, time.UTC).Unix()
+	piterDur := int64(45 * 60)
+
+	var piterStop *route.Stop
+	for i := range full.Stops {
+		if full.Stops[i].TaskID == piterID {
+			piterStop = &full.Stops[i]
+			break
+		}
+	}
+	require.NotNil(t, piterStop, "ПитерСервис должен быть в маршруте")
+	require.NotNil(t, piterStop.ServiceStartTime)
+	startUnix := piterStop.ServiceStartTime.Unix()
+	assert.LessOrEqual(t, startUnix, piterEnd-piterDur,
+		"ПитерСервис должен начинаться не позже 12:45 (окно 11:30–13:30 минус 45 мин)")
+}
