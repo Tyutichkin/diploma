@@ -30,7 +30,7 @@ export function groupTasksByCoord(validTasks: Task[]): TaskGroup[] {
   const map = new Map<string, TaskGroup>();
   validTasks.forEach((task, index) => {
     if (task.latitude === undefined || task.longitude === undefined) return;
-    const key = `${task.latitude.toFixed(4)}|${task.longitude.toFixed(4)}`;
+    const key = `${task.latitude.toFixed(5)}|${task.longitude.toFixed(5)}`;
     let group = map.get(key);
     if (!group) {
       group = { key, lat: task.latitude, lon: task.longitude, entries: [] };

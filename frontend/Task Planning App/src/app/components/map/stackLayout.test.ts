@@ -27,7 +27,7 @@ describe('groupTasksByCoord', () => {
   it('задачи с разницей координат < 1e-5 попадают в одну группу', () => {
     const groups = groupTasksByCoord([
       t('a', 55.75000, 37.62000),
-      t('b', 55.75001, 37.62001),
+      t('b', 55.750001, 37.620001),
     ]);
     expect(groups).toHaveLength(1);
     expect(groups[0].entries.map((e) => e.task.id)).toEqual(['a', 'b']);
