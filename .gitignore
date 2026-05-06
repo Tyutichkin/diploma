@@ -56,9 +56,78 @@ backend/postgres-data/
 # Diplom / latex artifacts (large binaries, not source code)
 Диплом Latex.zip
 *.zip
-*.synctex.gz
+
+# LaTeX build/intermediate files
 *.aux
 *.log
+*.toc
+*.lof
+*.lot
+*.loa
+*.out
+*.synctex.gz
+*.synctex(busy)
+*.fdb_latexmk
+*.fls
+*.xdv
+*.dvi
+*.fmt
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.idx
+*.ind
+*.ilg
+*.glo
+*.gls
+*.glg
+*.acn
+*.acr
+*.alg
+*.nav
+*.snm
+*.vrb
+*.figlist
+*.makefile
+*.auxlock
+*.upa
+*.upb
+# minted (pygments) cache
+_minted-*/
+*.pyg
+# inkscape SVG → LaTeX cache
+svg-inkscape/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# MS Office lock/temp files
+~$*.doc
+~$*.docx
+~$*.xls
+~$*.xlsx
+~$*.ppt
+~$*.pptx
+
+# Frontend build/coverage
+frontend/Task Planning App/coverage/
+frontend/Task Planning App/.vite/
+frontend/Task Planning App/*.tsbuildinfo
+
+# Local Claude / tooling overrides
+.claude/settings.local.json
+**/.claude/settings.local.json
 
 # Playwright MCP
 .playwright-mcp/
