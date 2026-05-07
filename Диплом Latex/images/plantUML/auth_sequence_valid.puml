@@ -27,7 +27,7 @@ activate Server
 
 Server -> Server : Проверить JWT:\nподпись, срок действия, uid
 
-Server -> DB : SELECT tasks WHERE user_id = uid\nAND is_deleted = false
+Server -> DB : SELECT tasks WHERE user_id = uid
 activate DB
 DB --> Server : tasks[]
 deactivate DB

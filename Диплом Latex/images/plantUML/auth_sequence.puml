@@ -69,7 +69,7 @@ activate Server
 
 Server -> Server : Проверить JWT:\nподпись, срок действия,\nuid из Claims
 
-Server -> DB : SELECT tasks\nWHERE user_id = uid\nAND is_deleted = false
+Server -> DB : SELECT tasks\nWHERE user_id = uid
 activate DB
 DB --> Server : tasks[]
 deactivate DB
@@ -126,7 +126,7 @@ end note
 Client -> Server : POST /api/tasks\nAuthorization: Bearer <newToken>
 activate Server
 
-Server -> DB : INSERT tasks\n{ user_id, address, lat, lon,\n  duration, window_start, window_end }
+Server -> DB : INSERT tasks\n{ user_id, address, lat, lon, duration,\n  window_start_date, window_start_time,\n  window_end_date, window_end_time }
 activate DB
 DB --> Server : task{ id }
 deactivate DB

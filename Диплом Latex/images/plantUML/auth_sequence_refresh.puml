@@ -62,7 +62,7 @@ end note
 Client -> Server : POST /api/tasks\nAuthorization: Bearer <новый токен>
 activate Server
 
-Server -> DB : INSERT tasks\n{ user_id, address, lat, lon,\n  duration, window_start, window_end }
+Server -> DB : INSERT tasks\n{ user_id, address, lat, lon, duration,\n  window_start_date, window_start_time,\n  window_end_date, window_end_time }
 activate DB
 DB --> Server : { id }
 deactivate DB

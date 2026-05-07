@@ -29,12 +29,15 @@ entity "tasks" as tasks {
   * user_id : UUID <<FK>>
   * title : varchar(200)
   * address_text : varchar(400)
-  * latitude : numeric(9,6)
-  * longitude : numeric(9,6)
-  * duration_min : int
-  * window_start : time <<nullable>>
-  * window_end : time <<nullable>>
+  * latitude : numeric(9,6) <<nullable>>
+  * longitude : numeric(9,6) <<nullable>>
+  * duration_min : int <<nullable>>
+  * window_start_date : date <<nullable>>
+  * window_start_time : time <<nullable>>
+  * window_end_date : date <<nullable>>
+  * window_end_time : time <<nullable>>
   * sort_index : int
+  * is_completed : boolean
   * created_at : timestamptz
   * updated_at : timestamptz
 }
@@ -42,9 +45,9 @@ entity "tasks" as tasks {
 entity "routes" as routes {
   * id : UUID <<PK>>
   --
-  * user_id : UUID <<FK>>
-  * status : varchar(30)   ' draft|optimized|failed
-  * source : varchar(30)   ' manual|optimized
+  * user_id : UUID <<FK, UQ>>
+  * status : varchar(30)
+  * source : varchar(30)
   * algorithm : varchar(50) <<nullable>>
   * started_at : timestamptz <<nullable>>
   * finished_at : timestamptz <<nullable>>
@@ -84,7 +87,7 @@ entity "route_geometry" as geom {
 }
 
 users ||--o{ tasks : "1 ко многим"
-users ||--o{ routes : "1 ко многим"
+users ||--o| routes : "1 к 0..1"
 users ||--o{ rt : "1 ко многим"
 
 routes ||--o{ stops : "1 ко многим"
