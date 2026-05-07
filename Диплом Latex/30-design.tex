@@ -724,12 +724,12 @@ Apple Safari версии 14 и выше, Microsoft Edge версии 90 и вы
 
 \subsection{Общие сведения о развертывании}
 
-Приложение состоит из двух независимо компонентов:
+Приложение состоит из двух независимых компонентов:
 серверной части (Go API + PostgreSQL) и клиентской части (React SPA).
-Серверная часть распространяется в виде Docker-образов и предназначена
+Серверная часть распространяется в виде Docker-образа и предназначена
 для запуска на сервере или локальной машине.
 Клиентская часть собирается в набор статических файлов и размещается
-на веб-сервере (например, Nginx или встроенном сервере Vite); конечному
+на веб-сервере (например, Nginx, Apache или Caddy); конечному
 пользователю достаточно современного веб-браузера, установка
 дополнительного программного обеспечения на его стороне не требуется.
 
@@ -751,7 +751,13 @@ Linux~\cite{linux_kernel} (рекомендуется), macOS~\cite{macos} и Wi
   \item Убедиться в наличии установленных Docker (версии 24.0 и выше)
         и Docker Compose (версии 2.0 и выше).
   \item Перейти в директорию \texttt{backend/}.
-  \item При необходимости изменить переменные среды через файл \texttt{.env}.
+  \item Создать файл \texttt{.env}, скопировав шаблон \texttt{.env.example},
+        и задать значения параметров \texttt{POSTGRES\_PASSWORD}
+        и \texttt{APP\_JWT\_SECRET}; остальные параметры имеют
+        корректные значения по умолчанию.
+        Файл \texttt{.env} обязателен: \texttt{docker-compose.yml}
+        читает из него учетные данные базы данных и секрет подписи
+        токенов без значений по умолчанию.
   \item Выполнить команду:
         \begin{verbatim}
 docker compose up --build
@@ -776,29 +782,41 @@ docker compose up --build
   \label{tab:env_vars}
   \begin{tabular}{|p{0.37\textwidth}|p{0.24\textwidth}|p{0.28\textwidth}|}
     \hline
-    \textbf{Переменная}              & \textbf{Значение по умолчанию}       & \textbf{Описание}                  \\
+    \textbf{Переменная}              & \textbf{Значение по умолчанию}       & \textbf{Описание}                       \\
     \hline
-    \texttt{APP\_HTTP\_ADDR}         & \texttt{:8080}                       & Адрес и порт HTTP-сервера          \\
+    \texttt{POSTGRES\_DB}            & \texttt{planner}                     & Имя базы данных PostgreSQL              \\
     \hline
-    \texttt{APP\_DB\_DSN}            & —                                    & Строка подключения к PostgreSQL    \\
+    \texttt{POSTGRES\_USER}          & \texttt{planner}                     & Имя пользователя PostgreSQL             \\
     \hline
-    \texttt{APP\_JWT\_SECRET}        & —                                    & Секретный ключ для подписи JWT     \\
+    \texttt{POSTGRES\_PASSWORD}      & —                                    & Пароль пользователя PostgreSQL          \\
     \hline
-    \texttt{APP\_ACCESS\_TTL\_MIN}   & \texttt{15}                          & Время жизни access-токена (минуты) \\
+    \texttt{APP\_HTTP\_ADDR}         & \texttt{:8080}                       & Адрес и порт HTTP-сервера               \\
     \hline
-    \texttt{APP\_REFRESH\_TTL\_DAYS} & \texttt{30}                          & Время жизни refresh-токена (дни)   \\
+    \texttt{APP\_DB\_DSN}            & —                                    & Строка подключения к PostgreSQL         \\
     \hline
-    \texttt{APP\_CORS\_ORIGINS}      & \url{http://localhost:5173}          & Допустимые источники CORS          \\
+    \texttt{APP\_JWT\_SECRET}        & —                                    & Секретный ключ для подписи JWT          \\
     \hline
-    \texttt{APP\_OSRM\_BASE\_URL}    & \url{http://router.project-osrm.org} & Базовый URL OSRM-сервиса           \\
+    \texttt{APP\_ACCESS\_TTL\_MIN}   & \texttt{15}                          & Время жизни access-токена (минуты)      \\
+    \hline
+    \texttt{APP\_REFRESH\_TTL\_DAYS} & \texttt{30}                          & Время жизни refresh-токена (дни)        \\
+    \hline
+    \texttt{APP\_CORS\_ORIGINS}      & \url{http://localhost:5173}          & Допустимые источники CORS               \\
+    \hline
+    \texttt{APP\_OSRM\_BASE\_URL}    & \url{http://router.project-osrm.org} & Базовый URL OSRM-сервиса                \\
     \hline
   \end{tabular}
 \end{table}
 
-Переменные \texttt{APP\_DB\_DSN} и \texttt{APP\_JWT\_SECRET} являются обязательными
-при запуске без Docker Compose.
+При запуске через Docker Compose обязательными являются переменные
+\texttt{POSTGRES\_PASSWORD} и \texttt{APP\_JWT\_SECRET};
+значение \texttt{APP\_DB\_DSN} формируется автоматически
+из \texttt{POSTGRES\_USER}, \texttt{POSTGRES\_PASSWORD} и \texttt{POSTGRES\_DB}.
+При запуске серверной части без Docker Compose обязательными становятся
+\texttt{APP\_DB\_DSN} (полная строка подключения к существующей СУБД)
+и \texttt{APP\_JWT\_SECRET}.
 Для продуктивной эксплуатации значение \texttt{APP\_JWT\_SECRET} должно быть
-заменено на криптографически стойкую случайную строку длиной не менее 32~символов.
+заменено на криптографически стойкую случайную строку длиной не менее 32~символов,
+а значение \texttt{POSTGRES\_PASSWORD}~--- на уникальный пароль доступа к базе данных.
 
 \subsubsection{Развертывание без Docker}
 

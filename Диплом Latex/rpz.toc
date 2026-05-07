@@ -59,32 +59,32 @@
 \contentsline {subsection}{\numberline {2.7.2}Установка и настройка серверной части}{48}{subsection.2.7.2}%
 \contentsline {subsubsection}{\numberline {2.7.2.1}Развертывание с использованием Docker Compose}{48}{subsubsection.2.7.2.1}%
 \contentsline {subsubsection}{\numberline {2.7.2.2}Параметры конфигурации}{49}{subsubsection.2.7.2.2}%
-\contentsline {subsubsection}{\numberline {2.7.2.3}Развертывание без Docker}{49}{subsubsection.2.7.2.3}%
-\contentsline {subsection}{\numberline {2.7.3}Установка и настройка клиентской части}{50}{subsection.2.7.3}%
-\contentsline {subsubsection}{\numberline {2.7.3.1}Режим разработки}{50}{subsubsection.2.7.3.1}%
-\contentsline {subsubsection}{\numberline {2.7.3.2}Сборка для продуктивной эксплуатации}{51}{subsubsection.2.7.3.2}%
-\contentsline {subsection}{\numberline {2.7.4}Перечень возможных затруднений и способы их устранения}{51}{subsection.2.7.4}%
-\contentsline {subsection}{\numberline {2.7.5}Краткое руководство пользователя}{52}{subsection.2.7.5}%
-\contentsline {subsection}{\numberline {2.7.6}Руководство администратора}{53}{subsection.2.7.6}%
-\contentsline {subsection}{\numberline {2.7.7}Вывод}{54}{subsection.2.7.7}%
-\contentsline {section}{\numberline {2.8}Выводы}{54}{section.2.8}%
-\contentsline {chapter}{\numberline {3}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Внедрение и эксплуатация}}}{56}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Анализ внедрения продукта}{56}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Аспекты отказоустойчивости, надежности и производительности}{59}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Устойчивость к отказам внешних зависимостей}{59}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}Надежность аутентификации}{59}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Надежность инфраструктуры}{64}{subsection.3.2.3}%
-\contentsline {subsection}{\numberline {3.2.4}Производительность}{64}{subsection.3.2.4}%
-\contentsline {subsection}{\numberline {3.2.5}Производительность алгоритма оптимизации}{65}{subsection.3.2.5}%
-\contentsline {subsection}{\numberline {3.2.6}Нагрузочное тестирование}{66}{subsection.3.2.6}%
-\contentsline {subsection}{\numberline {3.2.7}Вывод}{67}{subsection.3.2.7}%
-\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{67}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{67}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развертывания}{68}{subsection.3.3.2}%
-\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{68}{subsection.3.3.3}%
-\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{68}{subsection.3.3.4}%
-\contentsline {section}{\numberline {3.4}Выводы}{69}{section.3.4}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{70}{section*.29}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{72}{section*.30}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{81}{section*.31}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ Б}}}{88}{section*.34}%
+\contentsline {subsubsection}{\numberline {2.7.2.3}Развертывание без Docker}{50}{subsubsection.2.7.2.3}%
+\contentsline {subsection}{\numberline {2.7.3}Установка и настройка клиентской части}{51}{subsection.2.7.3}%
+\contentsline {subsubsection}{\numberline {2.7.3.1}Режим разработки}{51}{subsubsection.2.7.3.1}%
+\contentsline {subsubsection}{\numberline {2.7.3.2}Сборка для продуктивной эксплуатации}{52}{subsubsection.2.7.3.2}%
+\contentsline {subsection}{\numberline {2.7.4}Перечень возможных затруднений и способы их устранения}{52}{subsection.2.7.4}%
+\contentsline {subsection}{\numberline {2.7.5}Краткое руководство пользователя}{53}{subsection.2.7.5}%
+\contentsline {subsection}{\numberline {2.7.6}Руководство администратора}{54}{subsection.2.7.6}%
+\contentsline {subsection}{\numberline {2.7.7}Вывод}{55}{subsection.2.7.7}%
+\contentsline {section}{\numberline {2.8}Выводы}{55}{section.2.8}%
+\contentsline {chapter}{\numberline {3}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Внедрение и эксплуатация}}}{57}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Анализ внедрения продукта}{57}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Аспекты отказоустойчивости, надежности и производительности}{60}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Устойчивость к отказам внешних зависимостей}{60}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Надежность аутентификации}{60}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Надежность инфраструктуры}{65}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Производительность}{65}{subsection.3.2.4}%
+\contentsline {subsection}{\numberline {3.2.5}Производительность алгоритма оптимизации}{66}{subsection.3.2.5}%
+\contentsline {subsection}{\numberline {3.2.6}Нагрузочное тестирование}{67}{subsection.3.2.6}%
+\contentsline {subsection}{\numberline {3.2.7}Вывод}{68}{subsection.3.2.7}%
+\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{68}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{68}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развертывания}{69}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{69}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{69}{subsection.3.3.4}%
+\contentsline {section}{\numberline {3.4}Выводы}{70}{section.3.4}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{71}{section*.29}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{73}{section*.30}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{82}{section*.31}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ Б}}}{89}{section*.34}%
