@@ -37,56 +37,53 @@
 \contentsline {subsection}{\numberline {2.3.6}Дополнительные ограничения маршрута}{33}{subsection.2.3.6}%
 \contentsline {subsection}{\numberline {2.3.7}Вывод}{34}{subsection.2.3.7}%
 \contentsline {section}{\numberline {2.4}Тестирование}{34}{section.2.4}%
-\contentsline {subsection}{\numberline {2.4.1}Стратегия тестирования}{34}{subsection.2.4.1}%
-\contentsline {subsection}{\numberline {2.4.2}Тестирование алгоритма оптимизации}{35}{subsection.2.4.2}%
-\contentsline {subsection}{\numberline {2.4.3}Тестирование бизнес-логики серверной части}{37}{subsection.2.4.3}%
-\contentsline {subsection}{\numberline {2.4.4}Тестирование клиентской части}{37}{subsection.2.4.4}%
-\contentsline {subsection}{\numberline {2.4.5}Вывод}{38}{subsection.2.4.5}%
-\contentsline {section}{\numberline {2.5}Интерфейс}{38}{section.2.5}%
-\contentsline {subsection}{\numberline {2.5.1}Общая логика построения интерфейса}{40}{subsection.2.5.1}%
-\contentsline {subsection}{\numberline {2.5.2}Организация рабочей области}{40}{subsection.2.5.2}%
-\contentsline {subsection}{\numberline {2.5.3}Организация ввода данных}{40}{subsection.2.5.3}%
-\contentsline {subsection}{\numberline {2.5.4}Навигационная структура}{41}{subsection.2.5.4}%
-\contentsline {subsection}{\numberline {2.5.5}Импорт и экспорт задач}{41}{subsection.2.5.5}%
-\contentsline {subsection}{\numberline {2.5.6}Поддержка пользовательского контроля}{41}{subsection.2.5.6}%
-\contentsline {section}{\numberline {2.6}Техническая реализация}{42}{section.2.6}%
-\contentsline {subsection}{\numberline {2.6.1}Состав и объем программного кода}{42}{subsection.2.6.1}%
-\contentsline {subsection}{\numberline {2.6.2}Используемые библиотеки серверной части}{44}{subsection.2.6.2}%
-\contentsline {subsection}{\numberline {2.6.3}Используемые библиотеки клиентской части}{45}{subsection.2.6.3}%
-\contentsline {subsection}{\numberline {2.6.4}Требования к техническим средствам}{46}{subsection.2.6.4}%
-\contentsline {subsection}{\numberline {2.6.5}Требования к программному обеспечению}{47}{subsection.2.6.5}%
-\contentsline {subsection}{\numberline {2.6.6}Вывод}{48}{subsection.2.6.6}%
-\contentsline {section}{\numberline {2.7}Руководство пользователя и администратора}{48}{section.2.7}%
-\contentsline {subsection}{\numberline {2.7.1}Общие сведения о развертывании}{48}{subsection.2.7.1}%
-\contentsline {subsection}{\numberline {2.7.2}Установка и настройка серверной части}{48}{subsection.2.7.2}%
-\contentsline {subsubsection}{\numberline {2.7.2.1}Развертывание с использованием Docker Compose}{48}{subsubsection.2.7.2.1}%
-\contentsline {subsubsection}{\numberline {2.7.2.2}Параметры конфигурации}{49}{subsubsection.2.7.2.2}%
-\contentsline {subsubsection}{\numberline {2.7.2.3}Развертывание без Docker}{50}{subsubsection.2.7.2.3}%
-\contentsline {subsection}{\numberline {2.7.3}Установка и настройка клиентской части}{51}{subsection.2.7.3}%
-\contentsline {subsubsection}{\numberline {2.7.3.1}Режим разработки}{51}{subsubsection.2.7.3.1}%
-\contentsline {subsubsection}{\numberline {2.7.3.2}Сборка для продуктивной эксплуатации}{52}{subsubsection.2.7.3.2}%
-\contentsline {subsection}{\numberline {2.7.4}Перечень возможных затруднений и способы их устранения}{52}{subsection.2.7.4}%
-\contentsline {subsection}{\numberline {2.7.5}Краткое руководство пользователя}{53}{subsection.2.7.5}%
-\contentsline {subsection}{\numberline {2.7.6}Руководство администратора}{54}{subsection.2.7.6}%
-\contentsline {subsection}{\numberline {2.7.7}Вывод}{55}{subsection.2.7.7}%
-\contentsline {section}{\numberline {2.8}Выводы}{55}{section.2.8}%
-\contentsline {chapter}{\numberline {3}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Внедрение и эксплуатация}}}{57}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Анализ внедрения продукта}{57}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Аспекты отказоустойчивости, надежности и производительности}{60}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Устойчивость к отказам внешних зависимостей}{60}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}Надежность аутентификации}{60}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}Надежность инфраструктуры}{65}{subsection.3.2.3}%
-\contentsline {subsection}{\numberline {3.2.4}Производительность}{65}{subsection.3.2.4}%
-\contentsline {subsection}{\numberline {3.2.5}Производительность алгоритма оптимизации}{66}{subsection.3.2.5}%
-\contentsline {subsection}{\numberline {3.2.6}Нагрузочное тестирование}{67}{subsection.3.2.6}%
-\contentsline {subsection}{\numberline {3.2.7}Вывод}{68}{subsection.3.2.7}%
-\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{68}{section.3.3}%
-\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{68}{subsection.3.3.1}%
-\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развертывания}{69}{subsection.3.3.2}%
-\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{69}{subsection.3.3.3}%
-\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{69}{subsection.3.3.4}%
-\contentsline {section}{\numberline {3.4}Выводы}{70}{section.3.4}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{71}{section*.28}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{73}{section*.29}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{82}{section*.30}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ Б}}}{89}{section*.33}%
+\contentsline {subsection}{\numberline {2.4.1}Тестирование алгоритма оптимизации}{34}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Тестирование бизнес-логики серверной части}{36}{subsection.2.4.2}%
+\contentsline {subsection}{\numberline {2.4.3}Тестирование клиентской части}{36}{subsection.2.4.3}%
+\contentsline {subsection}{\numberline {2.4.4}Вывод}{37}{subsection.2.4.4}%
+\contentsline {section}{\numberline {2.5}Интерфейс}{37}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}Общая логика построения интерфейса}{39}{subsection.2.5.1}%
+\contentsline {subsection}{\numberline {2.5.2}Организация рабочей области}{39}{subsection.2.5.2}%
+\contentsline {subsection}{\numberline {2.5.3}Организация ввода данных}{39}{subsection.2.5.3}%
+\contentsline {subsection}{\numberline {2.5.4}Навигационная структура}{40}{subsection.2.5.4}%
+\contentsline {subsection}{\numberline {2.5.5}Импорт и экспорт задач}{40}{subsection.2.5.5}%
+\contentsline {subsection}{\numberline {2.5.6}Поддержка пользовательского контроля}{40}{subsection.2.5.6}%
+\contentsline {section}{\numberline {2.6}Техническая реализация}{41}{section.2.6}%
+\contentsline {subsection}{\numberline {2.6.1}Состав и объем программного кода}{41}{subsection.2.6.1}%
+\contentsline {subsection}{\numberline {2.6.2}Требования к техническим средствам}{43}{subsection.2.6.2}%
+\contentsline {subsection}{\numberline {2.6.3}Требования к программному обеспечению}{44}{subsection.2.6.3}%
+\contentsline {subsection}{\numberline {2.6.4}Вывод}{44}{subsection.2.6.4}%
+\contentsline {section}{\numberline {2.7}Руководство пользователя и администратора}{45}{section.2.7}%
+\contentsline {subsection}{\numberline {2.7.1}Общие сведения о развертывании}{45}{subsection.2.7.1}%
+\contentsline {subsection}{\numberline {2.7.2}Установка и настройка серверной части}{45}{subsection.2.7.2}%
+\contentsline {subsubsection}{\numberline {2.7.2.1}Развертывание с использованием Docker Compose}{45}{subsubsection.2.7.2.1}%
+\contentsline {subsubsection}{\numberline {2.7.2.2}Параметры конфигурации}{46}{subsubsection.2.7.2.2}%
+\contentsline {subsubsection}{\numberline {2.7.2.3}Развертывание без Docker}{46}{subsubsection.2.7.2.3}%
+\contentsline {subsection}{\numberline {2.7.3}Установка и настройка клиентской части}{47}{subsection.2.7.3}%
+\contentsline {subsubsection}{\numberline {2.7.3.1}Режим разработки}{47}{subsubsection.2.7.3.1}%
+\contentsline {subsubsection}{\numberline {2.7.3.2}Сборка для продуктивной эксплуатации}{48}{subsubsection.2.7.3.2}%
+\contentsline {subsection}{\numberline {2.7.4}Перечень возможных затруднений и способы их устранения}{48}{subsection.2.7.4}%
+\contentsline {subsection}{\numberline {2.7.5}Краткое руководство пользователя}{49}{subsection.2.7.5}%
+\contentsline {subsection}{\numberline {2.7.6}Руководство администратора}{50}{subsection.2.7.6}%
+\contentsline {subsection}{\numberline {2.7.7}Вывод}{51}{subsection.2.7.7}%
+\contentsline {section}{\numberline {2.8}Выводы}{51}{section.2.8}%
+\contentsline {chapter}{\numberline {3}{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {Внедрение и эксплуатация}}}{53}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Анализ внедрения продукта}{53}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Аспекты отказоустойчивости, надежности и производительности}{56}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Устойчивость к отказам внешних зависимостей}{56}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Надежность аутентификации}{56}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Надежность инфраструктуры}{61}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Производительность}{61}{subsection.3.2.4}%
+\contentsline {subsection}{\numberline {3.2.5}Производительность алгоритма оптимизации}{62}{subsection.3.2.5}%
+\contentsline {subsection}{\numberline {3.2.6}Нагрузочное тестирование}{63}{subsection.3.2.6}%
+\contentsline {subsection}{\numberline {3.2.7}Вывод}{64}{subsection.3.2.7}%
+\contentsline {section}{\numberline {3.3}Внедрение и сопровождение программного продукта}{64}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Модель распространения}{64}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Процедура первоначального развертывания}{65}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Сопровождение и обновление}{65}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Ограничения и направления развития}{65}{subsection.3.3.4}%
+\contentsline {section}{\numberline {3.4}Выводы}{66}{section.3.4}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{67}{section*.28}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{69}{section*.29}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{78}{section*.30}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ Б}}}{85}{section*.33}%
