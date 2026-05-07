@@ -27,112 +27,181 @@ type NearestNeighborTW struct{}
 func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
 func (a *NearestNeighborTW) Name() string      { return "nearest-neighbor-tw" }
 
+// traversal инкапсулирует состояние обхода: текущая позиция, тайминги,
+// агрегированные показатели; appendNode инкрементально его обновляет.
+type traversal struct {
+    g                                                          *Graph
+    cur                                                        int
+    currentTime                                                int64
+    visited                                                    []bool
+    order                                                      []int
+    timings                                                    []StopTiming
+    totalDistM, totalTravelSec, totalServiceSec, totalWaitSec  int
+}
+
+func (t *traversal) appendNode(next int) {
+    e := t.g.Edges[t.cur][next]
+    node := t.g.Nodes[next]
+    arrivalSec := t.currentTime + int64(e.DurationSec)
+    var waitSec int64
+    if node.WindowStart >= 0 && arrivalSec < node.WindowStart {
+        waitSec = node.WindowStart - arrivalSec
+    }
+    serviceStart := arrivalSec + waitSec
+    serviceEnd := serviceStart + int64(node.DurationMin)*60
+
+    t.totalDistM += e.DistanceM
+    t.totalTravelSec += e.DurationSec
+    t.totalServiceSec += node.DurationMin * 60
+    t.totalWaitSec += int(waitSec)
+
+    t.timings = append(t.timings, StopTiming{
+        NodeIdx: next, ArrivalSec: arrivalSec, WaitSec: int(waitSec),
+        ServiceStartSec: serviceStart, ServiceEndSec: serviceEnd,
+        TravelFromPrevSec: e.DurationSec,
+    })
+    t.visited[next] = true
+    t.order = append(t.order, next)
+    t.cur = next
+    t.currentTime = serviceEnd
+}
+
 func (a *NearestNeighborTW) Optimize(
     _ context.Context, g *Graph, startTimeUnix int64, c Constraints,
 ) (Result, error) {
     n := len(g.Nodes)
-    if n == 0 { return Result{}, nil }
-
+    if n == 0 {
+        return Result{}, nil
+    }
     prereqs := buildPrereqs(n, c.PrecedencePairs)
     endIdx := -1
-    if c.EndNodeIdx != nil { endIdx = *c.EndNodeIdx }
+    if c.EndNodeIdx != nil {
+        endIdx = *c.EndNodeIdx
+    }
 
-    visited := make([]bool, n)
-    order := make([]int, 0, n)
-
-    var cur int
+    cur := 0
     if c.StartNodeIdx != nil {
         cur = *c.StartNodeIdx
     } else {
         cur = startNode(g, prereqs, endIdx)
     }
-    visited[cur] = true
-    order = append(order, cur)
-    currentTimeSec := startTimeUnix + int64(g.Nodes[cur].DurationMin)*60
-
-    var totalDistM, totalTravelSec, totalServiceSec, totalWaitSec int
-    totalServiceSec = g.Nodes[cur].DurationMin * 60
-
-    for len(order) < n {
-        // Закрепленный конечный узел — ставим последним.
-        if endIdx >= 0 && !visited[endIdx] {
-            allOther := true
-            for i := 0; i < n; i++ {
-                if !visited[i] && i != endIdx { allOther = false; break }
-            }
-            if allOther {
-                currentTimeSec, totalDistM, totalTravelSec, totalServiceSec,
-                    totalWaitSec, _ = appendNode(endIdx, cur, currentTimeSec, g,
-                    totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
-                visited[endIdx] = true; order = append(order, endIdx); break
-            }
-        }
-
-        next := -1
-        var bestComp int64 = math.MaxInt64
-        var bestDeadline int64 = math.MaxInt64
-        bestSafe := false
-
-        // Проход 1: допустимый узел + look-ahead.
-        for i := 0; i < n; i++ {
-            if visited[i] || i == endIdx { continue }
-            if !prereqsMet(i, visited, prereqs) { continue }
-            arrival := currentTimeSec + int64(g.Edges[cur][i].DurationSec)
-            if !feasible(g.Nodes[i], arrival) { continue }
-            comp := nodeCompletionTime(g.Nodes[i], arrival)
-            deadline := g.Nodes[i].WindowEnd
-            if deadline < 0 { deadline = math.MaxInt64 }
-            safe := !causesWindowMiss(i, comp, g, visited, endIdx)
-            better := false
-            switch {
-            case safe && !bestSafe: better = true
-            case safe == bestSafe:
-                better = comp < bestComp ||
-                    (comp == bestComp && deadline < bestDeadline)
-            }
-            if better {
-                bestComp = comp; bestDeadline = deadline
-                bestSafe = safe; next = i
-            }
-        }
-
-        // Проход 2: fallback — без учета окна.
-        if next == -1 {
-            bestComp = math.MaxInt64
-            for i := 0; i < n; i++ {
-                if visited[i] || i == endIdx { continue }
-                if !prereqsMet(i, visited, prereqs) { continue }
-                arrival := currentTimeSec + int64(g.Edges[cur][i].DurationSec)
-                comp := nodeCompletionTime(g.Nodes[i], arrival)
-                if comp < bestComp { bestComp = comp; next = i }
-            }
-        }
-        if next == -1 { break }
-
-        currentTimeSec, totalDistM, totalTravelSec, totalServiceSec,
-            totalWaitSec, _ = appendNode(next, cur, currentTimeSec, g,
-            totalDistM, totalTravelSec, totalServiceSec, totalWaitSec)
-        visited[next] = true; order = append(order, next); cur = next
+    startServiceEnd := startTimeUnix + int64(g.Nodes[cur].DurationMin)*60
+    t := &traversal{
+        g: g, cur: cur, currentTime: startServiceEnd,
+        visited: make([]bool, n), order: []int{cur},
+        timings: []StopTiming{{
+            NodeIdx: cur, ArrivalSec: startTimeUnix,
+            ServiceStartSec: startTimeUnix, ServiceEndSec: startServiceEnd,
+        }},
+        totalServiceSec: g.Nodes[cur].DurationMin * 60,
     }
-    return Result{Order: order, TotalDistanceM: totalDistM,
-        TotalTravelSec: totalTravelSec, TotalServiceSec: totalServiceSec,
-        TotalWaitSec: totalWaitSec}, nil
+    t.visited[cur] = true
+
+    for len(t.order) < n {
+        // Если остался только закреплённый конечный узел — ставим его и выходим.
+        if endIdx >= 0 && !t.visited[endIdx] && onlyEndUnvisited(t.visited, endIdx) {
+            t.appendNode(endIdx)
+            break
+        }
+        next := pickNextFeasible(t, prereqs, endIdx)
+        if next == -1 {
+            next = pickNextFallback(t, prereqs, endIdx)
+        }
+        if next == -1 {
+            // Циклический граф предшествования — конечный узел добавим и завершим.
+            if endIdx >= 0 && !t.visited[endIdx] {
+                t.appendNode(endIdx)
+            }
+            break
+        }
+        t.appendNode(next)
+    }
+    return Result{
+        Order: t.order, Timings: t.timings,
+        TotalDistanceM: t.totalDistM, TotalTravelSec: t.totalTravelSec,
+        TotalServiceSec: t.totalServiceSec, TotalWaitSec: t.totalWaitSec,
+    }, nil
+}
+
+// pickNextFeasible — проход 1: допустимый узел с минимальным временем
+// завершения + look-ahead. Безопасные кандидаты предпочитаются.
+func pickNextFeasible(t *traversal, prereqs [][]int, endIdx int) int {
+    g := t.g
+    next := -1
+    var bestComp int64 = math.MaxInt64
+    var bestDeadline int64 = math.MaxInt64
+    bestSafe := false
+    for i := range g.Nodes {
+        if t.visited[i] || i == endIdx || !prereqsMet(i, t.visited, prereqs) {
+            continue
+        }
+        arrival := t.currentTime + int64(g.Edges[t.cur][i].DurationSec)
+        if !feasible(g.Nodes[i], arrival) {
+            continue
+        }
+        comp := nodeCompletionTime(g.Nodes[i], arrival)
+        deadline := g.Nodes[i].WindowEnd
+        if deadline < 0 {
+            deadline = math.MaxInt64
+        }
+        safe := !causesWindowMiss(i, comp, g, t.visited, endIdx)
+        better := false
+        switch {
+        case safe && !bestSafe:
+            better = true
+        case safe == bestSafe:
+            better = comp < bestComp ||
+                (comp == bestComp && deadline < bestDeadline)
+        }
+        if better {
+            bestComp = comp; bestDeadline = deadline
+            bestSafe = safe; next = i
+        }
+    }
+    return next
+}
+
+// pickNextFallback — проход 2: минимальный completionTime, окно игнорируется,
+// предшествование сохраняется.
+func pickNextFallback(t *traversal, prereqs [][]int, endIdx int) int {
+    g := t.g
+    next := -1
+    var bestComp int64 = math.MaxInt64
+    for i := range g.Nodes {
+        if t.visited[i] || i == endIdx || !prereqsMet(i, t.visited, prereqs) {
+            continue
+        }
+        arrival := t.currentTime + int64(g.Edges[t.cur][i].DurationSec)
+        comp := nodeCompletionTime(g.Nodes[i], arrival)
+        if comp < bestComp {
+            bestComp = comp; next = i
+        }
+    }
+    return next
 }
 
 func feasible(node Node, arrivalSec int64) bool {
-    if node.WindowEnd < 0 { return true }
+    if node.WindowEnd < 0 {
+        return true
+    }
     return arrivalSec <= node.WindowEnd-int64(node.DurationMin)*60
 }
 
-// causesWindowMiss — look-ahead: true, если после cand
+// causesWindowMiss — look-ahead на один шаг: true, если после cand
 // хотя бы один узел с окном становится недостижимым.
 func causesWindowMiss(cand int, afterSec int64,
     g *Graph, visited []bool, endIdx int) bool {
     for j := 0; j < len(g.Nodes); j++ {
-        if visited[j] || j == cand || j == endIdx { continue }
-        if g.Nodes[j].WindowEnd < 0 { continue }
+        if visited[j] || j == cand || j == endIdx {
+            continue
+        }
+        if g.Nodes[j].WindowEnd < 0 {
+            continue
+        }
         arr := afterSec + int64(g.Edges[cand][j].DurationSec)
-        if !feasible(g.Nodes[j], arr) { return true }
+        if !feasible(g.Nodes[j], arr) {
+            return true
+        }
     }
     return false
 }
@@ -144,7 +213,9 @@ func causesWindowMiss(cand int, afterSec int64,
 // Optimize — POST /api/routes/optimize.
 func (h *RouteHandlers) Optimize(c *gin.Context) {
     userID, ok := userIDFromCtx(c)
-    if !ok { return }
+    if !ok {
+        return
+    }
 
     var req OptimizeRouteReq
     if err := c.ShouldBindJSON(&req); err != nil {
@@ -153,28 +224,13 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
     }
 
     startTime := req.StartTimeUnix
-    if startTime <= 0 { startTime = time.Now().Unix() }
-
-    var matrix [][]distance.Edge
-    if len(req.DistanceMatrix) > 0 {
-        matrix = make([][]distance.Edge, len(req.DistanceMatrix))
-        for i, row := range req.DistanceMatrix {
-            matrix[i] = make([]distance.Edge, len(row))
-            for j, cell := range row {
-                matrix[i][j] = distance.Edge{
-                    DistanceM: cell.DistanceM, DurationSec: cell.DurationSec,
-                }
-            }
-        }
+    if startTime <= 0 {
+        startTime = time.Now().Unix()
     }
+    startTime = timing.RoundUpUnixToMinute(startTime)
 
-    precedences := make([]routestory.PrecedenceConstraint,
-        len(req.PrecedenceConstraints))
-    for i, p := range req.PrecedenceConstraints {
-        precedences[i] = routestory.PrecedenceConstraint{
-            BeforeTaskID: p.BeforeTaskID, AfterTaskID: p.AfterTaskID,
-        }
-    }
+    matrix := convertMatrix(req.DistanceMatrix)
+    precedences := convertPrecedences(req.PrecedenceConstraints)
 
     out, err := h.story.Optimize(c.Request.Context(), userID,
         req.TaskIDs, startTime, matrix,
@@ -186,7 +242,37 @@ func (h *RouteHandlers) Optimize(c *gin.Context) {
     c.JSON(http.StatusOK, out)
 }
 
+func convertMatrix(in [][]DistanceCellDTO) [][]distance.Edge {
+    if len(in) == 0 {
+        return nil
+    }
+    out := make([][]distance.Edge, len(in))
+    for i, row := range in {
+        out[i] = make([]distance.Edge, len(row))
+        for j, cell := range row {
+            out[i][j] = distance.Edge{
+                DistanceM:   cell.DistanceM,
+                DurationSec: timing.RoundUpSecToMinute(cell.DurationSec),
+            }
+        }
+    }
+    return out
+}
+
+func convertPrecedences(in []PrecedencePairDTO) []routestory.PrecedenceConstraint {
+    out := make([]routestory.PrecedenceConstraint, len(in))
+    for i, p := range in {
+        out[i] = routestory.PrecedenceConstraint{
+            BeforeTaskID: p.BeforeTaskID,
+            AfterTaskID:  p.AfterTaskID,
+        }
+    }
+    return out
+}
+
 // OptimizeRouteReq — тело POST /api/routes/optimize.
+// Если DistanceMatrix передана — бэкенд не ходит в OSRM
+// и порядок согласован с Yandex.
 type OptimizeRouteReq struct {
     TaskIDs               []string            `json:"taskIds"`
     StartTimeUnix         int64               `json:"startTimeUnix"`
@@ -281,6 +367,7 @@ async function refreshSession(options: AuthorizedRequestOptions) {
     \begin{minted}{typescript}
 import { Task } from '../types/task';
 import { loadYandexMaps } from './yandexMaps';
+import { roundUpSecToMinute } from './time';
 
 export interface DistanceCell {
   distanceM: number;
@@ -355,7 +442,7 @@ export async function buildYandexDistanceMatrix(
                   distanceM: Math.round(
                     typeof distObj?.value === 'number' ? distObj.value : 0,
                   ),
-                  durationSec: Math.round(
+                  durationSec: roundUpSecToMinute(
                     typeof durObj?.value === 'number'
                       ? durObj.value
                       : fallbackSec,
@@ -381,7 +468,7 @@ export async function buildYandexDistanceMatrix(
                   distanceM: Math.round(totalDistM),
                   durationSec:
                     totalDurSec > 0
-                      ? Math.round(totalDurSec)
+                      ? roundUpSecToMinute(totalDurSec)
                       : fallbackSec,
                 });
                 return;
