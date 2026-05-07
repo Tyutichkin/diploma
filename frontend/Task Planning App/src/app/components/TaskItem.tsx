@@ -154,7 +154,7 @@ export function TaskItem({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {mapNumber !== undefined && (
                         <span className="inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-xs font-bold w-5 h-5 flex-shrink-0">
                           {mapNumber}
@@ -231,29 +231,30 @@ export function TaskItem({
                     </div>
                   </div>
 
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 sm:grid sm:grid-cols-[minmax(0,1fr)_17rem_6rem] sm:gap-x-3">
                     {task.address ? (
-                      <div className="flex items-center gap-1 min-w-0 max-w-full">
+                      <div className="flex items-center gap-1 min-w-0 basis-full sm:basis-auto">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate">{task.address}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 text-muted-foreground italic">
+                      <div className="flex items-center gap-1 text-muted-foreground italic min-w-0 basis-full sm:basis-auto">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0 opacity-40" />
-                        <span>Без адреса</span>
+                        <span className="truncate">Без адреса</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap sm:justify-end sm:order-3">
                       <Clock className="h-3.5 w-3.5" />
                       <span>{task.duration != null ? `${task.duration} мин` : 'мгновенная'}</span>
                     </div>
-                    {(task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime) && (
-                      <span className={cn(
-                        'px-1.5 py-0 rounded text-[11px]',
-                        hasWindowConflict ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700',
-                      )}>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap min-w-0 sm:justify-end sm:order-2">
+                      {(task.windowStartDate || task.windowStartTime || task.windowEndDate || task.windowEndTime) && (
+                        <span className={cn(
+                          'inline-flex items-center px-1.5 py-0 rounded text-[11px] whitespace-nowrap',
+                          hasWindowConflict ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700',
+                        )}>
                         {[task.windowStartDate, task.windowStartTime].filter(Boolean).join(' ') || '—'}
-                        &nbsp;—&nbsp;
+                        {' — '}
                         {[task.windowEndDate, task.windowEndTime].filter(Boolean).join(' ') || '—'}
                       </span>
                     )}
@@ -267,6 +268,7 @@ export function TaskItem({
                         </TooltipContent>
                       </Tooltip>
                     )}
+                    </div>
                   </div>
                 </div>
               </div>

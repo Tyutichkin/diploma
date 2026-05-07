@@ -254,26 +254,26 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
   }, [validTasks, routeOptimized, transportMode, isLoading]);
 
   return (
-    <Card className="h-full flex flex-col py-0 gap-0">
+    <Card className="h-full flex flex-col py-0 gap-0 overflow-hidden">
       <CardHeader className="flex-shrink-0 px-3 py-2 border-b">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="flex items-center gap-1.5 text-sm font-semibold">
-            <MapPin className="h-4 w-4" />
-            Карта маршрута
+        <div className="flex items-center justify-between flex-wrap gap-x-3 gap-y-2">
+          <CardTitle className="flex items-center gap-1.5 text-sm font-semibold min-w-0">
+            <MapPin className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">Карта маршрута</span>
             {routeOptimized && (
-              <span className="text-xs font-normal text-green-600">
+              <span className="text-xs font-normal text-green-600 hidden sm:inline whitespace-nowrap">
                 (оптимизирован)
               </span>
             )}
           </CardTitle>
 
           {routeOptimized && (
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 flex-shrink-0">
               {TRANSPORT_MODES.map((mode) => (
                 <button
                   key={mode.value}
                   onClick={() => { setTransportMode(mode.value); onTransportModeChange?.(mode.value); }}
-                  className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+                  className={`px-2 py-0.5 text-xs rounded-md transition-colors whitespace-nowrap ${
                     transportMode === mode.value
                       ? 'bg-white shadow text-blue-600 font-medium'
                       : 'text-gray-600 hover:text-gray-900'

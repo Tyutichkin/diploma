@@ -469,7 +469,7 @@ export function MainPage() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3">
+      <div className="container mx-auto px-3 sm:px-4 py-2 sm:py-3 max-w-full">
         <MainToolbar
           taskCount={tasks.length}
           isOptimizing={isOptimizing}
@@ -492,10 +492,10 @@ export function MainPage() {
         )}
 
         <div
-          className="grid grid-cols-1 gap-3 lg:gap-4 lg:grid-cols-2"
+          className="grid grid-cols-1 gap-3 lg:gap-4 lg:grid-cols-[minmax(380px,1fr)_minmax(460px,1.1fr)] xl:grid-cols-[minmax(420px,1fr)_minmax(520px,1.1fr)]"
           style={{ ['--grid-h' as string]: gridHeight }}
         >
-          <div className="h-[60vh] min-h-[300px] lg:h-[var(--grid-h)] lg:min-h-[360px]">
+          <div className="min-w-0 h-[55vh] min-h-[360px] lg:h-[var(--grid-h)] lg:min-h-[420px]">
             <TaskList
               tasks={tasks}
               startTaskId={startTaskId || undefined}
@@ -513,7 +513,7 @@ export function MainPage() {
             />
           </div>
 
-          <div className="h-[60vh] min-h-[300px] lg:h-[var(--grid-h)] lg:min-h-[360px]">
+          <div className="min-w-0 h-[60vh] min-h-[400px] lg:h-[var(--grid-h)] lg:min-h-[420px]">
             <MapView
               tasks={tasks}
               routeOptimized={routeOptimized}
