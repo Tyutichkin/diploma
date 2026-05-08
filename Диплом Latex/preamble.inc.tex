@@ -84,6 +84,7 @@
 
 % Переносы слов в таблицах (колонки с \RaggedRight)
 \newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{C}{>{\Centering\arraybackslash}X}
 \newcolumntype{P}[1]{>{\RaggedRight\arraybackslash}p{#1}}
 
 \DeclareCaptionJustification{centerednohyphen}{\Centering\hyphenpenalty=10000\exhyphenpenalty=10000}
@@ -141,7 +142,7 @@
       numberblanklines=false, % не нумеровать пустые строки
       numbersep=5pt,          % расстояние между номерами строк и кодом
       xleftmargin=1em,        % отступ слева, чтобы номера не вылезали за границы
-      fontsize=\small,
+      fontsize=\fontsize{10pt}{12pt}\selectfont, % ГОСТ: листинги — 10pt; моноширинный Courier New задан через \setmonofont в G2-105.sty
       breakanywhere=true,
       breakautoindent=true,
       breaklines=true,
@@ -197,6 +198,9 @@
 % Внутри таблиц используется одинарный межстрочный интервал по ГОСТ 7.32-2017
 \AtBeginEnvironment{tabular}{\setstretch{1}}
 \AtBeginEnvironment{tabularx}{\setstretch{1}}
+
+% Листинги кода — одинарный межстрочный интервал по ГОСТ 7.32-2017
+\AtBeginEnvironment{minted}{\setstretch{1}}
 
 
 \usepackage{fontspec}

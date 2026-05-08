@@ -103,14 +103,14 @@ HTTP-фреймворка, СУБД и сторонних сервисов.
 \begin{table}[H]
   \caption{Слои чистой архитектуры серверной части}
   \label{tab:clean_arch}
-  \begin{tabular}{|p{3cm}|p{4cm}|p{6.5cm}|}
+  \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{3cm}|L|L|}
     \hline
     \centering\textbf{Слой} & \centering\textbf{Пакет}                                       & \multicolumn{1}{c|}{\textbf{Назначение}}                                                                   \\ \hline
     Доменные сущности       & \path{internal/domain/*/}                                      & Структуры данных (\texttt{Task}, \texttt{Route}, \texttt{User}); без внешних зависимостей                  \\ \hline
     Интерфейсы (порты)      & \path{internal/domain/*/gate/}                                 & Интерфейсы репозиториев и оптимизатора; определяют контракт без реализации                                 \\ \hline
     Варианты использования  & \path{internal/domain/*/story/}                                & Бизнес-логика: создание задач, пакетный импорт (\path{taskimport}), запуск оптимизации, управление сессией \\ \hline
     Адаптеры                & \path{internal/api/http/}~и \path{internal/platform/postgres/} & HTTP-обработчики и SQL-репозитории; зависят от внешних библиотек                                           \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \subsection{Паттерн замены алгоритма}
@@ -248,25 +248,25 @@ causesWindowMiss(cand, afterCandSec, G, visited, endIdx):
 \begin{table}[H]
   \caption{Исходные данные задач для трассировки}
   \label{tab:trace_input}
-  \begin{tabular}{|p{1.5cm}|p{2.5cm}|p{3cm}|p{3cm}|}
+  \begin{tabularx}{\linewidth}{|C|L|C|C|}
     \hline
     \centering\textbf{Узел} & \centering\textbf{Адрес} & \centering\textbf{Временное окно} & \multicolumn{1}{c|}{\textbf{Длительность}} \\ \hline
     $v_0$                   & Офис (начало)            & 08:00--09:00                      & 30~мин                                     \\ \hline
     $v_1$                   & Точка А                  & 10:00--12:00                      & 20~мин                                     \\ \hline
     $v_2$                   & Точка Б                  & 09:00--10:00                      & 15~мин                                     \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \begin{table}[H]
   \caption{Матрица времен перемещения (минуты)}
   \label{tab:trace_matrix}
-  \begin{tabular}{|c|c|c|c|}
+  \begin{tabularx}{\linewidth}{|C|C|C|C|}
     \hline
     \textbf{Из / В} & $v_0$ & $v_1$ & $v_2$ \\ \hline
     $v_0$           & ---   & 40    & 15    \\ \hline
     $v_1$           & 40    & ---   & 20    \\ \hline
     $v_2$           & 15    & 20    & ---   \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 Трассировка алгоритма при начале работы в 08:00 (для наглядности
@@ -546,9 +546,9 @@ Compose, что автоматически поднимает базу данн�
         и задать значения \texttt{POSTGRES\_PASSWORD} и \texttt{APP\_JWT\_SECRET};
         остальные параметры имеют значения по умолчанию.
   \item Выполнить команду:
-        \begin{verbatim}
+        \begin{minted}{bash}
 docker compose up --build
-          \end{verbatim}
+        \end{minted}
 \end{enumerate}
 
 После запуска Docker Compose последовательно поднимает контейнер
@@ -562,7 +562,10 @@ SQL-миграции через утилиту \texttt{migrate} и запуск�
 \begin{table}[H]
   \caption{Переменные окружения серверной части}
   \label{tab:env_vars}
-  \begin{tabular}{|p{0.37\textwidth}|p{0.24\textwidth}|p{0.28\textwidth}|}
+  \begin{tabularx}{\linewidth}{%
+      |>{\hsize=1.25\hsize\RaggedRight\arraybackslash}X%
+      |>{\hsize=0.80\hsize\RaggedRight\arraybackslash}X%
+      |>{\hsize=0.95\hsize\RaggedRight\arraybackslash}X|}
     \hline
     \textbf{Переменная}              & \textbf{Значение по умолчанию}       & \textbf{Описание}                       \\
     \hline
@@ -586,7 +589,7 @@ SQL-миграции через утилиту \texttt{migrate} и запуск�
     \hline
     \texttt{APP\_OSRM\_BASE\_URL}    & \url{http://router.project-osrm.org} & Базовый URL OSRM-сервиса                \\
     \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 Обязательные переменные~--- \texttt{POSTGRES\_PASSWORD} и
@@ -608,17 +611,17 @@ SQL-миграции через утилиту \texttt{migrate} и запуск�
         менеджера пакетов pnpm версии 8 и выше (либо npm версии 9 и выше).
   \item Перейти в директорию \texttt{frontend/Task Planning App/}.
   \item Создать файл \texttt{.env.local} и указать ключ Яндекс JS API:
-        \begin{verbatim}
+        \begin{minted}{bash}
 VITE_YANDEX_GEOCODER_KEY=<ключ>
-          \end{verbatim}
+        \end{minted}
         Ключ необходимо получить на портале разработчиков Яндекса,
         подключив сервис <<JavaScript API и HTTP Геокодер>>.
         Активация ключа занимает до 15~минут после регистрации.
   \item Установить зависимости и запустить сервер разработки:
-        \begin{verbatim}
+        \begin{minted}{bash}
 pnpm install
 pnpm dev
-          \end{verbatim}
+        \end{minted}
 \end{enumerate}
 
 Приложение будет доступно по адресу \texttt{http://localhost:5173}.
@@ -630,9 +633,9 @@ pnpm dev
 
 Для получения оптимизированной статической сборки выполняется команда:
 
-\begin{verbatim}
+\begin{minted}{bash}
 pnpm build
-\end{verbatim}
+\end{minted}
 
 Собранные файлы размещаются в директории \texttt{dist/} и могут быть
 опубликованы на любом веб-сервере (Nginx, Apache, Caddy и других).
@@ -648,7 +651,7 @@ pnpm build
 \begin{table}[H]
   \caption{Типичные проблемы и способы их устранения}
   \label{tab:troubleshooting}
-  \begin{tabular}{|p{0.35\textwidth}|p{0.55\textwidth}|}
+  \begin{tabularx}{\linewidth}{|L|L|}
     \hline
     \textbf{Проблема}                                           & \textbf{Способ устранения} \\
     \hline
@@ -679,7 +682,7 @@ pnpm build
     на создание таблиц; при частичном применении выполнить откат
     командой \texttt{migrate ... down} и повторно \texttt{up}                                \\
     \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \subsection{Краткое руководство пользователя}
@@ -714,15 +717,17 @@ pnpm build
 Данные PostgreSQL хранятся в именованном томе Docker \texttt{db\_data}.
 Для создания резервной копии следует использовать утилиту \texttt{pg\_dump}:
 
-\begin{verbatim}
-docker exec <container_db> pg_dump -U planner planner > backup.sql
-\end{verbatim}
+\begin{minted}{bash}
+docker exec <container_db> \
+    pg_dump -U planner planner > backup.sql
+\end{minted}
 
 Восстановление из резервной копии:
 
-\begin{verbatim}
-docker exec -i <container_db> psql -U planner planner < backup.sql
-\end{verbatim}
+\begin{minted}{bash}
+docker exec -i <container_db> \
+    psql -U planner planner < backup.sql
+\end{minted}
 
 \textbf{Обновление приложения.}
 При выходе новой версии необходимо пересобрать образы командой

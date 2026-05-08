@@ -121,13 +121,13 @@
 \begin{table}[H]
   \caption{Сравнение картографических API}
   \label{tab:maps_compare}
-  \begin{tabular}{|p{3.5cm}|p{3.5cm}|p{3.5cm}|p{3cm}|}
+  \begin{tabularx}{\linewidth}{|L|L|L|L|}
     \hline
     \centering\textbf{Критерий} & \centering\textbf{Яндекс JS API} & \centering\textbf{Google Maps JS API} & \multicolumn{1}{c|}{\textbf{OpenStreetMap}} \\ \hline
     Геокодер на русском языке   & Да, включая топонимику РФ              & Да                                    & Качество в РФ ниже коммерческих провайдеров; обновление зависит от сообщества \\ \hline
     Бесплатный лимит (геокодер) & 1\,000 запр./сутки                     & 200\,\$ кредит/мес.                   & Без ограничений                                       \\ \hline
     Работа в России             & Без ограничений                        & Может быть недоступен                 & Без ограничений                                       \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 На основании сравнения (таблица~\ref{tab:maps_compare}) для целевой аудитории
@@ -143,7 +143,7 @@
 \begin{table}[H]
   \caption{Итоговый технологический стек разрабатываемой системы}
   \label{tab:tech_stack}
-  \begin{tabular}{|p{4cm}|p{3.5cm}|p{6cm}|}
+  \begin{tabularx}{\linewidth}{|L|L|L|}
     \hline
     \centering\textbf{Уровень} & \centering\textbf{Технология}           & \multicolumn{1}{c|}{\textbf{Обоснование}} \\ \hline
     Серверная часть            & Go 1.23~\cite{gin}                & Компилируемый язык, простая модель конкурентности \\ \hline
@@ -152,7 +152,7 @@
     Сборка клиентской части    & Vite 6~\cite{vite}                      & Оптимизированная сборка для производственной среды \\ \hline
     Картографический API       & Яндекс JS API~2.1                       & Русскоязычный геокодер, встроенный мультимаршрутизатор \\ \hline
     Контейнеризация            & Docker Compose~\cite{docker}            & Воспроизводимость среды, автоматическое применение миграций \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \section{Анализ алгоритмических подходов к задаче маршрутизации с временными окнами}
@@ -210,6 +210,7 @@
 В таблице~\ref{tab:algorithms_compare} приведен сравнительный анализ основных
 подходов к решению TSPTW применительно к задачам данной работы.
 
+% TODO
 \begin{table}[H]
   \caption{Сравнение алгоритмических подходов к задаче TSPTW}
   \label{tab:algorithms_compare}

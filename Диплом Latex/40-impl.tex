@@ -10,7 +10,7 @@
 \begin{table}[H]
       \caption{Соответствие реализованной системы поставленным требованиям}
       \label{tab:requirements_check}
-      \begin{tabular}{|p{0.55\textwidth}|p{0.35\textwidth}|}
+      \begin{tabularx}{\linewidth}{|L|L|}
             \hline
             \textbf{Требование}                                                     & \textbf{Результат}                                                                                                                                  \\ \hline
             Создание, редактирование и удаление задач                               & Реализовано                                                                                                                                         \\ \hline
@@ -25,10 +25,19 @@
             Выбор режима транспорта                                                 & Реализовано (авто, пешком, общественный транспорт; в последнем случае расчёт времени приближается авто-режимом, визуализация выполняется корректно) \\ \hline
             Обнаружение конфликтов временных окон                                   & Реализовано                                                                                                                                         \\ \hline
             Время ответа сервера не более 2~секунд                                  & Выполнено                                                                                                                                           \\ \hline
+      \end{tabularx}
+\end{table}
+
+\begin{table}[H]
+  \captionsetup{labelformat=empty}
+  \caption{Продолжение таблицы~\ref{tab:requirements_check}}
+      \begin{tabularx}{\linewidth}{|L|L|}
+            \hline
+            \textbf{Требование}                                                     & \textbf{Результат}                                                                                                                                  \\ \hline
             Поддержка современных браузеров                                         & Выполнено                                                                                                                                           \\ \hline
             Устойчивость к повторным запросам API за счет кэширования               & Выполнено                                                                                                                                           \\ \hline
             Масштабируемость до 100 одновременных пользователей                     & Подтверждено нагрузочным тестированием: при 100~VU p95 = 1370~мс $<$ 2000~мс, доля ошибок~— 0\,\%                                                   \\ \hline
-      \end{tabular}
+      \end{tabularx}
 \end{table}
 
 Все функциональные и нефункциональные требования, поставленные в первой
@@ -182,13 +191,13 @@ $20 \times 19 = 380$, однако эти запросы выполняются 
 \begin{table}[H]
       \caption{Результаты нагрузочного тестирования REST API}
       \label{tab:load_test}
-      \begin{tabular}{|c|c|c|c|c|c|}
+      \begin{tabularx}{\linewidth}{|C|C|C|C|C|C|}
             \hline
             \textbf{VU} & \textbf{Запросов} & \textbf{avg, мс} & \textbf{p90, мс} & \textbf{p95, мс} & \textbf{Ошибки} \\ \hline
             10          & 1500              & 69               & 133              & 159              & 0\,\%           \\ \hline
             50          & 5484              & 219              & 475              & 577              & 0\,\%           \\ \hline
             100         & 5799              & 720              & 1250             & 1370             & 0\,\%           \\ \hline
-      \end{tabular}
+      \end{tabularx}
 \end{table}
 
 Все три сценария выдержали установленные критерии: ни один запрос
@@ -212,7 +221,7 @@ $20 \times 19 = 380$, однако эти запросы выполняются 
 \begin{table}[H]
   \caption{Тест-кейсы алгоритма NNH-TW}
   \label{tab:test_cases}
-  \begin{tabular}{|p{5.5cm}|p{8.5cm}|}
+  \begin{tabularx}{\linewidth}{|L|L|}
     \hline
     \centering\textbf{Название теста}               & \multicolumn{1}{c|}{\textbf{Проверяемое условие}}                                                                         \\ \hline
     \path{TestOptimize_TwoNodesNoWindows}           & Граф из 2 узлов без временных ограничений; оба посещены ровно один раз                                                    \\ \hline
@@ -229,25 +238,23 @@ $20 \times 19 = 380$, однако эти запросы выполняются 
     \path{TestFeasible_*} (5~случаев)               & Граничные значения функции \texttt{feasible()}: нет ограничений, в пределах окна, до открытия, после закрытия, на границе \\ \hline
     \path{TestOptimize_FixedStartNode}              & Фиксированная начальная точка: маршрут начинается с указанного узла                                                       \\ \hline
     \path{TestOptimize_FixedEndNode}                & Фиксированная конечная точка: маршрут завершается указанным узлом                                                         \\ \hline
-    \path{TestOptimize_FixedStartAndEnd}            & Одновременное задание начальной и конечной точек                                                                          \\ \hline
-    \path{TestOptimize_PrecedenceConstraint}        & Ограничение предшествования: узел $A$ посещается раньше узла $B$                                                          \\ \hline
-    \path{TestOptimize_AllVisitedWithConstraints}   & Все узлы посещены при наличии комплексных ограничений                                                                     \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
-
-\newpage
 
 \begin{table}[H]
   \captionsetup{labelformat=empty}
   \caption{Продолжение таблицы~\ref{tab:test_cases}}
-  \begin{tabular}{|p{5.5cm}|p{8.5cm}|}
+  \begin{tabularx}{\linewidth}{|L|L|}
     \hline
     \centering\textbf{Название теста}               & \multicolumn{1}{c|}{\textbf{Проверяемое условие}}                                                                         \\ \hline
+    \path{TestOptimize_FixedStartAndEnd}            & Одновременное задание начальной и конечной точек                                                                          \\ \hline
+    \path{TestOptimize_PrecedenceConstraint}        & Ограничение предшествования: узел $A$ посещается раньше узла $B$                                                          \\ \hline
+    \path{TestOptimize_AllVisitedWithConstraints}   & Все узлы посещены при наличии комплексных ограничений                                                                     \\ \hline
     \path{TestOptimize_LookAheadPreventsWindowMiss} & Просмотр вперед предотвращает пропуск узла с жестким дедлайном                                                            \\ \hline
     \path{TestOptimize_TightDeadlineTiebreaker}     & Узел с более срочным дедлайном выбирается при равном времени завершения                                                   \\ \hline
     \path{TestOptimize_Timings*} (4~случая)         & Корректность таймингов остановок: длина, стартовый узел, ожидание, длительность обслуживания                              \\ \hline
     \path{TestStartNode_*} (3~случая)               & Выбор стартового узла: раннее окно, отсутствие окон, учет предшественников                                                \\ \hline
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \subsection{Тестирование бизнес-логики серверной части}
