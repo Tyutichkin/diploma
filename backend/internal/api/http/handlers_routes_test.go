@@ -104,13 +104,12 @@ func newRouteTestRouter(rRepo *hRouteRepo, tRepo *hTaskRepo, dist *hDistProvider
 	return r
 }
 
-func makeTestRoute(id, userID, status string) route.Route {
+func makeTestRoute(id, userID string) route.Route {
 	return route.Route{
-		ID:        id,
-		UserID:    userID,
-		Status:    status,
-		Source:    "optimized",
-		CreatedAt: time.Now(),
+		ID:         id,
+		UserID:     userID,
+		Algorithm:  "nearest-neighbor-tw",
+		ComputedAt: time.Now(),
 	}
 }
 
@@ -150,7 +149,7 @@ func TestRouteHandler_Optimize_Success(t *testing.T) {
 	}
 	rRepo := &hRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeTestRoute(routeID, routeTestUserID, "optimized"), nil
+			return makeTestRoute(routeID, routeTestUserID), nil
 		},
 	}
 
@@ -183,7 +182,7 @@ func TestRouteHandler_Optimize_WithConstraints(t *testing.T) {
 	}
 	rRepo := &hRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeTestRoute(routeID, routeTestUserID, "optimized"), nil
+			return makeTestRoute(routeID, routeTestUserID), nil
 		},
 	}
 

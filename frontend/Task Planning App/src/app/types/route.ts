@@ -1,9 +1,7 @@
 export interface SavedRouteSummary {
   id: string;
-  status: string;
-  source: string;
-  createdAt: string;
-  name?: string;
+  algorithm: string;
+  computedAt: string;
 }
 
 export interface RouteStopTiming {

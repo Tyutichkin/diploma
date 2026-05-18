@@ -44,10 +44,12 @@ const apiTaskResponse = {
 
 const apiRouteResponse = {
   ID: 'route-1',
-  Status: 'optimized',
-  Source: 'optimized',
-  CreatedAt: '2024-01-01T00:00:00Z',
-  Name: 'My Route',
+  Algorithm: 'nearest-neighbor-tw',
+  ComputedAt: '2024-01-01T00:00:00Z',
+  TotalDistanceM: 5000,
+  TotalTravelSec: 1200,
+  TotalServiceSec: 3600,
+  TotalWaitSec: 0,
 };
 
 const apiRouteFullResponse = {
@@ -56,11 +58,6 @@ const apiRouteFullResponse = {
     { TaskID: 'task-1', Position: 0 },
     { TaskID: 'task-2', Position: 1 },
   ],
-  Stats: {
-    TotalDistanceM: 5000,
-    TotalTravelSec: 1200,
-    TotalServiceSec: 3600,
-  },
 };
 
 const server = setupServer(

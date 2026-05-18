@@ -101,13 +101,12 @@ func identity2x2Matrix() [][]distancepkg.Edge {
 	}
 }
 
-func makeRoute(id, userID, status string) route.Route {
+func makeRoute(id, userID string) route.Route {
 	return route.Route{
-		ID:        id,
-		UserID:    userID,
-		Status:    status,
-		Source:    "manual",
-		CreatedAt: time.Now(),
+		ID:         id,
+		UserID:     userID,
+		Algorithm:  "nearest-neighbor-tw",
+		ComputedAt: time.Now(),
 	}
 }
 
@@ -158,7 +157,7 @@ func TestOptimize_Success(t *testing.T) {
 
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _ string, _ string, stops []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 	tRepo := &mockTaskRepo{
@@ -170,8 +169,7 @@ func TestOptimize_Success(t *testing.T) {
 	s := New(rRepo, tRepo, &mockDistProvider{}, defaultOptimizer())
 	full, err := s.Optimize(context.Background(), uid, taskIDs, 540, matrix, nil, nil, nil)
 	require.NoError(t, err)
-	assert.Equal(t, "optimized", full.Route.Status)
-	assert.NotNil(t, full.Stats)
+	assert.Equal(t, "nearest-neighbor-tw", full.Route.Algorithm)
 	assert.Len(t, full.Stops, 3)
 }
 
@@ -193,7 +191,7 @@ func TestOptimize_ExactlyTwoTasks(t *testing.T) {
 
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 	tRepo := &mockTaskRepo{
@@ -240,7 +238,7 @@ func TestOptimize_ExternalMatrix_OSRMNotCalled(t *testing.T) {
 	}
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 
@@ -270,7 +268,7 @@ func TestOptimize_NoMatrix_OSRMCalled(t *testing.T) {
 	}
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 
@@ -332,7 +330,7 @@ func TestOptimize_ConstraintsPassedToOptimizer(t *testing.T) {
 
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 	tRepo := &mockTaskRepo{
@@ -496,7 +494,7 @@ func TestOptimize_AlignsMatrixWithTaskIDsOrder(t *testing.T) {
 	}
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 
@@ -619,7 +617,7 @@ func TestOptimize_DemoCSV_PitersServisFitsWindow(t *testing.T) {
 
 	rRepo := &mockRouteRepo{
 		saveOptimizedRouteFn: func(_ context.Context, _, _ string, _ []routegate.StopInput, _, _, _, _ int) (route.Route, error) {
-			return makeRoute(uuid.NewString(), uid, "optimized"), nil
+			return makeRoute(uuid.NewString(), uid), nil
 		},
 	}
 

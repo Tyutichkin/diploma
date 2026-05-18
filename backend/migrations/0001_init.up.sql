@@ -1,88 +1,69 @@
--- Включаем расширение для генерации UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- users
-CREATE TABLE IF NOT EXISTS users (
-                                     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                     email VARCHAR(255) NOT NULL UNIQUE,
-                                     password_hash VARCHAR(255) NOT NULL,
-                                     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                                     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE users (
+    id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- refresh_tokens
-CREATE TABLE IF NOT EXISTS refresh_tokens (
-                                              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                              user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                                              token_hash VARCHAR(255) NOT NULL UNIQUE,
-                                              expires_at TIMESTAMPTZ NOT NULL,
-                                              revoked_at TIMESTAMPTZ NULL,
-                                              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- refresh_tokens (token rotation)
+CREATE TABLE refresh_tokens (
+    id         UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id    UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ  NOT NULL,
+    revoked_at TIMESTAMPTZ  NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS refresh_tokens_user_id_idx ON refresh_tokens(user_id);
+CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens(user_id);
 
 -- tasks
-CREATE TABLE IF NOT EXISTS tasks (
-                                     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                                     title VARCHAR(200) NOT NULL,
-                                     address_text VARCHAR(400) NOT NULL,
-                                     latitude NUMERIC(9,6) NULL,
-                                     longitude NUMERIC(9,6) NULL,
-                                     duration_min INT NOT NULL,
-                                     window_start TIME NULL,
-                                     window_end TIME NULL,
-                                     sort_index INT NOT NULL DEFAULT 0,
-                                     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                                     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE tasks (
+    id                UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id           UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title             VARCHAR(200)  NOT NULL,
+    address_text      VARCHAR(400)  NOT NULL,
+    latitude          NUMERIC(9,6)  NULL,
+    longitude         NUMERIC(9,6)  NULL,
+    duration_min      INT           NULL,
+    window_start_date DATE          NULL,
+    window_start_time TIME          NULL,
+    window_end_date   DATE          NULL,
+    window_end_time   TIME          NULL,
+    sort_index        INT           NOT NULL DEFAULT 0,
+    is_completed      BOOLEAN       NOT NULL DEFAULT false,
+    created_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS tasks_user_id_idx ON tasks(user_id);
-CREATE INDEX IF NOT EXISTS tasks_user_sort_idx ON tasks(user_id, sort_index);
+CREATE INDEX tasks_user_id_idx   ON tasks(user_id);
+CREATE INDEX tasks_user_sort_idx ON tasks(user_id, sort_index);
 
--- routes
-CREATE TABLE IF NOT EXISTS routes (
-                                      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                                      status VARCHAR(30) NOT NULL,   -- draft|optimized|failed
-                                      source VARCHAR(30) NOT NULL,   -- manual|optimized
-                                      algorithm VARCHAR(50) NULL,
-                                      started_at TIMESTAMPTZ NULL,
-                                      finished_at TIMESTAMPTZ NULL,
-                                      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                                      UNIQUE (user_id)
-);
-
--- route_stats (1:1)
-CREATE TABLE IF NOT EXISTS route_stats (
-                                           route_id UUID PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
-                                           total_distance_m INT NULL,
-                                           total_travel_sec INT NULL,
-                                           total_service_sec INT NULL,
-                                           total_wait_sec INT NULL,
-                                           computed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- routes (один маршрут на пользователя; агрегированные метрики хранятся прямо в строке)
+CREATE TABLE routes (
+    id                UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id           UUID         NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    algorithm         VARCHAR(50)  NOT NULL,
+    total_distance_m  INT          NOT NULL,
+    total_travel_sec  INT          NOT NULL,
+    total_service_sec INT          NOT NULL,
+    total_wait_sec    INT          NOT NULL,
+    computed_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- route_stops
-CREATE TABLE IF NOT EXISTS route_stops (
-                                           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                           route_id UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
-                                           task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-                                           position INT NOT NULL,
-                                           travel_from_prev_sec INT NULL,
-                                           arrive_time TIMESTAMPTZ NULL,
-                                           service_start_time TIMESTAMPTZ NULL,
-                                           service_end_time TIMESTAMPTZ NULL,
-                                           wait_sec INT NULL
+-- route_stops (упорядоченные остановки маршрута)
+CREATE TABLE route_stops (
+    id                    UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    route_id              UUID         NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+    task_id               UUID         NOT NULL REFERENCES tasks(id)  ON DELETE CASCADE,
+    position              INT          NOT NULL,
+    travel_from_prev_sec  INT          NULL,
+    arrive_time           TIMESTAMPTZ  NULL,
+    service_start_time    TIMESTAMPTZ  NULL,
+    service_end_time      TIMESTAMPTZ  NULL,
+    wait_sec              INT          NULL
 );
-CREATE INDEX IF NOT EXISTS route_stops_route_id_idx ON route_stops(route_id);
-CREATE UNIQUE INDEX IF NOT EXISTS route_stops_route_position_uq ON route_stops(route_id, position);
-
--- route_geometry (1:1)
-CREATE TABLE IF NOT EXISTS route_geometry (
-                                              route_id UUID PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
-                                              polyline TEXT NOT NULL,
-                                              bbox_json JSONB NULL,
-                                              geojson_json JSONB NULL,
-                                              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
+CREATE INDEX        route_stops_route_id_idx     ON route_stops(route_id);
+CREATE UNIQUE INDEX route_stops_route_position_uq ON route_stops(route_id, position);

@@ -266,7 +266,7 @@ func makeStopInputs(result routeopt.Result, tasks []task.Task) []routegate.StopI
 	return stops
 }
 
-func assembleFull(rt route.Route, stops []routegate.StopInput, r routeopt.Result) route.Full {
+func assembleFull(rt route.Route, stops []routegate.StopInput, _ routeopt.Result) route.Full {
 	routeStops := make([]route.Stop, len(stops))
 	for i, s := range stops {
 		travel := s.TravelFromPrevSec
@@ -282,15 +282,7 @@ func assembleFull(rt route.Route, stops []routegate.StopInput, r routeopt.Result
 		}
 	}
 
-	stats := &route.Stats{
-		RouteID:         rt.ID,
-		TotalDistanceM:  ptrs.Ptr(r.TotalDistanceM),
-		TotalTravelSec:  ptrs.Ptr(r.TotalTravelSec),
-		TotalServiceSec: ptrs.Ptr(r.TotalServiceSec),
-		TotalWaitSec:    ptrs.Ptr(r.TotalWaitSec),
-	}
-
-	return route.Full{Route: rt, Stops: routeStops, Stats: stats}
+	return route.Full{Route: rt, Stops: routeStops}
 }
 
 type boundKind int

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,12 +10,15 @@ import (
 )
 
 // routeColumns — поля в SELECT/RETURNING для таблицы routes; держим в одном месте.
-const routeColumns = `id, user_id, status, source, name, algorithm, started_at, finished_at, created_at`
+const routeColumns = `id, user_id, algorithm,
+	total_distance_m, total_travel_sec, total_service_sec, total_wait_sec,
+	computed_at`
 
 // scanRoute заполняет route.Route из строки запроса, выбранного по routeColumns.
 func scanRoute(s interface{ Scan(...any) error }, rt *route.Route) error {
-	return s.Scan(&rt.ID, &rt.UserID, &rt.Status, &rt.Source, &rt.Name,
-		&rt.Algorithm, &rt.StartedAt, &rt.FinishedAt, &rt.CreatedAt)
+	return s.Scan(&rt.ID, &rt.UserID, &rt.Algorithm,
+		&rt.TotalDistanceM, &rt.TotalTravelSec, &rt.TotalServiceSec, &rt.TotalWaitSec,
+		&rt.ComputedAt)
 }
 
 type RouteRepo struct {
@@ -43,12 +45,12 @@ func (r *RouteRepo) SaveOptimizedRoute(
 		return route.Route{}, err
 	}
 
-	now := time.Now()
 	row := tx.QueryRow(ctx, `
-		INSERT INTO routes(user_id, status, source, algorithm, started_at, finished_at)
-		VALUES ($1, 'optimized', 'optimized', $2, $3, $3)
+		INSERT INTO routes(user_id, algorithm,
+			total_distance_m, total_travel_sec, total_service_sec, total_wait_sec)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING `+routeColumns,
-		userID, algorithm, now)
+		userID, algorithm, distanceM, travelSec, serviceSec, waitSec)
 
 	var rt route.Route
 	if err := scanRoute(row, &rt); err != nil {
@@ -56,13 +58,6 @@ func (r *RouteRepo) SaveOptimizedRoute(
 	}
 
 	if err := insertStops(ctx, tx, rt.ID, stops); err != nil {
-		return route.Route{}, err
-	}
-
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO route_stats(route_id, total_distance_m, total_travel_sec, total_service_sec, total_wait_sec)
-		VALUES ($1, $2, $3, $4, $5)
-	`, rt.ID, distanceM, travelSec, serviceSec, waitSec); err != nil {
 		return route.Route{}, err
 	}
 

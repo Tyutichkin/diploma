@@ -36,10 +36,12 @@ interface ApiTask {
 
 interface ApiRoute {
     ID: string;
-    Status: string;
-    Source: string;
-    CreatedAt: string;
-    Name?: string | null;
+    Algorithm: string;
+    ComputedAt: string;
+    TotalDistanceM: number;
+    TotalTravelSec: number;
+    TotalServiceSec: number;
+    TotalWaitSec: number;
 }
 
 interface ApiRouteStop {
@@ -52,16 +54,9 @@ interface ApiRouteStop {
     WaitSec?: number | null;
 }
 
-interface ApiRouteStats {
-    TotalDistanceM?: number | null;
-    TotalTravelSec?: number | null;
-    TotalServiceSec?: number | null;
-}
-
 interface ApiRouteFull {
     Route: ApiRoute;
     Stops: ApiRouteStop[];
-    Stats?: ApiRouteStats | null;
 }
 
 export class ApiError extends Error {
@@ -428,15 +423,13 @@ function mapTaskFromApi(task: ApiTask): Task {
 function mapRouteSummary(route: ApiRoute): SavedRouteSummary {
     return {
         id: route.ID,
-        status: route.Status,
-        source: route.Source,
-        createdAt: route.CreatedAt,
-        name: route.Name ?? undefined,
+        algorithm: route.Algorithm,
+        computedAt: route.ComputedAt,
     };
 }
 
-function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
-    const sortedStops = [...(route.Stops ?? [])].sort(
+function mapRouteDetails(full: ApiRouteFull): SavedRouteDetails {
+    const sortedStops = [...(full.Stops ?? [])].sort(
         (a, b) => a.Position - b.Position,
     );
 
@@ -452,29 +445,17 @@ function mapRouteDetails(route: ApiRouteFull): SavedRouteDetails {
         waitSec: s.WaitSec ?? undefined,
     }));
 
-    const totalDistanceKm =
-        route.Stats?.TotalDistanceM != null
-            ? route.Stats.TotalDistanceM / 1000
-            : undefined;
-    const totalTravelTimeMin =
-        route.Stats?.TotalTravelSec != null
-            ? Math.ceil(route.Stats.TotalTravelSec / 60)
-            : undefined;
-    const serviceTimeMin =
-        route.Stats?.TotalServiceSec != null
-            ? Math.ceil(route.Stats.TotalServiceSec / 60)
-            : undefined;
+    const totalDistanceKm = full.Route.TotalDistanceM / 1000;
+    const totalTravelTimeMin = Math.ceil(full.Route.TotalTravelSec / 60);
+    const serviceTimeMin = Math.ceil(full.Route.TotalServiceSec / 60);
 
     return {
-        ...mapRouteSummary(route.Route),
+        ...mapRouteSummary(full.Route),
         orderedTaskIds,
         stops,
         totalDistanceKm,
         totalTravelTimeMin,
-        totalDurationMin:
-            totalTravelTimeMin !== undefined || serviceTimeMin !== undefined
-                ? (totalTravelTimeMin ?? 0) + (serviceTimeMin ?? 0)
-                : undefined,
+        totalDurationMin: totalTravelTimeMin + serviceTimeMin,
     };
 }
 

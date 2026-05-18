@@ -46,21 +46,11 @@ entity "routes" as routes {
   * id : UUID <<PK>>
   --
   * user_id : UUID <<FK, UQ>>
-  * status : varchar(30)
-  * source : varchar(30)
-  * algorithm : varchar(50) <<nullable>>
-  * started_at : timestamptz <<nullable>>
-  * finished_at : timestamptz <<nullable>>
-  * created_at : timestamptz
-}
-
-entity "route_stats" as stats {
-  * route_id : UUID <<PK, FK>>
-  --
-  * total_distance_m : int <<nullable>>
-  * total_travel_sec : int <<nullable>>
-  * total_service_sec : int <<nullable>>
-  * total_wait_sec : int <<nullable>>
+  * algorithm : varchar(50)
+  * total_distance_m : int
+  * total_travel_sec : int
+  * total_service_sec : int
+  * total_wait_sec : int
   * computed_at : timestamptz
 }
 
@@ -77,23 +67,12 @@ entity "route_stops" as stops {
   * wait_sec : int <<nullable>>
 }
 
-entity "route_geometry" as geom {
-  * route_id : UUID <<PK, FK>>
-  --
-  * polyline : text
-  * bbox_json : jsonb <<nullable>>
-  * geojson_json : jsonb <<nullable>>
-  * updated_at : timestamptz
-}
-
 users ||--o{ tasks : "1 ко многим"
 users ||--o| routes : "1 к 0..1"
 users ||--o{ rt : "1 ко многим"
 
 routes ||--o{ stops : "1 ко многим"
 tasks  ||--o{ stops : "1 ко многим"
-routes ||--|| geom  : "1 к 1"
-routes ||--|| stats : "1 к 1"
 
 entity "Условные обозначения" as legend {
   PK  : Primary Key (первичный ключ)
@@ -101,7 +80,6 @@ entity "Условные обозначения" as legend {
   UQ  : Unique constraint (ограничение по уникальности)
   nullable : допускается NULL значения
   timestamptz : дата и время с часовым поясом
-  jsonb : бинарный JSON
 }
 
 @enduml
