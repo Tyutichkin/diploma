@@ -19,7 +19,7 @@ entity "refresh_tokens" as rt {
   * user_id : UUID <<FK>>
   * token_hash : varchar(255) <<UQ>>
   * expires_at : timestamptz
-  * revoked_at : timestamptz <<nullable>>
+    revoked_at : timestamptz NULL
   * created_at : timestamptz
 }
 
@@ -29,13 +29,13 @@ entity "tasks" as tasks {
   * user_id : UUID <<FK>>
   * title : varchar(200)
   * address_text : varchar(400)
-  * latitude : numeric(9,6) <<nullable>>
-  * longitude : numeric(9,6) <<nullable>>
-  * duration_min : int <<nullable>>
-  * window_start_date : date <<nullable>>
-  * window_start_time : time <<nullable>>
-  * window_end_date : date <<nullable>>
-  * window_end_time : time <<nullable>>
+    latitude : numeric(9,6) NULL
+    longitude : numeric(9,6) NULL
+    duration_min : int NULL
+    window_start_date : date NULL
+    window_start_time : time NULL
+    window_end_date : date NULL
+    window_end_time : time NULL
   * sort_index : int
   * is_completed : boolean
   * created_at : timestamptz
@@ -60,26 +60,30 @@ entity "route_stops" as stops {
   * route_id : UUID <<FK>>
   * task_id : UUID <<FK>>
   * position : int
-  * travel_from_prev_sec : int <<nullable>>
-  * arrive_time : timestamptz <<nullable>>
-  * service_start_time : timestamptz <<nullable>>
-  * service_end_time : timestamptz <<nullable>>
-  * wait_sec : int <<nullable>>
+    travel_from_prev_sec : int NULL
+    arrive_time : timestamptz NULL
+    service_start_time : timestamptz NULL
+    service_end_time : timestamptz NULL
+    wait_sec : int NULL
 }
 
-users ||--o{ tasks : "1 ко многим"
-users ||--o| routes : "1 к 0..1"
-users ||--o{ rt : "1 ко многим"
+users ||--o{ tasks  : "1 : N"
+users ||--o| routes : "1 : 0..1"
+users ||--o{ rt     : "1 : N"
 
-routes ||--o{ stops : "1 ко многим"
-tasks  ||--o{ stops : "1 ко многим"
+routes ||--o{ stops : "1 : N"
+tasks  ||--o{ stops : "1 : N"
 
-entity "Условные обозначения" as legend {
-  PK  : Primary Key (первичный ключ)
-  FK  : Foreign Key (внешний ключ)
-  UQ  : Unique constraint (ограничение по уникальности)
-  nullable : допускается NULL значения
-  timestamptz : дата и время с часовым поясом
-}
+legend right
+  | <b>Обозначение</b> | <b>Смысл</b> |
+  | PK | первичный ключ |
+  | FK | внешний ключ |
+  | UQ | ограничение уникальности |
+  | * | обязательное поле (NOT NULL) |
+  | NULL | поле допускает значение NULL |
+  | timestamptz | дата и время с часовым поясом |
+  | 1 : N | связь "один ко многим" |
+  | 1 : 0..1 | связь "один к одному" (опциональная) |
+endlegend
 
 @enduml
