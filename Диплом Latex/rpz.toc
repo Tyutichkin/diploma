@@ -69,5 +69,5 @@
 \contentsline {section}{\numberline {3.5}Выводы}{57}{section.3.5}%
 \contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ЗАКЛЮЧЕНИЕ}}}{59}{section*.30}%
 \contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {СПИСОК ИСПОЛЬЗОВАННЫХ ИСТОЧНИКОВ}}}{62}{section*.31}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ А}}}{70}{section*.32}%
-\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ Б}}}{74}{section*.35}%
+\contentsline {chapter}{ПРИЛОЖЕНИЕ А}{70}{section*.33}%
+\contentsline {chapter}{{\fontsize {14pt}{21pt}\selectfont \MakeUppercase {ПРИЛОЖЕНИЕ Б}}}{74}{section*.36}%

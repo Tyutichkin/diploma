@@ -217,3 +217,13 @@
       {\fontsize{14pt}{21pt}\selectfont\bfseries \csname the#1\endcsname}\hspace{1em}%
 }
 \makeatother
+
+\newcommand{\appendixchapter}[3]{%
+  \chapter*{{\fontsize{14pt}{21pt}\selectfont\MakeUppercase{ПРИЛОЖЕНИЕ #1}}}%
+  \phantomsection
+  \addcontentsline{toc}{chapter}{ПРИЛОЖЕНИЕ #1}%
+  \label{#3}%
+  \begin{center}
+    {\fontsize{14pt}{21pt}\selectfont #2}
+  \end{center}
+}

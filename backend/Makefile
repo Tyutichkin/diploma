@@ -1,11 +1,15 @@
 APP_BIN := bin/api
 
-.PHONY: run build tidy fmt test
+.PHONY: run build tidy fmt test run-docker docker-reset
 
 run:
 	go run ./cmd/api
 
 run-docker:
+	docker compose up --build
+
+docker-reset:
+	docker compose down -v
 	docker compose up --build
 
 build:

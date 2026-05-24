@@ -69,7 +69,10 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
             zoom: 11,
             controls: ['zoomControl', 'fullscreenControl'],
           },
-          { suppressMapOpenBlock: true },
+          {
+            suppressMapOpenBlock: true,
+            yandexMapDisablePoiInteractivity: true,
+          },
         );
 
         setIsLoading(false);
