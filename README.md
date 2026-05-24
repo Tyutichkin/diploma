@@ -66,7 +66,7 @@ cd backend
 docker compose up --build
 ```
 
-Поднимает PostGIS на 5432, прогоняет миграции, запускает API на `http://localhost:8080`.
+Поднимает PostgreSQL на 5432, прогоняет миграции, запускает API на `http://localhost:8080`.
 
 Без Docker:
 
