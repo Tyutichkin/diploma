@@ -1,17 +1,14 @@
 % !TeX root = ./rpz.tex
 \setcounter{chapter}{5}
-\chapter{{\fontsize{14pt}{21pt}\selectfont\MakeUppercase{ПРИЛОЖЕНИЕ Б}}}
-\label{cha:appendix_code}
+\appendixchapter{Б}{Листинги ключевых фрагментов кода}{cha:appendix_code}
 
-\begin{center}\itshape (справочное)\end{center}
-
-\begin{center}{\fontsize{14pt}{21pt}\selectfont\bfseries Листинги ключевых фрагментов кода}\end{center}
+\begin{center}(справочное)\end{center}
 
 \counterwithin{listing}{chapter}
 \setcounter{listing}{0}
 \renewcommand{\thelisting}{Б.\arabic{listing}}
 
-\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами и просмотром вперед (nearest\_neighbor.go)}{app:lst_optimizer}
+\begin{codelisting}{Алгоритм ближайшего соседа с временными окнами и просмотром вперед (\texttt{nearest\_neighbor.go})}{app:lst_optimizer}
     \begin{minted}{go}
 package optimizer
 
@@ -98,7 +95,7 @@ func (a *NearestNeighborTW) Optimize(
     t.visited[cur] = true
 
     for len(t.order) < n {
-        // Если остался только закреплённый конечный узел — ставим его и выходим.
+        // Если остался только закрепленный конечный узел — ставим его и выходим.
         if endIdx >= 0 && !t.visited[endIdx] && onlyEndUnvisited(t.visited, endIdx) {
             t.appendNode(endIdx)
             break
@@ -208,7 +205,7 @@ func causesWindowMiss(cand int, afterSec int64,
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{HTTP-обработчик оптимизации маршрута (handlers\_routes.go, метод Optimize)}{app:lst_handlers_routes}
+\begin{codelisting}{HTTP-обработчик оптимизации маршрута (\texttt{handlers\_routes.go}, метод \texttt{Optimize})}{app:lst_handlers_routes}
     \begin{minted}{go}
 // Optimize — POST /api/routes/optimize.
 func (h *RouteHandlers) Optimize(c *gin.Context) {
@@ -284,7 +281,7 @@ type OptimizeRouteReq struct {
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Ключевые функции API-клиента: оптимизация маршрута и обновление токена (client.ts)}{app:lst_api_client}
+\begin{codelisting}{Ключевые функции API-клиента: оптимизация маршрута и обновление токена (\texttt{client.ts})}{app:lst_api_client}
     \begin{minted}{typescript}
 let refreshSessionPromise: Promise<AuthSession> | null = null;
 
@@ -363,7 +360,7 @@ async function refreshSession(options: AuthorizedRequestOptions) {
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Построение матрицы расстояний через Яндекс Маршруты JS API (routeOptimizer.ts)}{app:lst_route_optimizer}
+\begin{codelisting}{Построение матрицы расстояний через Яндекс Маршруты JS API (\texttt{routeOptimizer.ts})}{app:lst_route_optimizer}
     \begin{minted}{typescript}
 import { Task } from '../types/task';
 import { loadYandexMaps } from './yandexMaps';
