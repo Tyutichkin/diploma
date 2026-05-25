@@ -203,17 +203,18 @@
 подходов к решению TSPTW применительно к задачам данной работы.
 
 \begin{table}[H]
+  \small
   \caption{Сравнение алгоритмических подходов к задаче TSPTW}
   \label{tab:algorithms_compare}
-  \begin{tabular}{|p{6cm}|p{3cm}|p{2.2cm}|}
+  \begin{tabularx}{\textwidth}{|X|>{\centering\arraybackslash}p{3cm}|>{\centering\arraybackslash}p{2.2cm}|}
     \hline
-    \centering{}Подход                                                         & \centering{}Слож\-ность               & \multicolumn{1}{c|}{Оптималь\-ность маршрута}             \\ \hline
-    Полный перебор~\cite{cormen2013algorithms}                          & $O(n!)$                                      & Да \\ \hline
-    Динамическое программирование (алг. Хелда--Карпа~\cite{held1962dp})               & $O(2^n \cdot n^2)$                           & Да  \\ \hline
-    Жадная эвристика NNH-TW (ближайший сосед с временными окнами и просмотром вперед)  & $O(n^3)$                                    & Нет \\ \hline
-    Муравьиный алгоритм~\cite{reshenie_zadach_marshrutizasii2022,necula2017aco} & $O(\mathit{iter} \cdot n^2 \cdot m)$         & Нет \\ \hline
-    Генетические алгоритмы~\cite{gladkov2010ga}                                  & $O(\mathit{gen} \cdot \mathit{pop} \cdot n)$ & Нет\\ \hline
-  \end{tabular}
+    \centering Подход & \centering Сложность & \multicolumn{1}{c|}{Оптимальность маршрута} \\ \hline
+    Полный перебор~\cite{cormen2013algorithms} & $O(n!)$ & Да \\ \hline
+    Динамическое программирование (алг. Хелда--Карпа~\cite{held1962dp}) & $O(2^n \cdot n^2)$ & Да \\ \hline
+    Жадная эвристика NNH-TW (ближайший сосед с временными окнами и просмотром вперед) & $O(n^3)$ & Нет \\ \hline
+    Муравьиный алгоритм~\cite{reshenie_zadach_marshrutizasii2022,necula2017aco} & $O(\mathit{iter} \cdot n^2 \cdot m)$ & Нет \\ \hline
+    Генетические алгоритмы~\cite{gladkov2010ga} & $O(\mathit{gen} \cdot \mathit{pop} \cdot n)$ & Нет \\ \hline
+  \end{tabularx}
 \end{table}
 
 Здесь $n$~--- количество узлов маршрута, $m$~--- количество муравьев (агентов),
@@ -272,7 +273,7 @@ $\mathit{pop}$~--- размер популяции.
   \label{tab:analyze_analogs}
   {\small
     \begin{tabular}{|p{2.8cm}|p{1.6cm}|p{1.7cm}|p{1.7cm}|p{1.7cm}|p{2cm}|p{2.1cm}|}
-      \hline
+    \hline
       \centering{}Критерий
        & \centering{}Todoist
        & \centering{}Microsoft To Do
