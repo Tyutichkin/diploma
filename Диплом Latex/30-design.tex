@@ -76,7 +76,7 @@ HTTP-фреймворка, СУБД и сторонних сервисов.
   \label{tab:clean_arch}
   \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{3cm}|L|L|}
     \hline
-    \centering{}Слой & \centering{}Пакет                                       & \multicolumn{1}{c|}{Назначение}                                                                   \\ \hline
+    \multicolumn{1}{|c|}{Слой} & \multicolumn{1}{c|}{Пакет} & \multicolumn{1}{c|}{Назначение} \\ \hline
     Доменные сущности       & \path{internal/domain/*/}                                      & Структуры данных (Task, Route, User); без внешних зависимостей                  \\ \hline
     Интерфейсы (порты)      & \path{internal/domain/*/gate/}                                 & Интерфейсы репозиториев и оптимизатора; определяют контракт без реализации                                 \\ \hline
     Варианты использования  & \path{internal/domain/*/story/}                                & Бизнес-логика: создание задач, пакетный импорт (\path{taskimport}), запуск оптимизации, управление сессией \\ \hline
@@ -211,7 +211,7 @@ causesWindowMiss(cand, afterCandSec, G, visited, endIdx):
   \label{tab:trace_input}
   \begin{tabularx}{\linewidth}{|C|L|C|C|}
     \hline
-    \centering{}Узел & \centering{}Адрес & \centering{}Временное окно & \multicolumn{1}{c|}{Длительность} \\ \hline
+    Узел & \multicolumn{1}{c|}{Адрес} & Временное окно & Длительность \\ \hline
     $v_0$                   & Офис (начало)            & 08:00--09:00                      & 30~мин                                     \\ \hline
     $v_1$                   & Точка А                  & 10:00--12:00                      & 20~мин                                     \\ \hline
     $v_2$                   & Точка Б                  & 09:00--10:00                      & 15~мин                                     \\ \hline

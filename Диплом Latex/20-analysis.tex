@@ -121,7 +121,7 @@
   \label{tab:maps_compare}
   \begin{tabularx}{\linewidth}{|L|L|L|L|}
     \hline
-    \centering{}Критерий & \centering{}Яндекс JS API & \centering{}Google Maps JS API & \multicolumn{1}{c|}{OpenStreetMap} \\ \hline
+    \multicolumn{1}{|c|}{Критерий} & \multicolumn{1}{c|}{Яндекс JS API} & \multicolumn{1}{c|}{Google Maps JS API} & \multicolumn{1}{c|}{OpenStreetMap} \\ \hline
     Геокодер на русском языке   & Да, включая топонимику РФ              & Да                                    & Качество в РФ ниже коммерческих провайдеров; обновление зависит от сообщества \\ \hline
     Бесплатный лимит (геокодер) & 1\,000 запр./сутки                     & 200\,\$ кредит/мес.                   & Без ограничений                                       \\ \hline
     Работа в России             & Без ограничений                        & Может быть недоступен                 & Без ограничений                                       \\ \hline
@@ -141,7 +141,7 @@
   \label{tab:tech_stack}
   \begin{tabularx}{\linewidth}{|L|L|L|}
     \hline
-    \centering{}Уровень & \centering{}Технология           & \multicolumn{1}{c|}{Обоснование} \\ \hline
+    \multicolumn{1}{|c|}{Уровень} & \multicolumn{1}{c|}{Технология} & \multicolumn{1}{c|}{Обоснование} \\ \hline
     Серверная часть            & Go 1.23~\cite{gin}                & Компилируемый язык, простая модель конкурентности \\ \hline
     База данных                & PostgreSQL 16~\cite{PostgreSQL}    & Реляционность, поддержка типизированных временных типов, зрелость платформы  \\ \hline
     Клиентская часть           & React + TypeScript~\cite{cherny2020ts} & Компонентный подход, статическая типизация, развитая экосистема \\ \hline
@@ -208,7 +208,7 @@
   \label{tab:algorithms_compare}
   \begin{tabularx}{\textwidth}{|X|>{\centering\arraybackslash}p{3cm}|>{\centering\arraybackslash}p{2.2cm}|}
     \hline
-    \centering Подход & \centering Сложность & \multicolumn{1}{c|}{Оптимальность маршрута} \\ \hline
+    \multicolumn{1}{|c|}{Подход} & \multicolumn{1}{c|}{Сложность} & \multicolumn{1}{c|}{Оптимальность маршрута} \\ \hline
     Полный перебор~\cite{cormen2013algorithms} & $O(n!)$ & Да \\ \hline
     Динамическое программирование (алг. Хелда--Карпа~\cite{held1962dp}) & $O(2^n \cdot n^2)$ & Да \\ \hline
     Жадная эвристика NNH-TW (ближайший сосед с временными окнами и просмотром вперед) & $O(n^3)$ & Нет \\ \hline
@@ -274,13 +274,13 @@ $\mathit{pop}$~--- размер популяции.
   {\small
     \begin{tabular}{|p{2.8cm}|p{1.6cm}|p{1.7cm}|p{1.7cm}|p{1.7cm}|p{2cm}|p{2.1cm}|}
     \hline
-      \centering{}Критерий
-       & \centering{}Todoist
-       & \centering{}Microsoft To Do
-       & \centering{}Google Maps
-       & \centering{}Routific
-       & \centering{}Яндекс Марш\-рутизация
-       & \multicolumn{1}{p{2.1cm}|}{\centering{}Проекти\-руемое решение}                              \\ \hline
+      \multicolumn{1}{|p{2.8cm}|}{\centering Критерий}
+       & \multicolumn{1}{p{1.6cm}|}{\centering Todoist}
+       & \multicolumn{1}{p{1.7cm}|}{\centering Microsoft To Do}
+       & \multicolumn{1}{p{1.7cm}|}{\centering Google Maps}
+       & \multicolumn{1}{p{1.7cm}|}{\centering Routific}
+       & \multicolumn{1}{p{2cm}|}{\centering Яндекс Марш\-рутизация}
+       & \multicolumn{1}{p{2.1cm}|}{\centering Проекти\-руемое решение}                              \\ \hline
       Управление задачами
        & Да                                                                     & Да  & Нет & Нет & Нет & Да \\ \hline
       Геокодиро\-вание адресов
