@@ -176,17 +176,17 @@ func TestCreate_NoTimeWindow(t *testing.T) {
 	uid := uuid.NewString()
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, in task.CreateInput) (task.Task, error) {
-			assert.Nil(t, in.WindowStartDate)
-			assert.Nil(t, in.WindowEndDate)
+			assert.Nil(t, in.Window.StartDate)
+			assert.Nil(t, in.Window.EndDate)
 			return makeTask(uuid.NewString(), uid, in.Title), nil
 		},
 	}
 	s := New(repo)
 	in := validCreateInput()
-	in.WindowStartDate = nil
-	in.WindowStartTime = nil
-	in.WindowEndDate = nil
-	in.WindowEndTime = nil
+	in.Window.StartDate = nil
+	in.Window.StartTime = nil
+	in.Window.EndDate = nil
+	in.Window.EndTime = nil
 	_, err := s.Create(context.Background(), uid, in)
 	require.NoError(t, err)
 }
@@ -205,10 +205,10 @@ func TestCreate_ValidTimeWindow(t *testing.T) {
 	}
 	s := New(repo)
 	in := validCreateInput()
-	in.WindowStartDate = &wsDate
-	in.WindowStartTime = &wsTime
-	in.WindowEndDate = &weDate
-	in.WindowEndTime = &weTime
+	in.Window.StartDate = &wsDate
+	in.Window.StartTime = &wsTime
+	in.Window.EndDate = &weDate
+	in.Window.EndTime = &weTime
 	_, err := s.Create(context.Background(), uid, in)
 	require.NoError(t, err)
 }
@@ -221,10 +221,10 @@ func TestCreate_TimeWindowEndBeforeStart(t *testing.T) {
 	weDate := "2024-01-15"
 	weTime := "09:00"
 	in := validCreateInput()
-	in.WindowStartDate = &wsDate
-	in.WindowStartTime = &wsTime
-	in.WindowEndDate = &weDate
-	in.WindowEndTime = &weTime
+	in.Window.StartDate = &wsDate
+	in.Window.StartTime = &wsTime
+	in.Window.EndDate = &weDate
+	in.Window.EndTime = &weTime
 	_, err := s.Create(context.Background(), "uid", in)
 	assert.Error(t, err)
 }
@@ -235,8 +235,8 @@ func TestCreate_TimeOnlyWindowEndBeforeStart(t *testing.T) {
 	wsTime := "12:00"
 	weTime := "11:00"
 	in := validCreateInput()
-	in.WindowStartTime = &wsTime
-	in.WindowEndTime = &weTime
+	in.Window.StartTime = &wsTime
+	in.Window.EndTime = &weTime
 	_, err := s.Create(context.Background(), "uid", in)
 	assert.Error(t, err)
 }
@@ -247,8 +247,8 @@ func TestCreate_TimeOnlyWindowEqualStartEnd(t *testing.T) {
 	wsTime := "10:00"
 	weTime := "10:00"
 	in := validCreateInput()
-	in.WindowStartTime = &wsTime
-	in.WindowEndTime = &weTime
+	in.Window.StartTime = &wsTime
+	in.Window.EndTime = &weTime
 	_, err := s.Create(context.Background(), "uid", in)
 	assert.Error(t, err)
 }
@@ -265,8 +265,8 @@ func TestCreate_TimeOnlyWindowValid(t *testing.T) {
 	wsTime := "09:00"
 	weTime := "18:00"
 	in := validCreateInput()
-	in.WindowStartTime = &wsTime
-	in.WindowEndTime = &weTime
+	in.Window.StartTime = &wsTime
+	in.Window.EndTime = &weTime
 	_, err := s.Create(context.Background(), uid, in)
 	require.NoError(t, err)
 }
@@ -277,8 +277,7 @@ func TestUpdate_TimeOnlyWindowEndBeforeStart(t *testing.T) {
 	wsTime := "20:00"
 	weTime := "08:00"
 	_, _, err := s.Update(context.Background(), "uid", uuid.NewString(), task.UpdateInput{
-		WindowStartTime: &wsTime,
-		WindowEndTime:   &weTime,
+		Window: &task.TimeWindow{StartTime: &wsTime, EndTime: &weTime},
 	})
 	assert.Error(t, err)
 }
@@ -296,8 +295,7 @@ func TestUpdate_TimeOnlyWindowValid(t *testing.T) {
 	wsTime := "09:00"
 	weTime := "17:00"
 	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
-		WindowStartTime: &wsTime,
-		WindowEndTime:   &weTime,
+		Window: &task.TimeWindow{StartTime: &wsTime, EndTime: &weTime},
 	})
 	require.NoError(t, err)
 	assert.True(t, found)
@@ -315,10 +313,10 @@ func TestCreate_OnlyWindowStart(t *testing.T) {
 	}
 	s := New(repo)
 	in := validCreateInput()
-	in.WindowStartDate = &wsDate
-	in.WindowStartTime = &wsTime
-	in.WindowEndDate = nil
-	in.WindowEndTime = nil
+	in.Window.StartDate = &wsDate
+	in.Window.StartTime = &wsTime
+	in.Window.EndDate = nil
+	in.Window.EndTime = nil
 	_, err := s.Create(context.Background(), uid, in)
 	require.NoError(t, err)
 }
@@ -331,10 +329,12 @@ func TestUpdate_TimeWindowEndBeforeStart(t *testing.T) {
 	weDate := "2024-01-15"
 	weTime := "08:00"
 	_, _, err := s.Update(context.Background(), "uid", uuid.NewString(), task.UpdateInput{
-		WindowStartDate: &wsDate,
-		WindowStartTime: &wsTime,
-		WindowEndDate:   &weDate,
-		WindowEndTime:   &weTime,
+		Window: &task.TimeWindow{
+			StartDate: &wsDate,
+			StartTime: &wsTime,
+			EndDate:   &weDate,
+			EndTime:   &weTime,
+		},
 	})
 	assert.Error(t, err)
 }
@@ -351,7 +351,9 @@ func TestUpdate_OnlyWindowEnd(t *testing.T) {
 		},
 	}
 	s := New(repo)
-	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{WindowEndDate: &weDate, WindowEndTime: &weTime})
+	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
+		Window: &task.TimeWindow{EndDate: &weDate, EndTime: &weTime},
+	})
 	require.NoError(t, err)
 	assert.True(t, found)
 }
@@ -372,14 +374,17 @@ func TestUpdate_ClearWindowStartDate(t *testing.T) {
 	}
 	s := New(repo)
 	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
-		WindowStartDate: &empty,
-		WindowEndDate:   &weDate,
-		WindowEndTime:   &weTime,
+		Window: &task.TimeWindow{
+			StartDate: &empty,
+			EndDate:   &weDate,
+			EndTime:   &weTime,
+		},
 	})
 	require.NoError(t, err)
 	assert.True(t, found)
-	require.NotNil(t, gotInput.WindowStartDate)
-	assert.Equal(t, "", *gotInput.WindowStartDate)
+	require.NotNil(t, gotInput.Window)
+	require.NotNil(t, gotInput.Window.StartDate)
+	assert.Equal(t, "", *gotInput.Window.StartDate)
 }
 
 // 2.2.7 Сброс даты конца окна (пустая строка) — допустимо, repo вызывается с ptr("")
@@ -398,14 +403,17 @@ func TestUpdate_ClearWindowEndDate(t *testing.T) {
 	}
 	s := New(repo)
 	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
-		WindowStartDate: &wsDate,
-		WindowStartTime: &wsTime,
-		WindowEndDate:   &empty,
+		Window: &task.TimeWindow{
+			StartDate: &wsDate,
+			StartTime: &wsTime,
+			EndDate:   &empty,
+		},
 	})
 	require.NoError(t, err)
 	assert.True(t, found)
-	require.NotNil(t, gotInput.WindowEndDate)
-	assert.Equal(t, "", *gotInput.WindowEndDate)
+	require.NotNil(t, gotInput.Window)
+	require.NotNil(t, gotInput.Window.EndDate)
+	assert.Equal(t, "", *gotInput.Window.EndDate)
 }
 
 // 2.2.8 Сброс обоих полей окна — допустимо
@@ -420,10 +428,12 @@ func TestUpdate_ClearBothWindows(t *testing.T) {
 	}
 	s := New(repo)
 	_, found, err := s.Update(context.Background(), uid, taskID, task.UpdateInput{
-		WindowStartDate: &empty,
-		WindowStartTime: &empty,
-		WindowEndDate:   &empty,
-		WindowEndTime:   &empty,
+		Window: &task.TimeWindow{
+			StartDate: &empty,
+			StartTime: &empty,
+			EndDate:   &empty,
+			EndTime:   &empty,
+		},
 	})
 	require.NoError(t, err)
 	assert.True(t, found)
@@ -702,8 +712,8 @@ func TestCreate_RepoError(t *testing.T) {
 func TestCreate_WindowSameDayNoTimes_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	in := validCreateInput()
-	in.WindowStartDate = &today
-	in.WindowEndDate = &today
+	in.Window.StartDate = &today
+	in.Window.EndDate = &today
 
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, got task.CreateInput) (task.Task, error) {
@@ -719,9 +729,9 @@ func TestCreate_WindowStartTimeOnly_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	startTime := "09:30"
 	in := validCreateInput()
-	in.WindowStartDate = &today
-	in.WindowStartTime = &startTime
-	in.WindowEndDate = &today
+	in.Window.StartDate = &today
+	in.Window.StartTime = &startTime
+	in.Window.EndDate = &today
 
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, _ task.CreateInput) (task.Task, error) {
@@ -737,9 +747,9 @@ func TestCreate_WindowEndTimeOnly_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	endTime := "17:00"
 	in := validCreateInput()
-	in.WindowStartDate = &today
-	in.WindowEndDate = &today
-	in.WindowEndTime = &endTime
+	in.Window.StartDate = &today
+	in.Window.EndDate = &today
+	in.Window.EndTime = &endTime
 
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, _ task.CreateInput) (task.Task, error) {
@@ -756,10 +766,10 @@ func TestCreate_WindowSameDayReversedTimes_Rejected(t *testing.T) {
 	st := "15:00"
 	et := "10:00"
 	in := validCreateInput()
-	in.WindowStartDate = &today
-	in.WindowStartTime = &st
-	in.WindowEndDate = &today
-	in.WindowEndTime = &et
+	in.Window.StartDate = &today
+	in.Window.StartTime = &st
+	in.Window.EndDate = &today
+	in.Window.EndTime = &et
 
 	_, err := New(&mockTaskRepo{}).Create(context.Background(), "uid", in)
 	require.Error(t, err)
@@ -773,12 +783,14 @@ func TestCreateBatch_DemoCSVImport_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	mk := func(title string, sTime, eTime *string) task.CreateInput {
 		return task.CreateInput{
-			Title:           title,
-			DurationMin:     ptrs.Ptr(20),
-			WindowStartDate: &today,
-			WindowStartTime: sTime,
-			WindowEndDate:   &today,
-			WindowEndTime:   eTime,
+			Title:       title,
+			DurationMin: ptrs.Ptr(20),
+			Window: task.TimeWindow{
+				StartDate: &today,
+				StartTime: sTime,
+				EndDate:   &today,
+				EndTime:   eTime,
+			},
 		}
 	}
 	t1 := "09:30"

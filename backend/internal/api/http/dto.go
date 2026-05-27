@@ -1,5 +1,7 @@
 package http
 
+import "planner-backend/internal/domain/task"
+
 type RegisterReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -91,4 +93,50 @@ type OptimizeRouteReq struct {
 	StartTaskID           *string             `json:"startTaskId,omitempty"`
 	EndTaskID             *string             `json:"endTaskId,omitempty"`
 	PrecedenceConstraints []PrecedencePairDTO `json:"precedenceConstraints,omitempty"`
+}
+
+func (r CreateTaskReq) toCreateInput() task.CreateInput {
+	return task.CreateInput{
+		Title:       r.Title,
+		AddressText: derefOrEmpty(r.AddressText),
+		Latitude:    r.Latitude,
+		Longitude:   r.Longitude,
+		DurationMin: r.DurationMin,
+		Window: task.TimeWindow{
+			StartDate: r.WindowStartDate,
+			StartTime: r.WindowStartTime,
+			EndDate:   r.WindowEndDate,
+			EndTime:   r.WindowEndTime,
+		},
+		SortIndex: r.SortIndex,
+	}
+}
+
+func (r UpdateTaskReq) toUpdateInput() task.UpdateInput {
+	in := task.UpdateInput{
+		Title:       r.Title,
+		AddressText: r.AddressText,
+		Latitude:    r.Latitude,
+		Longitude:   r.Longitude,
+		DurationMin: r.DurationMin,
+		SortIndex:   r.SortIndex,
+		IsCompleted: r.IsCompleted,
+	}
+	if r.WindowStartDate != nil || r.WindowStartTime != nil ||
+		r.WindowEndDate != nil || r.WindowEndTime != nil {
+		in.Window = &task.TimeWindow{
+			StartDate: r.WindowStartDate,
+			StartTime: r.WindowStartTime,
+			EndDate:   r.WindowEndDate,
+			EndTime:   r.WindowEndTime,
+		}
+	}
+	return in
+}
+
+func derefOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

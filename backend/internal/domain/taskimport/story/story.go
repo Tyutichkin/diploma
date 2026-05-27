@@ -45,14 +45,11 @@ func (s *Story) Import(
 	inputs := make([]task.CreateInput, len(parsed.Rows))
 	for i, row := range parsed.Rows {
 		inputs[i] = task.CreateInput{
-			Title:           row.Title,
-			AddressText:     row.AddressText,
-			DurationMin:     row.DurationMin,
-			WindowStartDate: row.WindowStartDate,
-			WindowStartTime: row.WindowStartTime,
-			WindowEndDate:   row.WindowEndDate,
-			WindowEndTime:   row.WindowEndTime,
-			SortIndex:       startSortIndex + i,
+			Title:       row.Title,
+			AddressText: row.AddressText,
+			DurationMin: row.DurationMin,
+			Window:      row.Window,
+			SortIndex:   startSortIndex + i,
 		}
 	}
 

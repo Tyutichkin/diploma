@@ -277,8 +277,9 @@ func TestTaskHandler_Update_ClearWindowStart(t *testing.T) {
 		"windowEndTime":   "18:00",
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
-	require.NotNil(t, gotInput.WindowStartDate, "WindowStartDate должен быть ptr(\"\") — признак сброса")
-	assert.Equal(t, "", *gotInput.WindowStartDate)
+	require.NotNil(t, gotInput.Window, "Window должен быть передан в repo")
+	require.NotNil(t, gotInput.Window.StartDate, "Window.StartDate должен быть ptr(\"\") — признак сброса")
+	assert.Equal(t, "", *gotInput.Window.StartDate)
 }
 
 // 5.3.7b PATCH /api/tasks/:id — сброс конца окна (windowEndDate="") → 200
@@ -298,8 +299,9 @@ func TestTaskHandler_Update_ClearWindowEnd(t *testing.T) {
 		"windowEndDate":   "",
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
-	require.NotNil(t, gotInput.WindowEndDate, "WindowEndDate должен быть ptr(\"\") — признак сброса")
-	assert.Equal(t, "", *gotInput.WindowEndDate)
+	require.NotNil(t, gotInput.Window, "Window должен быть передан в repo")
+	require.NotNil(t, gotInput.Window.EndDate, "Window.EndDate должен быть ptr(\"\") — признак сброса")
+	assert.Equal(t, "", *gotInput.Window.EndDate)
 }
 
 // 5.3.8 PATCH /api/tasks/:id — не найдено → 404

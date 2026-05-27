@@ -1,15 +1,16 @@
 package taskimport
 
-import "strings"
+import (
+	"strings"
+
+	"planner-backend/internal/domain/task"
+)
 
 type ParsedRow struct {
-	Title           string
-	AddressText     string
-	DurationMin     *int
-	WindowStartDate *string
-	WindowStartTime *string
-	WindowEndDate   *string
-	WindowEndTime   *string
+	Title       string
+	AddressText string
+	DurationMin *int
+	Window      task.TimeWindow
 }
 
 type RowError struct {

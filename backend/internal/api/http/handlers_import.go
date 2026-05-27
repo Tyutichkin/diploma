@@ -1,14 +1,12 @@
 package http
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
-	"planner-backend/internal/domain/task"
 	importstory "planner-backend/internal/domain/taskimport/story"
 )
 
@@ -32,14 +30,14 @@ func (h *ImportHandlers) Import(c *gin.Context) {
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file field is required"})
+		respondBadRequest(c, "file field is required")
 		return
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read file (possibly too large)"})
+		respondBadRequest(c, "failed to read file (possibly too large)")
 		return
 	}
 
@@ -52,12 +50,7 @@ func (h *ImportHandlers) Import(c *gin.Context) {
 
 	result, err := h.story.Import(c.Request.Context(), userID, data, header.Filename, startSortIndex)
 	if err != nil {
-		var valErr *task.ValidationError
-		if errors.As(err, &valErr) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": valErr.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal"})
+		respondError(c, err)
 		return
 	}
 

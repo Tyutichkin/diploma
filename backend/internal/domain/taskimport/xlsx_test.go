@@ -115,8 +115,8 @@ func TestParse_XLSX_HappyPath(t *testing.T) {
 	assert.Equal(t, "Встреча", res.Rows[0].Title)
 	require.NotNil(t, res.Rows[0].DurationMin)
 	assert.Equal(t, 45, *res.Rows[0].DurationMin)
-	require.NotNil(t, res.Rows[0].WindowStartDate)
-	assert.Equal(t, "2025-12-25", *res.Rows[0].WindowStartDate)
+	require.NotNil(t, res.Rows[0].Window.StartDate)
+	assert.Equal(t, "2025-12-25", *res.Rows[0].Window.StartDate)
 
 	assert.Equal(t, "Отчёт", res.Rows[1].Title)
 	assert.Equal(t, "", res.Rows[1].AddressText)

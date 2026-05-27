@@ -107,11 +107,11 @@ describe('TaskForm — валидация временного окна: тол�
 });
 
 describe('TaskForm — раздельные поля дата/время для временного окна', () => {
-  it('кнопки очистки не отображаются, если поля пусты', () => {
+  it('на пустой форме поля даты предзаполнены сегодняшним числом (кнопки очистки видны), поля времени пусты', () => {
     render(<TaskForm {...defaultProps} />);
-    expect(screen.queryByRole('button', { name: /очистить дату начала окна/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /очистить дату начала окна/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /очистить дату конца окна/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /очистить время начала окна/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /очистить дату конца окна/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /очистить время конца окна/i })).toBeNull();
   });
 

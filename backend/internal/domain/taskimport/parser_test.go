@@ -47,20 +47,20 @@ func TestParse_CSV_HappyPath(t *testing.T) {
 	assert.Equal(t, "Москва, ул. Арбат, 1", r1.AddressText)
 	require.NotNil(t, r1.DurationMin)
 	assert.Equal(t, 45, *r1.DurationMin)
-	require.NotNil(t, r1.WindowStartDate)
-	assert.Equal(t, "2025-12-25", *r1.WindowStartDate)
-	require.NotNil(t, r1.WindowStartTime)
-	assert.Equal(t, "10:00", *r1.WindowStartTime)
-	require.NotNil(t, r1.WindowEndTime)
-	assert.Equal(t, "12:00", *r1.WindowEndTime)
+	require.NotNil(t, r1.Window.StartDate)
+	assert.Equal(t, "2025-12-25", *r1.Window.StartDate)
+	require.NotNil(t, r1.Window.StartTime)
+	assert.Equal(t, "10:00", *r1.Window.StartTime)
+	require.NotNil(t, r1.Window.EndTime)
+	assert.Equal(t, "12:00", *r1.Window.EndTime)
 
 	// Row 2 — ISO-дата, только начало окна
 	r2 := res.Rows[1]
 	assert.Equal(t, "Доставка", r2.Title)
-	require.NotNil(t, r2.WindowStartDate)
-	assert.Equal(t, "2025-12-26", *r2.WindowStartDate)
-	assert.Nil(t, r2.WindowEndTime)
-	assert.Nil(t, r2.WindowEndDate)
+	require.NotNil(t, r2.Window.StartDate)
+	assert.Equal(t, "2025-12-26", *r2.Window.StartDate)
+	assert.Nil(t, r2.Window.EndTime)
+	assert.Nil(t, r2.Window.EndDate)
 
 	// Row 3 — без адреса, без окна; дата — сегодня (не сверяем точно)
 	r3 := res.Rows[2]
@@ -68,8 +68,8 @@ func TestParse_CSV_HappyPath(t *testing.T) {
 	assert.Equal(t, "", r3.AddressText)
 	require.NotNil(t, r3.DurationMin)
 	assert.Equal(t, 60, *r3.DurationMin)
-	assert.Nil(t, r3.WindowStartTime)
-	assert.Nil(t, r3.WindowStartDate)
+	assert.Nil(t, r3.Window.StartTime)
+	assert.Nil(t, r3.Window.StartDate)
 }
 
 func TestParse_CSV_WithBOM(t *testing.T) {
@@ -128,8 +128,8 @@ func TestParse_CSV_HeadersCaseAndSpaces(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
 	assert.Equal(t, "A", res.Rows[0].Title)
-	require.NotNil(t, res.Rows[0].WindowStartTime)
-	assert.Equal(t, "09:00", *res.Rows[0].WindowStartTime)
+	require.NotNil(t, res.Rows[0].Window.StartTime)
+	assert.Equal(t, "09:00", *res.Rows[0].Window.StartTime)
 }
 
 func TestParse_CSV_DefaultDateIsToday(t *testing.T) {
@@ -137,8 +137,8 @@ func TestParse_CSV_DefaultDateIsToday(t *testing.T) {
 	res, err := Parse(csvData, FormatCSV)
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
-	require.NotNil(t, res.Rows[0].WindowStartDate)
-	assert.Equal(t, time.Now().Format("2006-01-02"), *res.Rows[0].WindowStartDate)
+	require.NotNil(t, res.Rows[0].Window.StartDate)
+	assert.Equal(t, time.Now().Format("2006-01-02"), *res.Rows[0].Window.StartDate)
 }
 
 func TestParse_CSV_TimeNormalization(t *testing.T) {
@@ -156,8 +156,8 @@ func TestParse_CSV_TimeNormalization_Single(t *testing.T) {
 	res, err := Parse(csvData, FormatCSV)
 	require.NoError(t, err)
 	require.Len(t, res.Rows, 1)
-	require.NotNil(t, res.Rows[0].WindowStartTime)
-	assert.Equal(t, "09:05", *res.Rows[0].WindowStartTime)
+	require.NotNil(t, res.Rows[0].Window.StartTime)
+	assert.Equal(t, "09:05", *res.Rows[0].Window.StartTime)
 }
 
 func TestParse_CSV_Empty(t *testing.T) {

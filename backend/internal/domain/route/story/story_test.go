@@ -392,13 +392,13 @@ func TestBuildGraph_DateOnlyWindow_FullDay(t *testing.T) {
 	tasks := []task.Task{
 		{
 			ID: "a", Latitude: ptrs.Ptr(0.0), Longitude: ptrs.Ptr(0.0),
-			DurationMin:     ptrs.Ptr(20),
-			WindowStartDate: &d, WindowEndDate: &d,
+			DurationMin: ptrs.Ptr(20),
+			Window:      task.TimeWindow{StartDate: &d, EndDate: &d},
 		},
 		{
 			ID: "b", Latitude: ptrs.Ptr(0.0), Longitude: ptrs.Ptr(0.0),
-			DurationMin:     ptrs.Ptr(20),
-			WindowStartDate: &d, WindowEndDate: &d,
+			DurationMin: ptrs.Ptr(20),
+			Window:      task.TimeWindow{StartDate: &d, EndDate: &d},
 		},
 	}
 	matrix := [][]distancepkg.Edge{
@@ -509,17 +509,19 @@ func TestOptimize_DemoCSV_PitersServisFitsWindow(t *testing.T) {
 		lat, lon := 59.93, 30.36 // координаты не важны: матрица передаётся явно
 		wsCopy, weCopy, dayCopy := ws, we, day
 		return task.Task{
-			ID:              uuid.NewString(),
-			UserID:          uid,
-			Title:           title,
-			AddressText:     title,
-			Latitude:        &lat,
-			Longitude:       &lon,
-			DurationMin:     ptrs.Ptr(dur),
-			WindowStartDate: &dayCopy,
-			WindowStartTime: &wsCopy,
-			WindowEndDate:   &dayCopy,
-			WindowEndTime:   &weCopy,
+			ID:          uuid.NewString(),
+			UserID:      uid,
+			Title:       title,
+			AddressText: title,
+			Latitude:    &lat,
+			Longitude:   &lon,
+			DurationMin: ptrs.Ptr(dur),
+			Window: task.TimeWindow{
+				StartDate: &dayCopy,
+				StartTime: &wsCopy,
+				EndDate:   &dayCopy,
+				EndTime:   &weCopy,
+			},
 		}
 	}
 	mkNoWindow := func(title string, dur int) task.Task {

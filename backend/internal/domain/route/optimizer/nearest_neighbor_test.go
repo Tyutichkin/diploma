@@ -545,13 +545,13 @@ func TestOptimize_LookAheadPreventsWindowMiss(t *testing.T) {
 	}
 }
 
-func TestNodeCompletionTime(t *testing.T) {
+func TestCompletionTime(t *testing.T) {
 	n1 := Node{DurationMin: 30, WindowStart: -1, WindowEnd: -1}
-	assert.Equal(t, hhmm(9, 30), nodeCompletionTime(n1, hhmm(9, 0)))
+	assert.Equal(t, hhmm(9, 30), completionTime(n1, hhmm(9, 0)))
 
 	n2 := Node{DurationMin: 20, WindowStart: hhmm(10, 0), WindowEnd: hhmm(12, 0)}
-	assert.Equal(t, hhmm(10, 20), nodeCompletionTime(n2, hhmm(9, 0)))
-	assert.Equal(t, hhmm(11, 20), nodeCompletionTime(n2, hhmm(11, 0)))
+	assert.Equal(t, hhmm(10, 20), completionTime(n2, hhmm(9, 0)))
+	assert.Equal(t, hhmm(11, 20), completionTime(n2, hhmm(11, 0)))
 }
 
 func TestOptimize_TimingsLength(t *testing.T) {
@@ -650,34 +650,34 @@ func TestOptimize_TimingsServiceDuration(t *testing.T) {
 }
 
 // 4.2.1 нет ограничений → true.
-func TestFeasible_NoConstraints(t *testing.T) {
+func TestArrivesBeforeWindowClose_NoConstraints(t *testing.T) {
 	node := Node{DurationMin: 30, WindowStart: -1, WindowEnd: -1}
-	assert.True(t, feasible(node, 0))
-	assert.True(t, feasible(node, 999))
+	assert.True(t, arrivesBeforeWindowClose(node, 0))
+	assert.True(t, arrivesBeforeWindowClose(node, 999))
 }
 
 // 4.2.2 прибытие в пределах окна.
-func TestFeasible_WithinWindow(t *testing.T) {
+func TestArrivesBeforeWindowClose_WithinWindow(t *testing.T) {
 	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(18, 0)}
-	assert.True(t, feasible(node, hhmm(10, 0)))
+	assert.True(t, arrivesBeforeWindowClose(node, hhmm(10, 0)))
 }
 
 // 4.2.3 прибытие до открытия окна (ожидание допустимо).
-func TestFeasible_ArrivalBeforeWindowStart(t *testing.T) {
+func TestArrivesBeforeWindowClose_ArrivalBeforeWindowStart(t *testing.T) {
 	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 0)}
-	assert.True(t, feasible(node, hhmm(7, 0)))
+	assert.True(t, arrivesBeforeWindowClose(node, hhmm(7, 0)))
 }
 
 // 4.2.4 прибытие после закрытия окна.
-func TestFeasible_ArrivalAfterWindowEnd(t *testing.T) {
+func TestArrivesBeforeWindowClose_ArrivalAfterWindowEnd(t *testing.T) {
 	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 0)}
-	assert.False(t, feasible(node, hhmm(10, 0)))
+	assert.False(t, arrivesBeforeWindowClose(node, hhmm(10, 0)))
 }
 
 // 4.2.5 прибытие ровно в дедлайн (WindowEnd - DurationMin*60).
-func TestFeasible_ArrivalAtDeadline(t *testing.T) {
+func TestArrivesBeforeWindowClose_ArrivalAtDeadline(t *testing.T) {
 	node := Node{DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 0)}
-	assert.True(t, feasible(node, hhmm(9, 30)))
+	assert.True(t, arrivesBeforeWindowClose(node, hhmm(9, 30)))
 }
 
 func TestStartNode_EarliestWindow(t *testing.T) {
@@ -688,7 +688,7 @@ func TestStartNode_EarliestWindow(t *testing.T) {
 			{WindowStart: hhmm(12, 0)},
 		},
 	}
-	assert.Equal(t, 1, startNode(g, make([][]int, len(g.Nodes)), -1))
+	assert.Equal(t, 1, selectDefaultStartNode(g, make([][]int, len(g.Nodes)), -1))
 }
 
 func TestStartNode_NoWindows(t *testing.T) {
@@ -698,7 +698,7 @@ func TestStartNode_NoWindows(t *testing.T) {
 			{WindowStart: -1},
 		},
 	}
-	assert.Equal(t, 0, startNode(g, make([][]int, len(g.Nodes)), -1))
+	assert.Equal(t, 0, selectDefaultStartNode(g, make([][]int, len(g.Nodes)), -1))
 }
 
 // Регрессия: узел-After не должен выбираться стартовым, даже если у него самое раннее окно.
@@ -711,5 +711,5 @@ func TestStartNode_RespectsPrecedence(t *testing.T) {
 		},
 	}
 	prereqs := buildPrereqs(len(g.Nodes), []PrecedencePair{{Before: 0, After: 1}})
-	assert.Equal(t, 0, startNode(g, prereqs, -1))
+	assert.Equal(t, 0, selectDefaultStartNode(g, prereqs, -1))
 }

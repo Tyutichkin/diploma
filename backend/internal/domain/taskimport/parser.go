@@ -147,15 +147,15 @@ func validateRows(rows []map[string]string) ParseResult {
 
 		if ws != "" {
 			t := normalizeTime(ws)
-			parsed.WindowStartTime = &t
+			parsed.Window.StartTime = &t
 			d := windowDate
-			parsed.WindowStartDate = &d
+			parsed.Window.StartDate = &d
 		}
 		if we != "" {
 			t := normalizeTime(we)
-			parsed.WindowEndTime = &t
+			parsed.Window.EndTime = &t
 			d := windowDate
-			parsed.WindowEndDate = &d
+			parsed.Window.EndDate = &d
 		}
 
 		if len(errs) > 0 {

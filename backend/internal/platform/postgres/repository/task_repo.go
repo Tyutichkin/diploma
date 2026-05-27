@@ -92,8 +92,8 @@ func (r *TaskRepo) Create(ctx context.Context, userID string, in task.CreateInpu
 		RETURNING %s
 	`, taskColumns),
 		userID, in.Title, in.AddressText, in.Latitude, in.Longitude, in.DurationMin,
-		nilIfEmpty(in.WindowStartDate), nilIfEmpty(in.WindowStartTime),
-		nilIfEmpty(in.WindowEndDate), nilIfEmpty(in.WindowEndTime),
+		nilIfEmpty(in.Window.StartDate), nilIfEmpty(in.Window.StartTime),
+		nilIfEmpty(in.Window.EndDate), nilIfEmpty(in.Window.EndTime),
 		in.SortIndex,
 	)
 
@@ -117,8 +117,8 @@ func (r *TaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task
 	for _, in := range inputs {
 		batch.Queue(query,
 			userID, in.Title, in.AddressText, in.Latitude, in.Longitude, in.DurationMin,
-			nilIfEmpty(in.WindowStartDate), nilIfEmpty(in.WindowStartTime),
-			nilIfEmpty(in.WindowEndDate), nilIfEmpty(in.WindowEndTime),
+			nilIfEmpty(in.Window.StartDate), nilIfEmpty(in.Window.StartTime),
+			nilIfEmpty(in.Window.EndDate), nilIfEmpty(in.Window.EndTime),
 			in.SortIndex,
 		)
 	}
@@ -139,6 +139,12 @@ func (r *TaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task
 }
 
 func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
+	var wsDate, wsTime, weDate, weTime *string
+	if in.Window != nil {
+		wsDate, wsTime = in.Window.StartDate, in.Window.StartTime
+		weDate, weTime = in.Window.EndDate, in.Window.EndTime
+	}
+
 	row := r.pool.QueryRow(ctx, fmt.Sprintf(`
 		UPDATE tasks
 		SET
@@ -174,8 +180,7 @@ func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.Up
 		RETURNING %s
 	`, taskColumns),
 		in.Title, in.AddressText, in.Latitude, in.Longitude, in.DurationMin,
-		in.WindowStartDate, in.WindowStartTime,
-		in.WindowEndDate, in.WindowEndTime,
+		wsDate, wsTime, weDate, weTime,
 		in.SortIndex, in.IsCompleted, time.Now(),
 		taskID, userID,
 	)
@@ -271,19 +276,19 @@ func scanTask(s scanner) (task.Task, error) {
 func applyWindowFields(t *task.Task, wsDate, wsTime, weDate, weTime *time.Time) {
 	if wsDate != nil {
 		s := wsDate.Format("2006-01-02")
-		t.WindowStartDate = &s
+		t.Window.StartDate = &s
 	}
 	if wsTime != nil {
 		s := wsTime.Format("15:04")
-		t.WindowStartTime = &s
+		t.Window.StartTime = &s
 	}
 	if weDate != nil {
 		s := weDate.Format("2006-01-02")
-		t.WindowEndDate = &s
+		t.Window.EndDate = &s
 	}
 	if weTime != nil {
 		s := weTime.Format("15:04")
-		t.WindowEndTime = &s
+		t.Window.EndTime = &s
 	}
 }
 

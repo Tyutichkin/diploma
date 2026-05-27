@@ -176,8 +176,8 @@ func buildGraph(
 			TaskID:      t.ID,
 			Lat:         ptrs.Deref(t.Latitude),
 			Lng:         ptrs.Deref(t.Longitude),
-			WindowStart: buildUnixSec(t.WindowStartDate, t.WindowStartTime, fallbackDate, boundStart),
-			WindowEnd:   buildUnixSec(t.WindowEndDate, t.WindowEndTime, fallbackDate, boundEnd),
+			WindowStart: buildUnixSec(t.Window.StartDate, t.Window.StartTime, fallbackDate, boundStart),
+			WindowEnd:   buildUnixSec(t.Window.EndDate, t.Window.EndTime, fallbackDate, boundEnd),
 			DurationMin: ptrs.Deref(t.DurationMin),
 		}
 		idx[t.ID] = i

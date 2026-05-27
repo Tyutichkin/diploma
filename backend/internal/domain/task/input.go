@@ -10,27 +10,20 @@ type CreateInput struct {
 	Latitude    *float64 // nil = нет координат
 	Longitude   *float64 // nil = нет координат
 	DurationMin *int     // nil = не задана (мгновенная)
-
-	WindowStartDate *string // "YYYY-MM-DD"
-	WindowStartTime *string // "HH:MM"
-	WindowEndDate   *string // "YYYY-MM-DD"
-	WindowEndTime   *string // "HH:MM"
-
-	SortIndex int
+	Window      TimeWindow
+	SortIndex   int
 }
 
+// UpdateInput: nil-поля не изменяются. Для Window — nil означает «не трогать окно».
+// Когда Window != nil, внутри каждого *string поля действует та же семантика:
+// nil — не трогать; "" — очистить; иначе — задать.
 type UpdateInput struct {
 	Title       *string
 	AddressText *string
 	Latitude    *float64
 	Longitude   *float64
 	DurationMin *int
-
-	WindowStartDate *string
-	WindowStartTime *string
-	WindowEndDate   *string
-	WindowEndTime   *string
-
+	Window      *TimeWindow
 	SortIndex   *int
 	IsCompleted *bool
 }
