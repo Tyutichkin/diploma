@@ -47,7 +47,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
   const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
   const [legBounds, setLegBounds] = useState<LegBounds[]>([]);
 
-  // дедупликация и дебаунс — лимиты Yandex API
   const lastRouteKeyRef = useRef('');
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -101,7 +100,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
 
     if (newKey === lastRouteKeyRef.current) return;
 
-    // дебаунс 400 мс — батчим быстрые изменения
     clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
       if (!mapRef.current) return;
@@ -175,7 +173,6 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
             const segments: RouteSegment[] = [];
 
             if (transportMode === 'masstransit') {
-              // детальные сегменты: метро, автобус, пешком
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               leg.getSegments().forEach((seg: any) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -240,7 +237,7 @@ export function MapView({ tasks, routeOptimized = false, onTransportModeChange, 
           }
           setLegBounds(bounds);
         } catch {
-          // не распарсили — панель просто не показываем
+          // Не распарсили - просто не показываем панель.
         }
       });
 

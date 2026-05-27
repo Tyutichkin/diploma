@@ -84,11 +84,10 @@ type ImportTasksResp struct {
 	Errors   []ImportRowErrorDTO `json:"errors"`
 }
 
-// Если DistanceMatrix передана — бэкенд не ходит в OSRM и порядок согласован с Yandex.
 type OptimizeRouteReq struct {
 	TaskIDs               []string            `json:"taskIds"`
 	StartTimeUnix         int64               `json:"startTimeUnix"`
-	DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`
+	DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"` // Если DistanceMatrix передана, бэкенд не ходит в OSRM, а берет данные из Yandex.
 	StartTaskID           *string             `json:"startTaskId,omitempty"`
 	EndTaskID             *string             `json:"endTaskId,omitempty"`
 	PrecedenceConstraints []PrecedencePairDTO `json:"precedenceConstraints,omitempty"`

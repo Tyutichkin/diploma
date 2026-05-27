@@ -3,8 +3,6 @@ import { Task } from "../../types/task";
 
 const MARKER_SIZE = 32;
 const MARKER_RADIUS = MARKER_SIZE / 2;
-// Радиус кликабельной зоны чуть больше визуального круга: компенсирует
-// мелкие промахи по рамке/тени и сужает зазор между маркерами в стопке.
 const MARKER_HITBOX_RADIUS = 19;
 const MARKER_FONT_SIZE = 14;
 const MARKER_BORDER_WIDTH = 2;
@@ -23,9 +21,6 @@ interface CreateTaskMarkerArgs {
     isStack: boolean;
 }
 
-// SVG-кружок белый с синей рамкой как data URI. Используется в стандартном
-// imageWithContent layout — Yandex сам обслуживает позиционирование и хит-тест
-// по <img>, поэтому события не теряются между DOM и events-pane карты.
 const MARKER_SVG_DATA_URI = (() => {
     const radius = MARKER_RADIUS - MARKER_BORDER_WIDTH / 2;
     const svg =
@@ -39,9 +34,6 @@ let cachedContentLayout: any = null;
 
 function getContentLayout(): any {
     if (cachedContentLayout) return cachedContentLayout;
-    // 32×32 flex-container, чтобы цифра рисовалась ровно поверх SVG-кружка.
-    // pointer-events:none, чтобы клики по цифре не съедались DOM-листенерами
-    // контента и попадали в hotspot <img>, который и должен их получать.
     const template =
         `<div style="box-sizing:border-box;display:flex;align-items:center;justify-content:center;` +
         `width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;color:#2563eb;font-weight:700;` +
@@ -75,8 +67,6 @@ export function createTaskMarker({
         .filter(Boolean)
         .join("");
 
-    // Центр hotspot-зоны совпадает с центром визуального круга: iconImageOffset
-    // задаёт top-left, прибавляем MARKER_RADIUS для центра.
     const shapeCenter: [number, number] = [
         iconOffset[0] + MARKER_RADIUS,
         iconOffset[1] + MARKER_RADIUS,
@@ -91,10 +81,6 @@ export function createTaskMarker({
             hintContent: task.title,
         },
         {
-            // Стандартный layout: <img> для кружка + custom layout для цифры.
-            // Никакого кастомного HTML-контейнера для самого маркера — ymaps
-            // сам ставит <img> по iconImageOffset и принимает события без
-            // зависимости от DOM-pointer-events.
             iconLayout: "default#imageWithContent",
             iconImageHref: MARKER_SVG_DATA_URI,
             iconImageSize: [MARKER_SIZE, MARKER_SIZE],
@@ -106,9 +92,6 @@ export function createTaskMarker({
                 coordinates: shapeCenter,
                 radius: MARKER_HITBOX_RADIUS,
             },
-            // opaque: события полностью гасятся на placemark, карта не получает
-            // mousedown и не интерпретирует мелкое движение как drag, dblclick
-            // не уходит в dblClickZoom behavior карты.
             interactivityModel: "default#opaque",
             openBalloonOnClick: true,
             draggable: false,

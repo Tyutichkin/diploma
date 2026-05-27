@@ -1,4 +1,3 @@
-// Package taskimport разбирает CSV/XLSX-файлы импорта задач.
 package taskimport
 
 import "strings"
@@ -13,7 +12,6 @@ type ParsedRow struct {
 	WindowEndTime   *string
 }
 
-// Row — 1-based индекс среди непустых строк данных без учёта заголовка.
 type RowError struct {
 	Row    int
 	Title  string

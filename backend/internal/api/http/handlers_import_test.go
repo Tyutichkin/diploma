@@ -19,7 +19,6 @@ import (
 	importstory "planner-backend/internal/domain/taskimport/story"
 )
 
-// importBatchRepo — task.Repository с настраиваемым BatchCreate.
 type importBatchRepo struct {
 	batchFn func(ctx context.Context, userID string, inputs []task.CreateInput) ([]task.Task, error)
 }
@@ -56,7 +55,6 @@ func (r *importBatchRepo) BulkReorder(context.Context, string, task.ReorderInput
 	return nil
 }
 
-// newImportTestRouter строит gin-роутер с /api/tasks/import и bypass-ом авторизации.
 func newImportTestRouter(repo *importBatchRepo) *gin.Engine {
 	tStory := taskstory.New(repo)
 	impStory := importstory.New(tStory)
@@ -72,7 +70,6 @@ func newImportTestRouter(repo *importBatchRepo) *gin.Engine {
 	return r
 }
 
-// doMultipart посылает multipart/form-data с одним файлом.
 func doMultipart(t *testing.T, r *gin.Engine, path, fieldName, filename string, content []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	var body bytes.Buffer
@@ -117,7 +114,6 @@ func TestImportHandler_CSV_Success(t *testing.T) {
 	assert.Len(t, resp.Imported, 2)
 	assert.Empty(t, resp.Errors)
 
-	// sort_index учитывает startSortIndex
 	require.Len(t, captured, 2)
 	assert.Equal(t, 7, captured[0].SortIndex)
 	assert.Equal(t, 8, captured[1].SortIndex)

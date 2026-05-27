@@ -117,7 +117,7 @@ export function TaskForm({
     setWindowError(null);
     setPreselectedCoords(null);
     autocomplete.reset();
-    // autocomplete.reset is stable; включать его в deps вызовет лишний прогон при re-create
+    // autocomplete.reset стабилен; добавлять его в deps — лишние прогоны при пересоздании.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task, isOpen, initialRole]);
 
@@ -160,7 +160,7 @@ export function TaskForm({
       await onSave(toSave, role);
       onClose();
     } catch {
-      // toast в parent
+      // toast показывает родитель
     } finally {
       setIsGeocoding(false);
     }
@@ -184,19 +184,16 @@ export function TaskForm({
       }
     }
 
-    // Задача без адреса
     if (!address.trim()) {
       await submit({ ...buildBaseTask(), address: undefined, latitude: undefined, longitude: undefined });
       return;
     }
 
-    // Адрес выбран из автодополнения — координаты уже есть
     if (preselectedCoords && preselectedCoords.address === address) {
       await submit({ ...buildBaseTask(), latitude: preselectedCoords.lat, longitude: preselectedCoords.lng });
       return;
     }
 
-    // Адрес не изменился у существующей задачи — пропускаем геокодирование
     if (
       task &&
       (task.address ?? '') === address &&
@@ -212,7 +209,6 @@ export function TaskForm({
       return;
     }
 
-    // Геокодируем вручную введённый адрес
     setIsGeocoding(true);
     try {
       let results: GeocodeSuggestion[];
@@ -236,7 +232,7 @@ export function TaskForm({
         await onSave(toSave, role);
         onClose();
       } catch {
-        // toast в parent
+        // toast показывает родитель
       }
     } finally {
       setIsGeocoding(false);

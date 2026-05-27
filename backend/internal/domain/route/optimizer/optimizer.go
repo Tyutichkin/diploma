@@ -21,7 +21,6 @@ type Result struct {
 	TotalWaitSec    int
 }
 
-// Индексы в Graph.Nodes.
 type PrecedencePair struct {
 	Before int
 	After  int

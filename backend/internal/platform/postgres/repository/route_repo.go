@@ -9,12 +9,10 @@ import (
 	routegate "planner-backend/internal/domain/route/gate"
 )
 
-// routeColumns — поля в SELECT/RETURNING для таблицы routes; держим в одном месте.
 const routeColumns = `id, user_id, algorithm,
 	total_distance_m, total_travel_sec, total_service_sec, total_wait_sec,
 	computed_at`
 
-// scanRoute заполняет route.Route из строки запроса, выбранного по routeColumns.
 func scanRoute(s interface{ Scan(...any) error }, rt *route.Route) error {
 	return s.Scan(&rt.ID, &rt.UserID, &rt.Algorithm,
 		&rt.TotalDistanceM, &rt.TotalTravelSec, &rt.TotalServiceSec, &rt.TotalWaitSec,

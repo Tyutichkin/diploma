@@ -5,13 +5,14 @@ import (
 	"math"
 )
 
-// Эвристика ближайшего соседа с временными окнами (NNH-TW). O(n³).
+// TODO: зачем нам пустая стурктура? сделай рефакторинг этого файла, код должен легко читать и быть чистым
 type NearestNeighborTW struct{}
 
 func NewNearestNeighborTW() *NearestNeighborTW { return &NearestNeighborTW{} }
 
 func (a *NearestNeighborTW) Name() string { return "nearest-neighbor-tw" }
 
+//  TODO: переименую эту функцию во что-то бьолее понятное
 type traversal struct {
 	g           *Graph
 	cur         int
@@ -129,7 +130,6 @@ func (a *NearestNeighborTW) Optimize(_ context.Context, g *Graph, startTimeUnix 
 	}, nil
 }
 
-// onlyEndUnvisited — true, если непосещён только закреплённый конечный узел.
 func onlyEndUnvisited(visited []bool, endIdx int) bool {
 	for i, v := range visited {
 		if !v && i != endIdx {
@@ -139,10 +139,7 @@ func onlyEndUnvisited(visited []bool, endIdx int) bool {
 	return true
 }
 
-// pickNextFeasible — проход 1: допустимый узел с наименьшим временем завершения
-// + look-ahead. Кандидат "безопасен", если его посещение не делает недостижимым
-// ни один другой узел с окном. Безопасные предпочитаются; внутри одного класса —
-// меньшее время завершения, затем более срочный дедлайн.
+
 func pickNextFeasible(t *traversal, prereqs [][]int, endIdx int) int {
 	g := t.g
 	next := -1
@@ -184,8 +181,6 @@ func pickNextFeasible(t *traversal, prereqs [][]int, endIdx int) int {
 	return next
 }
 
-// pickNextFallback — проход 2: минимальное completion, окно игнорируется,
-// предшествование сохраняется.
 func pickNextFallback(t *traversal, prereqs [][]int, endIdx int) int {
 	g := t.g
 	next := -1
@@ -205,8 +200,6 @@ func pickNextFallback(t *traversal, prereqs [][]int, endIdx int) int {
 	return next
 }
 
-// buildPrereqs строит для каждого узла i список узлов, которые должны быть
-// посещены до него согласно ограничениям PrecedencePairs.
 func buildPrereqs(n int, pairs []PrecedencePair) [][]int {
 	prereqs := make([][]int, n)
 	for _, p := range pairs {
@@ -215,7 +208,6 @@ func buildPrereqs(n int, pairs []PrecedencePair) [][]int {
 	return prereqs
 }
 
-// prereqsMet возвращает true, если все узлы-предшественники узла i уже посещены.
 func prereqsMet(i int, visited []bool, prereqs [][]int) bool {
 	for _, pre := range prereqs[i] {
 		if !visited[pre] {
@@ -225,8 +217,6 @@ func prereqsMet(i int, visited []bool, prereqs [][]int) bool {
 	return true
 }
 
-// startNode выбирает стартовый узел среди допустимых (нет неудовлетворённых
-// предшественников и узел не закреплён как конечный) по самому раннему окну.
 func startNode(g *Graph, prereqs [][]int, endIdx int) int {
 	eligible := func(i int) bool {
 		if i == endIdx {
@@ -260,9 +250,6 @@ func startNode(g *Graph, prereqs [][]int, endIdx int) int {
 	return best
 }
 
-// causesWindowMiss — look-ahead на один шаг: возвращает true, если после завершения
-// обслуживания в cand хотя бы один другой узел с окном становится недостижимым
-// даже при прямом переезде cand→j.
 func causesWindowMiss(cand int, afterCandSec int64, g *Graph, visited []bool, endIdx int) bool {
 	for j := 0; j < len(g.Nodes); j++ {
 		if visited[j] || j == cand || j == endIdx {
@@ -279,8 +266,6 @@ func causesWindowMiss(cand int, afterCandSec int64, g *Graph, visited []bool, en
 	return false
 }
 
-// nodeCompletionTime возвращает время завершения обслуживания в узле
-// при прибытии в arrivalSec (с учётом возможного ожидания открытия окна).
 func nodeCompletionTime(node Node, arrivalSec int64) int64 {
 	start := arrivalSec
 	if node.WindowStart >= 0 && start < node.WindowStart {
@@ -289,7 +274,7 @@ func nodeCompletionTime(node Node, arrivalSec int64) int64 {
 	return start + int64(node.DurationMin)*60
 }
 
-// feasible возвращает true, если обслуживание можно успеть до закрытия окна.
+// Успеваем ли обслужить до закрытия окна.
 func feasible(node Node, arrivalSec int64) bool {
 	if node.WindowEnd < 0 {
 		return true

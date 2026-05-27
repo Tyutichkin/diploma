@@ -11,9 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildXLSX создаёт минимальный OOXML-файл в памяти.
-// Первая строка grid — заголовки. Все значения идут как sharedStrings,
-// что ближе всего к тому, как пишут Excel и xlsx-библиотеки (например, `xlsx` на фронте).
 func buildXLSX(t *testing.T, grid [][]string) []byte {
 	t.Helper()
 
@@ -55,8 +52,6 @@ func buildXLSX(t *testing.T, grid [][]string) []byte {
 	}
 	sheet.WriteString(`</sheetData></worksheet>`)
 
-	// Workbook / content types / rels — минимум, достаточный для нашего ридера,
-	// которому хватает sharedStrings.xml и xl/worksheets/sheet*.xml.
 	buf := &bytes.Buffer{}
 	zw := zip.NewWriter(buf)
 
@@ -78,7 +73,7 @@ func escapeXML(s string) string {
 	return r.Replace(s)
 }
 
-// colRef возвращает буквенный столбец для 0-based индекса: 0→A, 25→Z, 26→AA.
+// 0->A, 25->Z, 26->AA.
 func colRef(i int) string {
 	var b []byte
 	i++

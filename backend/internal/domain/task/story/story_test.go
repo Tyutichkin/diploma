@@ -72,7 +72,6 @@ func makeTask(id, userID, title string) task.Task {
 	}
 }
 
-// makeTaskNoAddr создаёт задачу без геопривязки.
 func makeTaskNoAddr(id, userID, title string) task.Task {
 	return task.Task{
 		ID:          id,
@@ -698,15 +697,13 @@ func TestCreate_RepoError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Баг: клиент отправляет windowStartDate=today, windowEndDate=today,
-// но оба времени пустые/не указаны → combineDatetime даёт 00:00 для обеих
-// границ, и проверка s.Before(e) падает. Ожидаем: такая задача валидна.
+// Регрессия: одна дата на оба конца окна, без времени — должна приниматься
+// (combineDatetime раньше складывала 00:00=00:00 и валится на s.Before(e)).
 func TestCreate_WindowSameDayNoTimes_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	in := validCreateInput()
 	in.WindowStartDate = &today
 	in.WindowEndDate = &today
-	// Времена не заданы — оставляем nil
 
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, got task.CreateInput) (task.Task, error) {
@@ -717,8 +714,7 @@ func TestCreate_WindowSameDayNoTimes_Accepted(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Случай из демо-импорта: задана только дата и одно начало окна,
-// конец окна не указан. Должна быть принята как валидная.
+// Дата + только начало окна — валидно (кейс из демо-импорта).
 func TestCreate_WindowStartTimeOnly_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	startTime := "09:30"
@@ -726,7 +722,6 @@ func TestCreate_WindowStartTimeOnly_Accepted(t *testing.T) {
 	in.WindowStartDate = &today
 	in.WindowStartTime = &startTime
 	in.WindowEndDate = &today
-	// WindowEndTime остаётся nil
 
 	repo := &mockTaskRepo{
 		createFn: func(_ context.Context, _ string, _ task.CreateInput) (task.Task, error) {
@@ -737,7 +732,7 @@ func TestCreate_WindowStartTimeOnly_Accepted(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Симметричный случай: указан только конец окна.
+// Симметричный случай: только конец окна.
 func TestCreate_WindowEndTimeOnly_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	endTime := "17:00"
@@ -755,7 +750,7 @@ func TestCreate_WindowEndTimeOnly_Accepted(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Настоящая ошибка — обе даты одного дня, время начала позже времени конца.
+// А вот это уже реальная ошибка: одна дата, начало позже конца.
 func TestCreate_WindowSameDayReversedTimes_Rejected(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	st := "15:00"
@@ -773,7 +768,7 @@ func TestCreate_WindowSameDayReversedTimes_Rejected(t *testing.T) {
 	assert.Contains(t, valErr.Message, "window_start must be before window_end")
 }
 
-// Пакетный импорт тоже должен принимать задачи без времени.
+// Батч-импорт тоже принимает задачи без времени.
 func TestCreateBatch_DemoCSVImport_Accepted(t *testing.T) {
 	today := time.Now().Format("2006-01-02")
 	mk := func(title string, sTime, eTime *string) task.CreateInput {
@@ -790,7 +785,7 @@ func TestCreateBatch_DemoCSVImport_Accepted(t *testing.T) {
 	t2 := "11:00"
 	inputs := []task.CreateInput{
 		mk("с окном", &t1, &t2),
-		mk("без времени", nil, nil), // именно этот вариант падал на бэкенде
+		mk("без времени", nil, nil), // именно этот вариант раньше падал на бэкенде
 	}
 
 	repo := &mockTaskRepo{

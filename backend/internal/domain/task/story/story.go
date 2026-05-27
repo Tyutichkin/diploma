@@ -47,14 +47,11 @@ func (s *Story) Update(ctx context.Context, userID, taskID string, in task.Updat
 	); err != nil {
 		return task.Task{}, false, err
 	}
-	// Для Update: дефолтную дату подставляем только если поле не nil и не "" (не сброс).
 	fillDefaultDate(&in.WindowStartDate, in.WindowStartTime)
 	fillDefaultDate(&in.WindowEndDate, in.WindowEndTime)
 	return s.tasks.Update(ctx, userID, taskID, in)
 }
 
-// validateWindow проверяет, что если заданы обе даты+время, то start < end.
-// Если указана только дата без времени — это "весь день", не валидируем время.
 func validateWindow(startDate, startTime, endDate, endTime *string) error {
 	sDate := ptrs.Deref(startDate)
 	eDate := ptrs.Deref(endDate)
@@ -62,7 +59,6 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 	eTime := ptrs.Deref(endTime)
 
 	if sDate == "" && eDate == "" {
-		// HH:MM сравнимы лексикографически.
 		if sTime != "" && eTime != "" && sTime >= eTime {
 			return &task.ValidationError{Message: "window_start must be before window_end"}
 		}
@@ -73,7 +69,6 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 		return nil
 	}
 
-	// Пустое конечное время = конец дня 23:59 (согласовано с фронтом).
 	sTimeEff := sTime
 	eTimeEff := eTime
 	if eTimeEff == "" {
@@ -82,7 +77,7 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 
 	s, err := combineDatetime(sDate, sTimeEff)
 	if err != nil {
-		return nil // непарсимое — пусть БД отклонит
+		return nil
 	}
 	e, err := combineDatetime(eDate, eTimeEff)
 	if err != nil {
@@ -95,7 +90,6 @@ func validateWindow(startDate, startTime, endDate, endTime *string) error {
 	return nil
 }
 
-// combineDatetime парсит "YYYY-MM-DD" + "HH:MM"; пустое время = 00:00.
 func combineDatetime(dateStr, timeStr string) (time.Time, error) {
 	if timeStr == "" {
 		return time.Parse("2006-01-02", dateStr)
@@ -103,7 +97,6 @@ func combineDatetime(dateStr, timeStr string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04", fmt.Sprintf("%s %s", dateStr, timeStr))
 }
 
-// Если время задано, а дата пустая — подставляет сегодняшнюю.
 func fillDefaultDate(datePtr **string, timePtr *string) {
 	if datePtr == nil || timePtr == nil || *timePtr == "" {
 		return

@@ -146,10 +146,9 @@ func TestRegister_PasswordHashedWithBcrypt(t *testing.T) {
 	_, err := s.Register(context.Background(), "a@b.com", password)
 	require.NoError(t, err)
 
-	// Must be bcrypt hash, not plaintext
-	assert.NotEqual(t, password, capturedHash)
+	assert.NotEqual(t, password, capturedHash, "пароль не должен лежать в открытом виде")
 	err = bcrypt.CompareHashAndPassword([]byte(capturedHash), []byte(password))
-	assert.NoError(t, err, "captured hash must be bcrypt of the password")
+	assert.NoError(t, err, "сохранённый хеш должен быть bcrypt от пароля")
 }
 
 // 1.2.1 Успешный вход
@@ -277,7 +276,7 @@ func TestRefresh_ExpiredToken(t *testing.T) {
 func TestRefresh_RevokedToken(t *testing.T) {
 	rRepo := &mockRefreshRepo{
 		getActiveByHashFn: func(_ context.Context, _ string) (dauth.RefreshTokenRecord, bool, error) {
-			return dauth.RefreshTokenRecord{}, false, nil // revoked or expired
+			return dauth.RefreshTokenRecord{}, false, nil // отозван или просрочен
 		},
 	}
 	s := newTestStory(&mockUserRepo{}, rRepo)
@@ -314,10 +313,7 @@ func TestRefresh_AfterLogout(t *testing.T) {
 	}
 	s := newTestStory(&mockUserRepo{}, rRepo)
 
-	// First logout
 	_ = s.Logout(context.Background(), "some-token")
-
-	// Then try to refresh
 	_, err := s.Refresh(context.Background(), "some-token")
 	assert.Error(t, err)
 }
@@ -343,7 +339,7 @@ func TestLogout_Success(t *testing.T) {
 func TestLogout_Idempotent(t *testing.T) {
 	rRepo := &mockRefreshRepo{
 		revokeByHashFn: func(_ context.Context, _ string) error {
-			return nil // no error on repeated call
+			return nil
 		},
 	}
 	s := newTestStory(&mockUserRepo{}, rRepo)

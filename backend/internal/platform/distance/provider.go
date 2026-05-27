@@ -12,7 +12,6 @@ type Edge struct {
 	DurationSec int
 }
 
-// Matrix[i][j] — стоимость points[i]→points[j], диагональ всегда нулевая.
 type Provider interface {
 	GetMatrix(ctx context.Context, points []Point) ([][]Edge, error)
 }

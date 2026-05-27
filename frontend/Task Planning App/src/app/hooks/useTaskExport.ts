@@ -8,12 +8,12 @@ import { downloadBlob } from '../utils/download';
 const COLUMN_HEADERS = ['title', 'address', 'duration', 'date', 'window_start', 'window_end'] as const;
 
 const COLUMN_WIDTHS: { wch: number }[] = [
-  { wch: 30 }, // title
-  { wch: 35 }, // address
-  { wch: 18 }, // duration
-  { wch: 14 }, // date
-  { wch: 15 }, // window_start
-  { wch: 15 }, // window_end
+  { wch: 30 },
+  { wch: 35 },
+  { wch: 18 },
+  { wch: 14 },
+  { wch: 15 },
+  { wch: 15 },
 ];
 
 function todayStamp() {

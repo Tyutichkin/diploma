@@ -20,7 +20,7 @@ export default function App() {
       try {
         await logoutRequest(session.refreshToken);
       } catch {
-        // локальную сессию всё равно нужно очистить, даже если бэкенд недоступен
+        // Локальную сессию всё равно чистим, даже если бэкенд не ответил
       }
     }
 

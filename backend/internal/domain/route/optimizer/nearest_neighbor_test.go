@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testRef — базовая дата тестов, 2024-01-01T00:00:00Z.
 var testRef = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 
 func hhmm(h, m int) int64 {
@@ -362,8 +361,6 @@ func TestOptimize_AllVisitedWithConstraints(t *testing.T) {
 	assert.Less(t, pos[1], pos[3])
 }
 
-// Регрессия: близкий узел с поздним окном (14:00-16:00) выбирался раньше узла
-// с ранним окном (11:00-12:00), потому что алгоритм смотрел только на travel time.
 func TestOptimize_NearbyLateWindowNotPreferred(t *testing.T) {
 	nodes := []Node{
 		{TaskID: "t0", DurationMin: 30, WindowStart: hhmm(9, 0), WindowEnd: hhmm(10, 30)},

@@ -1,4 +1,3 @@
-// Package timing округляет длительности до целых минут на границах ввода.
 package timing
 
 func RoundUpSecToMinute(sec int) int {

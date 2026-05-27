@@ -76,7 +76,6 @@ func (m *handlerTaskRepo) BatchCreate(ctx context.Context, _ string, _ []task.Cr
 
 const taskTestUserID = "test-user-id"
 
-// newTaskTestRouter собирает роутер с подставленным userID вместо JWT-middleware.
 func newTaskTestRouter(repo *handlerTaskRepo) *gin.Engine {
 	story := taskstory.New(repo)
 	taskH := NewTaskHandlers(story)

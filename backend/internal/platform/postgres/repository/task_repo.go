@@ -139,10 +139,6 @@ func (r *TaskRepo) BatchCreate(ctx context.Context, userID string, inputs []task
 }
 
 func (r *TaskRepo) Update(ctx context.Context, userID, taskID string, in task.UpdateInput) (task.Task, bool, error) {
-	// Каждое из 4 полей окна использует 3-state *string:
-	//   nil    → оставить текущее (COALESCE / CASE keeps existing)
-	//   &""    → очистить (set NULL)
-	//   &"val" → установить новое
 	row := r.pool.QueryRow(ctx, fmt.Sprintf(`
 		UPDATE tasks
 		SET
@@ -231,8 +227,6 @@ func (r *TaskRepo) Delete(ctx context.Context, userID, taskID string) (bool, err
 	return ct.RowsAffected() > 0, nil
 }
 
-// Маршрут удаляется первым: каскад сносит route_stops, что снимает FK на tasks
-// (FK исторически мог быть ON DELETE RESTRICT).
 func (r *TaskRepo) DeleteAll(ctx context.Context, userID string) (int64, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -255,13 +249,11 @@ func (r *TaskRepo) DeleteAll(ctx context.Context, userID string) (int64, error) 
 	return ct.RowsAffected(), nil
 }
 
-// scanner — общий интерфейс над pgx.Row и pgx.Rows: оба умеют Scan(...).
+// Принимает как pgx.Row, так и pgx.Rows.
 type scanner interface {
 	Scan(dest ...any) error
 }
 
-// scanTask сканирует одну запись задачи. Принимает любой источник, реализующий
-// Scan (pgx.Row или pgx.Rows.Scan).
 func scanTask(s scanner) (task.Task, error) {
 	var t task.Task
 	var wsDate, wsTime, weDate, weTime *time.Time
@@ -276,7 +268,6 @@ func scanTask(s scanner) (task.Task, error) {
 	return t, nil
 }
 
-// applyWindowFields конвертирует значения из БД (time.Time) в строковые поля Task.
 func applyWindowFields(t *task.Task, wsDate, wsTime, weDate, weTime *time.Time) {
 	if wsDate != nil {
 		s := wsDate.Format("2006-01-02")
@@ -296,7 +287,6 @@ func applyWindowFields(t *task.Task, wsDate, wsTime, weDate, weTime *time.Time) 
 	}
 }
 
-// nilIfEmpty возвращает nil если указатель указывает на пустую строку.
 func nilIfEmpty(s *string) *string {
 	if s != nil && *s == "" {
 		return nil

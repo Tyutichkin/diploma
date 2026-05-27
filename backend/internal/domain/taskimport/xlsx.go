@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-// readXLSX разбирает .xlsx / .xls (OOXML) минимальным ридером на stdlib.
-// Первый лист используется как источник данных; первая строка — заголовки.
 func readXLSX(data []byte) ([]map[string]string, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -37,7 +35,6 @@ func readXLSX(data []byte) ([]map[string]string, error) {
 			}
 
 		case strings.HasPrefix(f.Name, "xl/worksheets/sheet") && strings.HasSuffix(f.Name, ".xml"):
-			// Берём лексикографически первый файл листа (обычно sheet1.xml).
 			if sheetName == "" || f.Name < sheetName {
 				b, err := readZipFile(f)
 				if err != nil {
@@ -98,7 +95,6 @@ type xlsxSST struct {
 	Items   []xlsxSI `xml:"si"`
 }
 
-// xlsxSI — элемент sharedStrings. Поддерживаем обычный <t> и rich-text <r><t>.
 type xlsxSI struct {
 	T string `xml:"t"`
 	R []struct {
@@ -129,8 +125,6 @@ type xlsxRow struct {
 	Cells []xlsxCell `xml:"c"`
 }
 
-// xlsxCell — одна ячейка. T — тип: "s" (sharedString), "str" (формульная строка),
-// "inlineStr" (встроенная строка), "b" (bool), иначе число.
 type xlsxCell struct {
 	R  string `xml:"r,attr"`
 	T  string `xml:"t,attr"`
@@ -191,12 +185,10 @@ func cellValue(c xlsxCell, shared []string) string {
 	case "inlineStr":
 		return c.Is.T
 	default:
-		// "str", "b", "n", "" — все трактуем как сырое значение V.
 		return c.V
 	}
 }
 
-// colFromRef: "A1" → 0, "B2" → 1, "AA3" → 26, "" → -1.
 func colFromRef(ref string) int {
 	col := 0
 	for i := 0; i < len(ref); i++ {

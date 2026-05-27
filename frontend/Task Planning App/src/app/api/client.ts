@@ -266,7 +266,6 @@ export interface PrecedenceConstraint {
     afterTaskId: string;
 }
 
-// startTimeUnix: 0 — бэкенд подставит сегодня 09:00 UTC.
 export async function optimizeRoute(
     taskIds: string[],
     options: AuthorizedRequestOptions,

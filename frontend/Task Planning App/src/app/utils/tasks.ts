@@ -17,8 +17,6 @@ export function reorderTasksByIds(tasks: Task[], orderedTaskIds: string[]): Task
   return [...ordered, ...missing];
 }
 
-// Для ApiError (бэкенд) показываем заготовленный фолбэк,
-// для обычной Error — её message (там русский текст фронта).
 export function userErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return fallback;
   if (error instanceof Error) return error.message;

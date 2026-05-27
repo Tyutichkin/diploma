@@ -41,8 +41,6 @@ type PrecedenceConstraint struct {
 	AfterTaskID  string
 }
 
-// externalMatrix[i][j] индексируется по taskIDs (DTO-контракт), а репозиторий может
-// вернуть задачи в произвольном порядке — поэтому tasks выравниваются по taskIDs.
 func (s *Story) Optimize(
 	ctx context.Context,
 	userID string,
@@ -101,8 +99,6 @@ func (s *Story) Optimize(
 	return assembleFull(rt, stops, result), nil
 }
 
-// Возвращает задачи в порядке taskIDs и индексы найденных в исходном taskIDs.
-// Неизвестные id пропускаются; дубли игнорируются после первого вхождения.
 func alignTasksToIDs(fetched []task.Task, taskIDs []string) ([]task.Task, []int) {
 	byID := make(map[string]task.Task, len(fetched))
 	for _, t := range fetched {
@@ -201,8 +197,6 @@ func buildGraph(
 	return &routeopt.Graph{Nodes: nodes, Edges: edges}, idx
 }
 
-// Сдвигает старт к самому раннему WindowStart, если он раньше startTimeUnix —
-// иначе утренние окна сочлись бы просроченными при startTimeUnix=time.Now().
 func adjustStartTime(nodes []routeopt.Node, startTimeUnix int64) int64 {
 	for _, nd := range nodes {
 		if nd.WindowStart >= 0 && nd.WindowStart < startTimeUnix {
@@ -212,9 +206,7 @@ func adjustStartTime(nodes []routeopt.Node, startTimeUnix int64) int64 {
 	return startTimeUnix
 }
 
-// buildConstraints разрешает идентификаторы задач в индексы узлов графа.
-// Неизвестные ID игнорируются (а не приводят к ошибке) — это исторически согласовано
-// с фронтом, который может прислать удалённую/чужую задачу.
+
 func buildConstraints(
 	taskIDToIdx map[string]int,
 	startTaskID, endTaskID *string,
@@ -292,8 +284,6 @@ const (
 	boundEnd
 )
 
-// «Только дата» раскрывается в полный день: 00:00 для начала, 23:59 для конца.
-// Возвращает -1, если ни дата, ни время не заданы.
 func buildUnixSec(dateStr, timeStr *string, fallbackDate time.Time, kind boundKind) int64 {
 	hasDate := dateStr != nil && *dateStr != ""
 	hasTime := timeStr != nil && *timeStr != ""

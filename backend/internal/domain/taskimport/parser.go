@@ -12,11 +12,8 @@ import (
 	"time"
 )
 
-// UnsupportedFormatError возвращается, если формат файла не распознан.
 var UnsupportedFormatError = errors.New("unsupported file format: use .csv, .xlsx or .xls")
 
-// Parse разбирает содержимое файла согласно формату и валидирует строки.
-// Ошибки отдельных строк не приводят к ошибке функции — они попадают в ParseResult.Errors.
 func Parse(data []byte, format Format) (ParseResult, error) {
 	var (
 		rows []map[string]string
@@ -39,7 +36,7 @@ func Parse(data []byte, format Format) (ParseResult, error) {
 func readCSV(data []byte) ([]map[string]string, error) {
 	data = stripBOM(data)
 	r := csv.NewReader(bytes.NewReader(data))
-	r.FieldsPerRecord = -1 // разрешаем разное число колонок на строку
+	r.FieldsPerRecord = -1 // допускаем разное число колонок в разных строках
 
 	records, err := r.ReadAll()
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -118,7 +115,6 @@ func validateRows(rows []map[string]string) ParseResult {
 			}
 		}
 
-		// Единое поле date применяется к обеим границам окна.
 		dateRaw := m["date"]
 		var windowDate string
 		switch {
@@ -175,7 +171,6 @@ func validateRows(rows []map[string]string) ParseResult {
 	return res
 }
 
-// normalizeKeys приводит ключи к нижнему регистру и заменяет пробелы на "_".
 func normalizeKeys(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for k, v := range in {
@@ -189,8 +184,6 @@ func normalizeHeader(h string) string {
 	return strings.Join(strings.Fields(s), "_")
 }
 
-// parseDateValue принимает ДД.ММ.ГГГГ или ГГГГ-ММ-ДД.
-// Возвращает ISO-формат ГГГГ-ММ-ДД.
 func parseDateValue(value string) (string, bool) {
 	if t, err := time.Parse("2006-01-02", value); err == nil {
 		return t.Format("2006-01-02"), true
@@ -201,7 +194,6 @@ func parseDateValue(value string) (string, bool) {
 	return "", false
 }
 
-// normalizeTime приводит "9:05" → "09:05" (так же делает фронтенд при отправке).
 func normalizeTime(t string) string {
 	parts := strings.SplitN(t, ":", 2)
 	if len(parts) != 2 {

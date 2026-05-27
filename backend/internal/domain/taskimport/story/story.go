@@ -1,4 +1,3 @@
-// Package story реализует массовый импорт задач из CSV/XLSX.
 package story
 
 import (
