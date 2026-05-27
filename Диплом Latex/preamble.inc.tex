@@ -20,6 +20,46 @@
 
 \urlstyle{same}
 
+% Автоматическая сортировка номеров источников по возрастанию и сворачивание
+% подряд идущих в диапазон: [3,1,2] -> [1--3] (sort и compress включены
+% в пакете cite по умолчанию)
+\usepackage[nospace]{cite}
+\renewcommand{\citedash}{\textendash}% длинное тире вместо двойного дефиса
+
+% Патч пакета cite: по умолчанию пакет сжимает в диапазон только
+% последовательности из 3+ номеров ([5,6,7] -> [5-7]), но пары
+% оставляет как [5,6]. Переопределяем \@compress@cite, чтобы пары
+% также сворачивались: [5,6] -> [5-6].
+\makeatletter
+\def\@compress@cite#1#2#3{%
+  \ifnum\@cite@incr=\z@%
+    \advance\@tempcnta\@cclvi%
+    \ifnum #1=\@tempcnta%
+       \expandafter\def\expandafter\@h@ld\expandafter{\citedash\@cite@out{#3}}%
+       \mathchardef\@cite@incr=\@cclvi%
+    \else%
+       \advance\@tempcnta-\@cclv%
+       \ifnum #1=\@tempcnta%
+         \expandafter\def\expandafter\@h@ld\expandafter{\citedash\@cite@out{#3}}%
+         \mathchardef\@cite@incr=\@ne%
+       \else%
+         \@citea \@cite@out{#3}%
+       \fi%
+    \fi%
+  \else%
+    \advance\@tempcnta\@cite@incr%
+    \ifnum #1=\@tempcnta%
+       \def\@h@ld{\citedash \@cite@out{#3}}%
+    \else%
+       \@h@ld \@citea \@cite@out{#3}%
+       \let\@h@ld\@empty%
+       \mathchardef\@cite@incr=\z@%
+    \fi%
+  \fi%
+  \@tempcnta#1\let\@citea\citepunct%
+}
+\makeatother
+
 \usepackage{pdfpages}
 
 % Изменение начертания шрифта --- после чего выглядит таймсоподобно.
@@ -143,13 +183,17 @@
       linenos=true,           % включить номера строк
       numberblanklines=false, % не нумеровать пустые строки
       numbersep=5pt,          % расстояние между номерами строк и кодом
-      xleftmargin=1em,        % отступ слева, чтобы номера не вылезали за границы
-      fontsize=\fontsize{10pt}{12pt}\selectfont, % ГОСТ: листинги — 10pt; моноширинный Courier New задан через \setmonofont в G2-105.sty
+      xleftmargin=2.5em,      % отступ слева, чтобы номера не вылезали за границы
+      fontsize=\fontsize{12pt}{14pt}\selectfont, % ГОСТ: листинги — 12pt; моноширинный Courier New задан через \setmonofont в G2-105.sty
       breakanywhere=true,
       breakautoindent=true,
       breaklines=true,
       tabsize=4,              % заменяет символы табуляции (^^I) на 4 пробела
 }
+
+% Номера строк листингов — Courier 12pt (по умолчанию fancyvrb даёт \rmfamily\tiny)
+\renewcommand{\theFancyVerbLine}{%
+      \ttfamily\fontsize{12pt}{14pt}\selectfont\arabic{FancyVerbLine}}
 
 \renewcommand{\listingscaption}{Листинг}
 \renewcommand{\listoflistingscaption}{Листинги}

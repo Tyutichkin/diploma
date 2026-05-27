@@ -10,7 +10,7 @@
 
 \section*{Схема базы данных (SQL-миграции)}
 
-\begin{codelisting}{Миграция \texttt{0001\_init.up.sql} \textendash{} инициализация схемы базы данных}{listing:migration_init}
+\begin{codelisting}{Миграция 0001\_init.up.sql \textendash{} инициализация схемы базы данных}{listing:migration_init}
   \begin{minted}{sql}
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -107,25 +107,25 @@ CREATE TABLE IF NOT EXISTS route_geometry (
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Миграция \texttt{0002\_routes\_name.up.sql} \textendash{} добавление поля name}{listing:migration_name}
+\begin{codelisting}{Миграция 0002\_routes\_name.up.sql \textendash{} добавление поля name}{listing:migration_name}
   \begin{minted}{sql}
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS name VARCHAR(200) NULL;
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Миграция \texttt{0003\_task\_completed.up.sql} \textendash{} добавление признака выполнения}{listing:migration_completed}
+\begin{codelisting}{Миграция 0003\_task\_completed.up.sql \textendash{} добавление признака выполнения}{listing:migration_completed}
   \begin{minted}{sql}
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_completed BOOLEAN NOT NULL DEFAULT false;
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Миграция \texttt{0004\_task\_duration\_optional.up.sql} \textendash{} опциональная длительность}{listing:migration_duration}
+\begin{codelisting}{Миграция 0004\_task\_duration\_optional.up.sql \textendash{} опциональная длительность}{listing:migration_duration}
   \begin{minted}{sql}
 ALTER TABLE tasks ALTER COLUMN duration_min DROP NOT NULL;
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{Миграция \texttt{0005\_task\_datetime\_windows.up.sql} \textendash{} раздельные дата и время окна}{listing:migration_datetime}
+\begin{codelisting}{Миграция 0005\_task\_datetime\_windows.up.sql \textendash{} раздельные дата и время окна}{listing:migration_datetime}
   \begin{minted}{sql}
 -- Разделяем window_start/window_end (TIME) на раздельные колонки дата + время
 ALTER TABLE tasks
