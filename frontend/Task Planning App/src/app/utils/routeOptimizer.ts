@@ -1,6 +1,7 @@
 import { Task } from '../types/task';
 import { loadYandexMaps } from './yandexMaps';
 import { roundUpSecToMinute } from './time';
+import { getEdge, setEdge } from './distanceCache';
 
 export interface GeocodeSuggestion {
   lat: number;
@@ -33,10 +34,17 @@ export async function buildYandexDistanceMatrix(
     ),
   );
 
+  // Только промахи кэша уходят в Yandex; попадания заполняем сразу.
   const pairs: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
-      if (i !== j) pairs.push([i, j]);
+      if (i === j) continue;
+      const cached = getEdge(mode, tasks[i], tasks[j]);
+      if (cached) {
+        matrix[i][j] = cached;
+        continue;
+      }
+      pairs.push([i, j]);
     }
   }
 
@@ -118,6 +126,7 @@ export async function buildYandexDistanceMatrix(
         });
 
         matrix[i][j] = { distanceM, durationSec };
+        setEdge(mode, from, to, matrix[i][j]);
       } catch {
         // fallback-время оставляет пару «дорогой», алгоритм её избегает
       }
