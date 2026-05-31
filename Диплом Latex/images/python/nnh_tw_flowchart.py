@@ -1,305 +1,208 @@
-import matplotlib
-matplotlib.use('Agg')
+# -*- coding: utf-8 -*-
+"""Подробная блок-схема алгоритма NNH-TW (ГОСТ 19.701-90), две колонки.
+
+Стиль (как в учебных примерах bubbleSort/insertSort):
+- минимум текста: каждый блок — одна операция в синтаксисе (`x := ...`);
+- условия — выражения внутри ромба;
+- циклы — символами «граница цикла» (срезанные углы) с заголовком
+  `пока …` / `для …`; обратная дуга не рисуется (подразумевается парой
+  начало/конец цикла);
+- сигнатура процедуры — комментарием на скобке справа от «начало»;
+- связь колонок — соединителями-окружностями (А, Б).
+
+Левая колонка: основной цикл Ц1, проверка endIdx, Проход 1 (цикл Ц2).
+Правая колонка: Проход 2 (цикл Ц3), расчёт времени, конец цикла, вывод.
+Размеры фигур подбираются под габарит текста (text_size) — текст не
+выходит за границы.
+"""
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+from gost_shapes import (terminal, process, decision, io_block, loop_start,
+                         loop_end, connector, comment, arrow, line, tag,
+                         text_size, Stack)
 
-plt.rcParams.update({'font.family': 'DejaVu Sans', 'font.size': 9})
+DPI = 100
+FS = 8.5
+PADX, PADY = 0.36, 0.24
+DIA_KX, DIA_KY = 0.42, 0.44
+GAP = 0.42
+CR = 0.34          # радиус соединителя
 
-def terminal(ax, cx, cy, w=2.8, h=0.55, text='', fs=9):
-    ell = mpatches.Ellipse((cx, cy), w, h,
-                           fc='white', ec='black', lw=1.3, zorder=3)
-    ax.add_patch(ell)
-    ax.text(cx, cy, text, ha='center', va='center',
-            fontsize=fs, fontweight='bold', zorder=4)
-
-def process(ax, cx, cy, w=3.6, h=0.65, text='', fs=8.5):
-    rect = plt.Rectangle((cx - w/2, cy - h/2), w, h,
-                          fc='white', ec='black', lw=1.2, zorder=3)
-    ax.add_patch(rect)
-    ax.text(cx, cy, text, ha='center', va='center',
-            fontsize=fs, zorder=4, multialignment='center', linespacing=1.35)
-
-def decision(ax, cx, cy, w=3.8, h=0.9, text='', fs=8.5):
-    xs = [cx, cx+w/2, cx, cx-w/2, cx]
-    ys = [cy+h/2, cy, cy-h/2, cy, cy+h/2]
-    poly = mpatches.Polygon(list(zip(xs, ys)), closed=True,
-                             fc='white', ec='black', lw=1.2, zorder=3)
-    ax.add_patch(poly)
-    ax.text(cx, cy, text, ha='center', va='center',
-            fontsize=fs, zorder=4, multialignment='center', linespacing=1.3)
-
-def io_block(ax, cx, cy, w=3.4, h=0.60, text='', fs=8.5):
-    d = 0.22
-    xs = [cx-w/2+d, cx+w/2+d, cx+w/2-d, cx-w/2-d]
-    ys = [cy+h/2,   cy+h/2,   cy-h/2,   cy-h/2]
-    poly = mpatches.Polygon(list(zip(xs, ys)), closed=True,
-                             fc='white', ec='black', lw=1.2, zorder=3)
-    ax.add_patch(poly)
-    ax.text(cx, cy, text, ha='center', va='center',
-            fontsize=fs, zorder=4, multialignment='center')
-
-def connector(ax, cx, cy, r=0.25, text='', fs=8):
-    c = plt.Circle((cx, cy), r, fc='white', ec='black', lw=1.2, zorder=3)
-    ax.add_patch(c)
-    ax.text(cx, cy, text, ha='center', va='center', fontsize=fs,
-            fontweight='bold', zorder=4)
-
-def arr(ax, x1, y1, x2, y2, label='', side='right', fs=8):
-    ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='->', color='black',
-                                lw=1.2, mutation_scale=11), zorder=2)
-    if label:
-        mx, my = (x1+x2)/2, (y1+y2)/2
-        off = 0.13 if side == 'right' else -0.13
-        ha  = 'left' if side == 'right' else 'right'
-        ax.text(mx+off, my, label, ha=ha, va='center', fontsize=fs)
-
-def hv(ax, x1, y, x2, color='black', lw=1.2):
-    ax.plot([x1, x2], [y, y], color=color, lw=lw, zorder=2)
-
-def vv(ax, x, y1, y2, color='black', lw=1.2):
-    ax.plot([x, x], [y1, y2], color=color, lw=lw, zorder=2)
-
-CX   = 4.0
-W_P  = 4.0    # ширина прямоугольника
-W_D  = 4.2    # ширина ромба
-W_IO = 3.6    # ширина параллелограмма
-W_T  = 2.8    # ширина терминатора
-H_T  = 0.55
-H_IO = 0.62
-GAP  = 0.38
-
-BH = {
-    'start':   H_T,
-    'input':   0.75,
-    'init':    1.25,
-    'loop':    0.85,
-    'endchk':  1.05,
-    'endadd':  0.65,
-    'p1_hdr':  1.05,
-    'p1_for':  1.05,
-    'p1_feas': 1.05,
-    'p1_safe': 0.85,
-    'p1_look': 1.05,
-    'p1_upd':  0.90,
-    'con_a':   0.50,
-    'p2_chk':  1.05,
-    'p2_hdr':  1.05,
-    'p2_for':  1.05,
-    'p2_upd':  0.78,
-    'con_b':   0.50,
-    'wait':    0.78,
-    'upd':     0.78,
-    'append':  0.65,
-    'output':  H_IO,
-    'end':     H_T,
+DEF = {
+    'start':  ('terminal',   'начало', 9),
+    'prep':   ('process',    'prereqs := предш(C);\nendIdx := C.endIdx', FS),
+    'init':   ('process',    'cur := старт(G, C);  visited[cur] := истина\norder := [cur];  t := t0 + service[cur]', FS),
+    'l1s':    ('loop_start',  'Ц1: пока |order| < |V|', FS),
+    'endchk': ('decision',    'endIdx ≥ 0 и\nостался лишь endIdx?', FS),
+    'p1init': ('process',     'next := −1;  best := ∞;\nbestSafe := ложь', FS),
+    'l2s':    ('loop_start',  'Ц2: для i ∉ visited, i ≠ endIdx', FS),
+    'feas':   ('decision',    'prereq(i) и\narrival(i) ≤ winEnd(i)?', FS),
+    'p1eval': ('process',     'comp := completion(i);\nsafe := не блокирует окна(i)', FS),
+    'better': ('decision',    '(safe, comp, dl) лучше\n(bestSafe, best, bestDl)?', FS),
+    'p1set':  ('process',     'next := i;  best := comp;\nbestSafe := safe;  bestDl := dl', FS),
+    'l2e':    ('loop_end',    'Ц2', FS),
+    'connA_o': ('conn',       'А', 9),
+    'addr':   ('process',     'order += endIdx', FS),
+    'connB_o': ('conn',       'Б', 9),
+    # правая колонка
+    'connA_i': ('conn',       'А', 9),
+    'found':  ('decision',    'next = −1?', FS),
+    'l3s':    ('loop_start',  'Ц3: для i ∉ visited, i ≠ endIdx', FS),
+    'cmp':    ('decision',    'completion(i) < best?', FS),
+    'p2set':  ('process',     'next := i;  best := completion(i)', FS),
+    'l3e':    ('loop_end',    'Ц3', FS),
+    'arr':    ('process',     'arrival := t + travel[cur][next];\nwait := max(0, winStart[next] − arrival)', FS),
+    'upd':    ('process',     't := arrival + wait + service[next];\nvisited[next] := истина;\norder += next;  cur := next', FS),
+    'l1e':    ('loop_end',    'Ц1', FS),
+    'connB_i': ('conn',       'Б', 9),
+    'output': ('io',          'вывод: order, тайминги, статистика', FS),
+    'end':    ('terminal',    'конец', 9),
 }
 
-block_order = [
-    'start', 'input', 'init', 'loop',
-    'endchk', 'endadd',
-    'p1_hdr', 'p1_for', 'p1_feas', 'p1_safe', 'p1_look', 'p1_upd', 'con_a',
-    'p2_chk', 'p2_hdr', 'p2_for', 'p2_upd', 'con_b',
-    'wait', 'upd', 'append', 'output', 'end',
-]
+W, H, KIND = {}, {}, {}
+for k, (kind, text, fs) in DEF.items():
+    KIND[k] = kind
+    if kind == 'conn':
+        W[k] = H[k] = 2 * CR
+        continue
+    tw, th = text_size(text, fs, DPI)
+    if kind == 'terminal':
+        h = th + 2 * PADY; w = tw + 2 * PADX + h
+    elif kind == 'process':
+        w, h = tw + 2 * PADX, th + 2 * PADY
+    elif kind in ('loop_start', 'loop_end'):
+        w, h = tw + 2 * PADX + 0.4, th + 2 * PADY
+    elif kind == 'io':
+        h = th + 2 * PADY; w = tw + 2 * PADX + 0.84 * h
+    elif kind == 'decision':
+        w, h = tw / DIA_KX, th / DIA_KY
+    W[k], H[k] = w, h
 
-yb = {}
-y = 30.0
-yb['start'] = y
-y -= BH['start'] + GAP
+LEFT = ['start', 'prep', 'init', 'l1s', 'endchk', 'p1init', 'l2s', 'feas',
+        'p1eval', 'better', 'p1set', 'l2e', 'connA_o']
+RIGHT = ['connA_i', 'found', 'l3s', 'cmp', 'p2set', 'l3e', 'arr', 'upd',
+         'l1e', 'output', 'end']
+EXTRA_L = {'l2e': 0.5, 'connA_o': 0.3}
+EXTRA_R = {'l3e': 0.5, 'arr': 0.5, 'l1e': 0.5}
 
-for name in block_order[1:]:
-    yb[name] = y - BH[name] / 2
-    y -= BH[name] + GAP
+sL = Stack(top=0.0, gap=GAP)
+for k in LEFT:
+    sL.y -= EXTRA_L.get(k, 0.0); sL.add(k, H[k])
+sR = Stack(top=0.0, gap=GAP)
+for k in RIGHT:
+    sR.y -= EXTRA_R.get(k, 0.0); sR.add(k, H[k])
 
-bottom_y = yb['end'] - BH['end'] / 2
-TOTAL_H = 30.0 - bottom_y
+CY = {}
+CY.update(sL.cy); CY.update(sR.cy)
+CY['addr'] = CY['endchk']
+CY['connB_o'] = CY['endchk'] - H['endchk'] / 2 - 0.7
 
-hh = {k: v / 2 for k, v in BH.items()}
-hh['con_a'] = 0.25
-hh['con_b'] = 0.25
+LX = 0.0
+# Геометрия левой колонки и боковых элементов
+R2 = max(W['feas'], W['better'], W['p1set']) / 2 + 1.0      # continue Ц2
+ARL = W['endchk'] / 2 + 1.0
+ARX = ARL + W['addr'] / 2
+left_right = max(R2, ARX + W['addr'] / 2, ARX + CR)
+maxRW = max(W[k] for k in RIGHT if KIND[k] != 'conn')
+RX = left_right + 1.7 + maxRW / 2
+CY_bottom = min(sL.bottom_edge(), sR.bottom_edge())
 
-fig, ax = plt.subplots(figsize=(10, TOTAL_H / 1.8))
-ax.set_xlim(-2.2, 10.5)
-ax.set_ylim(bottom_y - 0.5, 30.3)
+# Рельсы правой колонки
+R3 = RX + max(W['cmp'], W['p2set']) / 2 + 0.9               # continue Ц3
+RFOUND = RX + maxRW / 2 + 1.7                                # found «нет» → arr
+CONNB_IX = RX - W['l1e'] / 2 - 1.0
+CY['connB_i'] = CY['l1e'] + H['l1e'] / 2 + 0.78
+
+XPOS = {k: LX for k in LEFT}
+XPOS.update({k: RX for k in RIGHT})
+XPOS['addr'] = ARX
+XPOS['connB_o'] = ARX
+XPOS['connB_i'] = CONNB_IX
+
+xmin = -max(W[k] for k in LEFT if KIND[k] != 'conn') / 2 - 0.4
+xmax = RFOUND + 0.5
+ymax = 0.5
+ymin = CY_bottom - 0.5
+M = 0.3
+fig = plt.figure(figsize=(xmax - xmin + 2 * M, ymax - ymin + 2 * M), dpi=DPI)
+ax = fig.add_axes([0, 0, 1, 1])
+ax.set_xlim(xmin - M, xmax + M)
+ax.set_ylim(ymin - M, ymax + M)
+ax.set_aspect('equal')
 ax.axis('off')
 
-# --- Блоки ---
-terminal(ax, CX, yb['start'],  W_T,  BH['start'],  'НАЧАЛО')
-io_block(ax, CX, yb['input'],  W_IO + 0.6, BH['input'],
-         'Вход: граф G(V, E), startTimeUnix, constraints')
-process (ax, CX, yb['init'],   W_P + 0.2,  BH['init'],
-         'cur \u2190 startIdx или узел с ранним окном\nvisited[cur] \u2190 true,  order \u2190 [cur]\n'
-         'currentTimeSec \u2190 startTimeUnix + s[cur]\u00d760',
-         fs=8)
-decision(ax, CX, yb['loop'],   W_D,  BH['loop'],
-         '|order| < |V|?')
 
-decision(ax, CX, yb['endchk'], W_D,  BH['endchk'],
-         'endIdx задан И все\nпрочие посещены?')
-process (ax, CX, yb['endadd'], W_P,  BH['endadd'],
-         'Добавить endIdx в маршрут', fs=8)
+def draw(k):
+    kind = KIND[k]
+    x, y = XPOS[k], CY[k]
+    if kind == 'conn':
+        connector(ax, x, y, CR, DEF[k][1], fs=DEF[k][2]); return
+    {'terminal': terminal, 'process': process, 'decision': decision,
+     'io': io_block, 'loop_start': loop_start, 'loop_end': loop_end}[kind](
+        ax, x, y, W[k], H[k], DEF[k][1], fs=DEF[k][2])
 
-process (ax, CX, yb['p1_hdr'], W_P + 0.2,  BH['p1_hdr'],
-         'ПРОХОД 1: поиск допустимого\nузла + look-ahead\nnext \u2190 \u22121,  bestComp \u2190 \u221e',
-         fs=8)
-decision(ax, CX, yb['p1_for'], W_D,  BH['p1_for'],
-         'Есть непросмотренные\ni \u2209 visited, i \u2260 endIdx?')
-decision(ax, CX, yb['p1_feas'], W_D,  BH['p1_feas'],
-         'feasible(i, arrival)\nИ prereqsMet(i)?')
-process (ax, CX, yb['p1_safe'], W_P,  BH['p1_safe'],
-         'safe \u2190 НЕ causesWindowMiss(i, comp)', fs=8)
-decision(ax, CX, yb['p1_look'], W_D,  BH['p1_look'],
-         'better по (safe, comp,\ndeadline)?')
-process (ax, CX, yb['p1_upd'], W_P,  BH['p1_upd'],
-         'next \u2190 i; bestComp \u2190 comp\nbestSafe \u2190 safe; bestDeadline \u2190 deadline', fs=8)
-connector(ax, CX, yb['con_a'], 0.25, 'A')
 
-decision(ax, CX, yb['p2_chk'], W_D,  BH['p2_chk'],
-         'next = \u22121?\n(нет допустимых узлов)')
-process (ax, CX, yb['p2_hdr'], W_P + 0.2,  BH['p2_hdr'],
-         'ПРОХОД 2 (резервный): выбор\nпо мин. completionTime\nbest \u2190 \u221e',
-         fs=8)
-decision(ax, CX, yb['p2_for'], W_D,  BH['p2_for'],
-         'Есть непросмотренные\ni \u2209 visited, i \u2260 endIdx?')
-process (ax, CX, yb['p2_upd'], W_P,  BH['p2_upd'],
-         'comp < best? \u2192\nbest \u2190 comp,  next \u2190 i', fs=8)
-connector(ax, CX, yb['con_b'], 0.25, '\u0411')
+for k in DEF:
+    draw(k)
 
-process (ax, CX, yb['wait'],   W_P,  BH['wait'],
-         'arrival \u2190 currentTimeSec + travelSec[cur][next]\nwait \u2190 max(0, windowStart[next] \u2212 arrival)',
-         fs=8)
-process (ax, CX, yb['upd'],    W_P,  BH['upd'],
-         'currentTimeSec \u2190 arrival + wait + s[next]\u00d760\nvisited[next] \u2190 true,  cur \u2190 next',
-         fs=8)
-process (ax, CX, yb['append'], W_P,  BH['append'],
-         'order.append(next)', fs=8)
+# Комментарий-сигнатура
+comment(ax, W['start'] / 2, CY['start'], 1.5,
+        'NNH-TW(G, t0, C)\n// C = {startIdx, endIdx,\n//      предшествования}',
+        fs=8, half_h=0.6)
 
-io_block(ax, CX, yb['output'], W_IO + 0.2, BH['output'],
-         'Выход: order[],  тайминги[], статистика')
-terminal(ax, CX, yb['end'],    W_T,  BH['end'],  'КОНЕЦ')
 
-# --- Стрелки ---
-main_seq = [
-    ('start',  'input'),
-    ('input',  'init'),
-    ('init',   'loop'),
-    ('endchk', 'endadd'),
-    ('p1_hdr', 'p1_for'),
-    ('p1_safe','p1_look'),
-    ('p1_upd', 'con_a'),
-    ('con_a',  'p2_chk'),
-    ('p2_hdr', 'p2_for'),
-    ('p2_upd', 'con_b'),
-    ('con_b',  'wait'),
-    ('wait',   'upd'),
-    ('upd',    'append'),
-    ('output', 'end'),
-]
-for (ak, bk) in main_seq:
-    arr(ax, CX, yb[ak] - hh[ak], CX, yb[bk] + hh[bk])
+def top(k):
+    return CY[k] + H[k] / 2
 
-# Да-ветки
-arr(ax, CX, yb['loop']    - hh['loop'],    CX, yb['endchk']  + hh['endchk'],  'Да', side='right')
-arr(ax, CX, yb['endchk']  - hh['endchk'],  CX, yb['endadd']  + hh['endadd'],  'Да', side='right')
-arr(ax, CX, yb['p1_for']  - hh['p1_for'],  CX, yb['p1_feas'] + hh['p1_feas'], 'Да', side='right')
-arr(ax, CX, yb['p1_feas'] - hh['p1_feas'], CX, yb['p1_safe'] + hh['p1_safe'], 'Да', side='right')
-arr(ax, CX, yb['p1_look'] - hh['p1_look'], CX, yb['p1_upd']  + hh['p1_upd'],  'Да', side='right')
-arr(ax, CX, yb['p2_chk']  - hh['p2_chk'],  CX, yb['p2_hdr']  + hh['p2_hdr'],  'Да', side='right')
-arr(ax, CX, yb['p2_for']  - hh['p2_for'],  CX, yb['p2_upd']  + hh['p2_upd'],  'Да', side='right')
 
-# Нет-ветки
-LX  = -1.5
-RX  =  9.8
+def bot(k):
+    return CY[k] - H[k] / 2
 
-# loop → Нет → output
-hv(ax, CX + W_D/2, yb['loop'], RX)
-vv(ax, RX, yb['loop'], yb['output'])
-ax.annotate('', xy=(CX + W_IO/2 + 0.52, yb['output']),
-            xytext=(RX, yb['output']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX + W_D/2 + 0.07, yb['loop'] + 0.14, 'Нет', fontsize=8)
 
-# endchk → Нет → p1_hdr
-hv(ax, CX - W_D/2, yb['endchk'], LX)
-vv(ax, LX, yb['endchk'], yb['p1_hdr'])
-ax.annotate('', xy=(CX - W_P/2 - 0.1, yb['p1_hdr']),
-            xytext=(LX, yb['p1_hdr']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX - W_D/2 - 0.07, yb['endchk'] + 0.14, 'Нет', ha='right', fontsize=8)
+def vlink(a, b):
+    arrow(ax, XPOS[a], bot(a), XPOS[b], top(b))
 
-# endadd → output (справа)
-RX2 = 9.0
-hv(ax, CX + W_P/2, yb['endadd'], RX2)
-vv(ax, RX2, yb['endadd'], yb['output'])
-ax.annotate('', xy=(CX + W_IO/2 + 0.42, yb['output']),
-            xytext=(RX2, yb['output']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
 
-# p1_for → Нет → con_a
-hv(ax, CX - W_D/2, yb['p1_for'], LX)
-vv(ax, LX, yb['p1_for'], yb['con_a'])
-ax.annotate('', xy=(CX - 0.25, yb['con_a']),
-            xytext=(LX, yb['con_a']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX - W_D/2 - 0.07, yb['p1_for'] + 0.14, 'Нет', ha='right', fontsize=8)
+# Спайн левой колонки
+for a, b in [('start', 'prep'), ('prep', 'init'), ('init', 'l1s'),
+             ('l1s', 'endchk'), ('endchk', 'p1init'), ('p1init', 'l2s'),
+             ('l2s', 'feas'), ('feas', 'p1eval'), ('p1eval', 'better'),
+             ('better', 'p1set'), ('p1set', 'l2e'), ('l2e', 'connA_o')]:
+    vlink(a, b)
+# Спайн правой колонки
+for a, b in [('connA_i', 'found'), ('found', 'l3s'), ('l3s', 'cmp'),
+             ('cmp', 'p2set'), ('p2set', 'l3e'), ('l3e', 'arr'),
+             ('arr', 'upd'), ('upd', 'l1e'), ('l1e', 'output'),
+             ('output', 'end')]:
+    vlink(a, b)
 
-# p1_feas → Нет → p1_for (петля)
-RX3 = 8.8
-hv(ax, CX + W_D/2, yb['p1_feas'], RX3)
-vv(ax, RX3, yb['p1_feas'], yb['p1_for'])
-ax.annotate('', xy=(CX + W_D/2, yb['p1_for']),
-            xytext=(RX3, yb['p1_for']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX + W_D/2 + 0.07, yb['p1_feas'] + 0.14, 'Нет', fontsize=8)
+for k, lbl, col in [('endchk', 'нет', LX), ('feas', 'да', LX),
+                    ('better', 'да', LX), ('found', 'да', RX),
+                    ('cmp', 'да', RX)]:
+    tag(ax, col + 0.12, bot(k) - 0.16, lbl)
 
-# p1_look → Нет → p1_for (петля)
-RX4 = 9.5
-hv(ax, CX + W_D/2, yb['p1_look'], RX4)
-vv(ax, RX4, yb['p1_look'], yb['p1_for'])
-ax.annotate('', xy=(CX + W_D/2 + 0.01, yb['p1_for'] - 0.1),
-            xytext=(RX4, yb['p1_for'] - 0.1),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX + W_D/2 + 0.07, yb['p1_look'] + 0.14, 'Нет', fontsize=8)
 
-# p2_chk → Нет → con_b
-LX2 = -1.5
-hv(ax, CX - W_D/2, yb['p2_chk'], LX2)
-vv(ax, LX2, yb['p2_chk'], yb['con_b'])
-ax.annotate('', xy=(CX - 0.25, yb['con_b']),
-            xytext=(LX2, yb['con_b']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX - W_D/2 - 0.07, yb['p2_chk'] + 0.14, 'Нет', ha='right', fontsize=8)
+def skip(src, target, rail_x, label='нет', gap=0.30):
+    yj = top(target) + gap
+    line(ax, [(XPOS[src] + W[src] / 2, CY[src]), (rail_x, CY[src]),
+              (rail_x, yj), (XPOS[target], yj)])
+    tag(ax, XPOS[src] + W[src] / 2 + 0.1, CY[src] + 0.15, label)
 
-# p2_for → Нет → con_b
-LX3 = -0.5
-hv(ax, CX - W_D/2, yb['p2_for'], LX3)
-vv(ax, LX3, yb['p2_for'], yb['con_b'])
-ax.annotate('', xy=(CX - 0.25, yb['con_b']),
-            xytext=(LX3, yb['con_b']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
-ax.text(CX - W_D/2 - 0.07, yb['p2_for'] + 0.14, 'Нет', ha='right', fontsize=8)
+# Левая колонка: continue Ц2
+skip('feas', 'l2e', R2)
+skip('better', 'l2e', R2)
+# Правая колонка: continue Ц3 и обход Ц3
+skip('cmp', 'l3e', R3)
+skip('found', 'arr', RFOUND)
 
-# append → возврат к loop
-LX4 = -2.0
-hv(ax, CX - W_P/2, yb['append'], LX4)
-vv(ax, LX4, yb['append'], yb['loop'])
-ax.annotate('', xy=(CX - W_D/2, yb['loop']),
-            xytext=(LX4, yb['loop']),
-            arrowprops=dict(arrowstyle='->', color='black',
-                            lw=1.2, mutation_scale=11), zorder=2)
+# endchk «да» → addRoute → соединитель Б
+line(ax, [(XPOS['endchk'] + W['endchk'] / 2, CY['endchk']), (ARL, CY['endchk'])])
+arrow(ax, ARL - 0.001, CY['endchk'], ARL, CY['endchk'])
+tag(ax, XPOS['endchk'] + W['endchk'] / 2 + 0.1, CY['endchk'] + 0.15, 'да')
+arrow(ax, ARX, bot('addr'), ARX, CY['connB_o'] + CR)
 
-plt.tight_layout(pad=0.4)
-plt.savefig(
-    '/Users/semyontyutichkin/Documents/\u041f\u043e\u043b\u0438\u0442\u0435\u0445 \u043b\u0430\u0431\u044b/\u0414\u0438\u043f\u043b\u043e\u043c/diploma/'
-    '\u0414\u0438\u043f\u043b\u043e\u043c Latex/images/nnh_tw_flowchart.png',
-    dpi=200, bbox_inches='tight', facecolor='white')
-print("nnh_tw_flowchart.png saved")
+# Соединитель Б (вход) → конец цикла Ц1 (слияние со спайном upd→Ц1)
+yj = top('l1e') + 0.30
+line(ax, [(CONNB_IX, CY['connB_i'] - CR), (CONNB_IX, yj), (XPOS['l1e'], yj)])
+
+fig.savefig('../nnh_tw_flowchart.png', dpi=200, facecolor='white')
+print('nnh_tw_flowchart.png saved')
