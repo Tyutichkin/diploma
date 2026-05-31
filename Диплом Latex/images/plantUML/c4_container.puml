@@ -1,0 +1,31 @@
+@startuml c4_container
+' C4 Container diagram (уровень 2) — взаимодействие фронтенда, бэкенда,
+' базы данных и внешних сервисов маршрутизации.
+' Канонические цвета C4, горизонтальная компоновка, пользователь слева.
+!include <C4/C4_Container>
+
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam roundCorner 4
+
+LAYOUT_LEFT_RIGHT()
+
+Person(user, "Пользователь", "Курьер, торговый представитель,\nспециалист выездного обслуживания")
+
+System_Boundary(app, "Веб-приложение планирования маршрутов") {
+    Container(spa, "Клиентское приложение (SPA)", "React 18, TypeScript, Vite", "Управление задачами, построение матрицы расстояний,\nотрисовка маршрута на карте")
+    Container(api, "REST API сервер", "Go 1.23, Gin", "Аутентификация (JWT), CRUD задач,\nоптимизация маршрута (NNH-TW)")
+    ContainerDb(db, "База данных", "PostgreSQL 16", "Пользователи, задачи, маршруты,\nтокены обновления")
+}
+
+System_Ext(yandex, "Yandex Maps JS API", "Геокодирование, матрица расстояний,\nотрисовка карты")
+System_Ext(osrm, "OSRM", "Резервный расчёт\nматрицы расстояний")
+
+Rel(user, spa, "Работает с задачами и маршрутами", "HTTPS")
+Rel(spa, api, "Вызовы REST/JSON, JWT Bearer", "HTTPS")
+Rel(api, db, "Чтение и запись данных", "SQL, pgx (TCP 5432)")
+Rel(spa, yandex, "Геокодирование, матрица расстояний, карта", "HTTPS")
+Rel(api, osrm, "Запрос матрицы расстояний (резервный путь)", "HTTP")
+
+@enduml
