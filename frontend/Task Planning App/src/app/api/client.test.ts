@@ -38,8 +38,13 @@ const apiTaskResponse = {
   Longitude: 37.61,
   DurationMin: 30,
   SortIndex: 0,
-  WindowStart: null,
-  WindowEnd: null,
+  // Бэкенд сериализует доменную сущность task.Task: окно приходит вложенным объектом Window.
+  Window: {
+    StartDate: '2026-05-31',
+    StartTime: '09:30',
+    EndDate: '2026-05-31',
+    EndTime: '11:00',
+  },
 };
 
 const apiRouteResponse = {
@@ -201,6 +206,11 @@ describe('listTasks', () => {
     expect(tasks[0].id).toBe('task-1');
     expect(tasks[0].title).toBe('Buy groceries');
     expect(tasks[0].duration).toBe(30);
+    // Окно приходит вложенным объектом Window и должно разворачиваться в плоские поля.
+    expect(tasks[0].windowStartDate).toBe('2026-05-31');
+    expect(tasks[0].windowStartTime).toBe('09:30');
+    expect(tasks[0].windowEndDate).toBe('2026-05-31');
+    expect(tasks[0].windowEndTime).toBe('11:00');
   });
 
   // 7.2.2 listTasks() — пустой список

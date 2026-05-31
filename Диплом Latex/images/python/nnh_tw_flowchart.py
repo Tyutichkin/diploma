@@ -1,208 +1,262 @@
 # -*- coding: utf-8 -*-
-"""Подробная блок-схема алгоритма NNH-TW (ГОСТ 19.701-90), две колонки.
+"""Блок-схема алгоритма NNH-TW (ГОСТ 19.701-90), два рисунка.
 
-Стиль (как в учебных примерах bubbleSort/insertSort):
-- минимум текста: каждый блок — одна операция в синтаксисе (`x := ...`);
-- условия — выражения внутри ромба;
-- циклы — символами «граница цикла» (срезанные углы) с заголовком
-  `пока …` / `для …`; обратная дуга не рисуется (подразумевается парой
-  начало/конец цикла);
-- сигнатура процедуры — комментарием на скобке справа от «начало»;
-- связь колонок — соединителями-окружностями (А, Б).
+Схема разбита на два читаемых вертикальных рисунка:
+- nnh_tw_main.png   — основной цикл построения маршрута; выбор кандидата
+                      вынесен в символ «предопределённый процесс»;
+- nnh_tw_select.png — детализация подпрограммы «Выбрать следующую задачу»
+                      (проход 1 с просмотром вперёд и резервный проход 2).
 
-Левая колонка: основной цикл Ц1, проверка endIdx, Проход 1 (цикл Ц2).
-Правая колонка: Проход 2 (цикл Ц3), расчёт времени, конец цикла, вывод.
-Размеры фигур подбираются под габарит текста (text_size) — текст не
-выходит за границы.
+Принципы оформления:
+- внутри блоков — смысловые формулировки, без псевдокода (полный псевдокод
+  приведён отдельным листингом в тексте);
+- циклы — обычные ромбы с явной обратной дугой (стрелкой возврата);
+- ветви условий подписаны «да/нет» рядом с выходящей линией;
+- сигнатура процедуры вынесена в подпись к рисунку, не на схему;
+- пояснения терминов приведены в тексте, а не на схеме.
 """
 import matplotlib.pyplot as plt
-from gost_shapes import (terminal, process, decision, io_block, loop_start,
-                         loop_end, connector, comment, arrow, line, tag,
-                         text_size, Stack)
+from gost_shapes import (terminal, process, predefined, decision, io_block,
+                         arrow, line, tag, text_size)
 
 DPI = 100
 FS = 8.5
-PADX, PADY = 0.36, 0.24
-DIA_KX, DIA_KY = 0.42, 0.44
-GAP = 0.42
-CR = 0.34          # радиус соединителя
+PADX, PADY = 0.36, 0.26
+DIA_KX, DIA_KY = 0.50, 0.52
+GAP = 0.55
+EC = 'black'
 
-DEF = {
-    'start':  ('terminal',   'начало', 9),
-    'prep':   ('process',    'prereqs := предш(C);\nendIdx := C.endIdx', FS),
-    'init':   ('process',    'cur := старт(G, C);  visited[cur] := истина\norder := [cur];  t := t0 + service[cur]', FS),
-    'l1s':    ('loop_start',  'Ц1: пока |order| < |V|', FS),
-    'endchk': ('decision',    'endIdx ≥ 0 и\nостался лишь endIdx?', FS),
-    'p1init': ('process',     'next := −1;  best := ∞;\nbestSafe := ложь', FS),
-    'l2s':    ('loop_start',  'Ц2: для i ∉ visited, i ≠ endIdx', FS),
-    'feas':   ('decision',    'prereq(i) и\narrival(i) ≤ winEnd(i)?', FS),
-    'p1eval': ('process',     'comp := completion(i);\nsafe := не блокирует окна(i)', FS),
-    'better': ('decision',    '(safe, comp, dl) лучше\n(bestSafe, best, bestDl)?', FS),
-    'p1set':  ('process',     'next := i;  best := comp;\nbestSafe := safe;  bestDl := dl', FS),
-    'l2e':    ('loop_end',    'Ц2', FS),
-    'connA_o': ('conn',       'А', 9),
-    'addr':   ('process',     'order += endIdx', FS),
-    'connB_o': ('conn',       'Б', 9),
-    # правая колонка
-    'connA_i': ('conn',       'А', 9),
-    'found':  ('decision',    'next = −1?', FS),
-    'l3s':    ('loop_start',  'Ц3: для i ∉ visited, i ≠ endIdx', FS),
-    'cmp':    ('decision',    'completion(i) < best?', FS),
-    'p2set':  ('process',     'next := i;  best := completion(i)', FS),
-    'l3e':    ('loop_end',    'Ц3', FS),
-    'arr':    ('process',     'arrival := t + travel[cur][next];\nwait := max(0, winStart[next] − arrival)', FS),
-    'upd':    ('process',     't := arrival + wait + service[next];\nvisited[next] := истина;\norder += next;  cur := next', FS),
-    'l1e':    ('loop_end',    'Ц1', FS),
-    'connB_i': ('conn',       'Б', 9),
-    'output': ('io',          'вывод: order, тайминги, статистика', FS),
-    'end':    ('terminal',    'конец', 9),
-}
 
-W, H, KIND = {}, {}, {}
-for k, (kind, text, fs) in DEF.items():
-    KIND[k] = kind
-    if kind == 'conn':
-        W[k] = H[k] = 2 * CR
-        continue
+def size_of(kind, text, fs):
     tw, th = text_size(text, fs, DPI)
     if kind == 'terminal':
-        h = th + 2 * PADY; w = tw + 2 * PADX + h
-    elif kind == 'process':
-        w, h = tw + 2 * PADX, th + 2 * PADY
-    elif kind in ('loop_start', 'loop_end'):
-        w, h = tw + 2 * PADX + 0.4, th + 2 * PADY
-    elif kind == 'io':
-        h = th + 2 * PADY; w = tw + 2 * PADX + 0.84 * h
-    elif kind == 'decision':
-        w, h = tw / DIA_KX, th / DIA_KY
-    W[k], H[k] = w, h
-
-LEFT = ['start', 'prep', 'init', 'l1s', 'endchk', 'p1init', 'l2s', 'feas',
-        'p1eval', 'better', 'p1set', 'l2e', 'connA_o']
-RIGHT = ['connA_i', 'found', 'l3s', 'cmp', 'p2set', 'l3e', 'arr', 'upd',
-         'l1e', 'output', 'end']
-EXTRA_L = {'l2e': 0.5, 'connA_o': 0.3}
-EXTRA_R = {'l3e': 0.5, 'arr': 0.5, 'l1e': 0.5}
-
-sL = Stack(top=0.0, gap=GAP)
-for k in LEFT:
-    sL.y -= EXTRA_L.get(k, 0.0); sL.add(k, H[k])
-sR = Stack(top=0.0, gap=GAP)
-for k in RIGHT:
-    sR.y -= EXTRA_R.get(k, 0.0); sR.add(k, H[k])
-
-CY = {}
-CY.update(sL.cy); CY.update(sR.cy)
-CY['addr'] = CY['endchk']
-CY['connB_o'] = CY['endchk'] - H['endchk'] / 2 - 0.7
-
-LX = 0.0
-# Геометрия левой колонки и боковых элементов
-R2 = max(W['feas'], W['better'], W['p1set']) / 2 + 1.0      # continue Ц2
-ARL = W['endchk'] / 2 + 1.0
-ARX = ARL + W['addr'] / 2
-left_right = max(R2, ARX + W['addr'] / 2, ARX + CR)
-maxRW = max(W[k] for k in RIGHT if KIND[k] != 'conn')
-RX = left_right + 1.7 + maxRW / 2
-CY_bottom = min(sL.bottom_edge(), sR.bottom_edge())
-
-# Рельсы правой колонки
-R3 = RX + max(W['cmp'], W['p2set']) / 2 + 0.9               # continue Ц3
-RFOUND = RX + maxRW / 2 + 1.7                                # found «нет» → arr
-CONNB_IX = RX - W['l1e'] / 2 - 1.0
-CY['connB_i'] = CY['l1e'] + H['l1e'] / 2 + 0.78
-
-XPOS = {k: LX for k in LEFT}
-XPOS.update({k: RX for k in RIGHT})
-XPOS['addr'] = ARX
-XPOS['connB_o'] = ARX
-XPOS['connB_i'] = CONNB_IX
-
-xmin = -max(W[k] for k in LEFT if KIND[k] != 'conn') / 2 - 0.4
-xmax = RFOUND + 0.5
-ymax = 0.5
-ymin = CY_bottom - 0.5
-M = 0.3
-fig = plt.figure(figsize=(xmax - xmin + 2 * M, ymax - ymin + 2 * M), dpi=DPI)
-ax = fig.add_axes([0, 0, 1, 1])
-ax.set_xlim(xmin - M, xmax + M)
-ax.set_ylim(ymin - M, ymax + M)
-ax.set_aspect('equal')
-ax.axis('off')
+        h = th + 2 * PADY
+        return tw + 2 * PADX + h, h
+    if kind == 'process':
+        return tw + 2 * PADX, th + 2 * PADY
+    if kind == 'predefined':
+        return tw + 2 * PADX + 0.5, th + 2 * PADY
+    if kind == 'io':
+        h = th + 2 * PADY
+        return tw + 2 * PADX + 0.84 * h, h
+    if kind == 'decision':
+        return tw / DIA_KX, th / DIA_KY
+    raise ValueError(kind)
 
 
-def draw(k):
-    kind = KIND[k]
-    x, y = XPOS[k], CY[k]
-    if kind == 'conn':
-        connector(ax, x, y, CR, DEF[k][1], fs=DEF[k][2]); return
-    {'terminal': terminal, 'process': process, 'decision': decision,
-     'io': io_block, 'loop_start': loop_start, 'loop_end': loop_end}[kind](
-        ax, x, y, W[k], H[k], DEF[k][1], fs=DEF[k][2])
+DRAW = {'terminal': terminal, 'process': process, 'predefined': predefined,
+        'decision': decision, 'io': io_block}
 
 
-for k in DEF:
-    draw(k)
-
-# Комментарий-сигнатура
-comment(ax, W['start'] / 2, CY['start'], 1.5,
-        'NNH-TW(G, t0, C)\n// C = {startIdx, endIdx,\n//      предшествования}',
-        fs=8, half_h=0.6)
-
-
-def top(k):
-    return CY[k] + H[k] / 2
+def measure(D):
+    W, H, KIND = {}, {}, {}
+    for k, (kind, text, fs) in D.items():
+        KIND[k] = kind
+        W[k], H[k] = size_of(kind, text, fs)
+    return W, H, KIND
 
 
-def bot(k):
-    return CY[k] - H[k] / 2
+# ----------------------------------------------------------------------------
+#  Рисунок 1 — основной цикл построения маршрута
+# ----------------------------------------------------------------------------
+def build_main():
+    D = {
+        'start':  ('terminal',   'начало', 9),
+        'prep':   ('process',    'Прочитать ограничения:\nстартовая, финишная задачи\n'
+                                 'и порядок выполнения', FS),
+        'init':   ('process',    'Инициализировать маршрут\n'
+                                 'стартовой задачей\nи текущее время', FS),
+        'l1':     ('decision',   'Все задачи\nдобавлены в маршрут?', FS),
+        'endq':   ('decision',   'Финишная задача задана\nи осталась последней?', FS),
+        'sub':    ('predefined', 'Выбрать следующую\nзадачу (проходы 1-2)', FS),
+        'upd':    ('process',    'Вычислить прибытие\nи ожидание; обновить\n'
+                                 'время и маршрут', FS),
+        'addend': ('process',    'Добавить финишную\nзадачу в конец', FS),
+        'output': ('io',         'Вывод: порядок,\nтайминги, статистика', FS),
+        'end':    ('terminal',   'конец', 9),
+    }
+    W, H, KIND = measure(D)
+    spine = ['start', 'prep', 'init', 'l1', 'endq', 'sub', 'upd']
+    CY, X = {}, {k: 0.0 for k in D}
+    y = 0.0
+    for k in spine:
+        CY[k] = y - H[k] / 2
+        y -= H[k] + GAP
+
+    spine_hw = max(W[k] for k in spine) / 2
+    # правый столбец: вывод (на уровне l1) и конец
+    RX = spine_hw + 2.4 + W['output'] / 2
+    X['output'] = RX
+    CY['output'] = CY['l1']
+    X['end'] = RX
+    CY['end'] = CY['output'] - H['output'] / 2 - GAP - H['end'] / 2
+    # левый блок «добавить завершающую задачу» на уровне endq
+    LXa = -(max(W['endq'], W['sub'], W['upd']) / 2 + 1.9 + W['addend'] / 2)
+    X['addend'] = LXa
+    CY['addend'] = CY['endq']
+    railx = LXa - W['addend'] / 2 - 0.7
+
+    def top(k):
+        return CY[k] + H[k] / 2
+
+    def bot(k):
+        return CY[k] - H[k] / 2
+
+    yb = bot('upd') - 0.55
+    base_ymin = min(bot('end'), yb)
+
+    xmin = railx - 0.5
+    xmax = RX + W['output'] / 2 + 0.5
+    fig = plt.figure(dpi=DPI)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    for k in D:
+        DRAW[KIND[k]](ax, X[k], CY[k], W[k], H[k], D[k][1], fs=D[k][2])
+
+    ymin = base_ymin - 0.4
+    ymax = 0.4
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    # спайн
+    for a, b in [('start', 'prep'), ('prep', 'init'), ('init', 'l1')]:
+        arrow(ax, X[a], bot(a), X[b], top(b))
+    # l1 «нет» -> endq, endq «нет» -> sub, sub -> upd
+    arrow(ax, 0, bot('l1'), 0, top('endq'))
+    arrow(ax, 0, bot('endq'), 0, top('sub'))
+    arrow(ax, 0, bot('sub'), 0, top('upd'))
+    tag(ax, 0.12, bot('l1') - 0.18, 'нет')
+    tag(ax, 0.12, bot('endq') - 0.18, 'нет')
+
+    # l1 «да» -> вывод -> конец
+    arrow(ax, W['l1'] / 2, CY['l1'], RX - W['output'] / 2, CY['l1'])
+    tag(ax, W['l1'] / 2 + 0.12, CY['l1'] + 0.18, 'да')
+    arrow(ax, RX, bot('output'), RX, top('end'))
+
+    # endq «да» -> добавить завершающую задачу
+    arrow(ax, -W['endq'] / 2, CY['endq'], LXa + W['addend'] / 2, CY['endq'])
+    tag(ax, -W['endq'] / 2 - 0.12, CY['endq'] + 0.18, 'да', ha='right')
+
+    # обратная дуга к l1: upd и addend -> рельс -> вверх -> в l1
+    line(ax, [(0, bot('upd')), (0, yb), (railx, yb)])
+    line(ax, [(LXa - W['addend'] / 2, CY['endq']), (railx, CY['endq'])])
+    line(ax, [(railx, yb), (railx, CY['l1'])])
+    arrow(ax, railx, CY['l1'], -W['l1'] / 2, CY['l1'])
+
+    fig.set_size_inches(xmax - xmin, ymax - ymin)
+    fig.savefig('../nnh_tw_main.png', dpi=200, facecolor='white')
+    print('nnh_tw_main.png saved')
 
 
-def vlink(a, b):
-    arrow(ax, XPOS[a], bot(a), XPOS[b], top(b))
+# ----------------------------------------------------------------------------
+#  Рисунок 2 — подпрограмма «Выбрать следующую задачу»
+# ----------------------------------------------------------------------------
+def build_select():
+    GS = 0.46  # более плотный шаг для компактной подпрограммы
+    D = {
+        'start':  ('terminal',  'Выбрать следующую задачу', 9),
+        'reset':  ('process',   'Сбросить выбор\nи лучшую оценку', FS),
+        'p1':     ('decision',  'Проход 1: остался\nнепросмотренный кандидат?', FS),
+        'prec1':  ('decision',  'Обязательные\nпредшественники\nзадачи выполнены?', FS),
+        'feas':   ('decision',  'Успеваем\nв ее временное окно?', FS),
+        'eval':   ('process',   'Оценить: когда освободимся\nи не сорвем ли окна других\nзадач; если лучше — запомнить', FS),
+        'found':  ('decision',  'Допустимая\nзадача найдена?', FS),
+        'p2':     ('decision',  'Проход 2: остался\nнепросмотренный кандидат?', FS),
+        'prec2':  ('decision',  'Обязательные\nпредшественники\nзадачи выполнены?', FS),
+        'cmp':    ('process',   'Если время завершения\nменьше лучшего —\nзапомнить кандидата', FS),
+        'ret':    ('terminal',  'Возврат: выбранная задача', 9),
+    }
+    W, H, KIND = measure(D)
+    spine = ['start', 'reset', 'p1', 'prec1', 'feas', 'eval', 'found',
+             'p2', 'prec2', 'cmp', 'ret']
+    CY, X = {}, {k: 0.0 for k in D}
+    y = 0.0
+    for k in spine:
+        CY[k] = y - H[k] / 2
+        y -= H[k] + GS
+
+    def top(k):
+        return CY[k] + H[k] / 2
+
+    def bot(k):
+        return CY[k] - H[k] / 2
+
+    spine_hw = max(W[k] for k in spine) / 2
+    r1 = spine_hw + 1.2          # возврат тела прохода 1 -> p1
+    r2 = spine_hw + 1.2          # возврат тела прохода 2 -> p2
+    lL = -(spine_hw + 1.2)       # «нет» p1/p2 -> обход тела
+    rF = spine_hw + 2.2          # found «да» -> ret
+
+    xmin = lL - 0.5
+    xmax = rF + 0.5
+    ymax = 0.4
+    ymin = bot('ret') - 0.5
+
+    fig = plt.figure(dpi=DPI)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_aspect('equal')
+    ax.axis('off')
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    for k in D:
+        DRAW[KIND[k]](ax, X[k], CY[k], W[k], H[k], D[k][1], fs=D[k][2])
+
+    # спайн прохода 1: p1 -> prec1 -> feas -> eval
+    arrow(ax, 0, bot('start'), 0, top('reset'))
+    arrow(ax, 0, bot('reset'), 0, top('p1'))
+    arrow(ax, 0, bot('p1'), 0, top('prec1'))
+    tag(ax, 0.12, bot('p1') - 0.18, 'да')
+    arrow(ax, 0, bot('prec1'), 0, top('feas'))
+    tag(ax, 0.12, bot('prec1') - 0.18, 'да')
+    arrow(ax, 0, bot('feas'), 0, top('eval'))
+    tag(ax, 0.12, bot('feas') - 0.18, 'да')
+
+    # обратные дуги прохода 1 (prec1 «нет», feas «нет», конец eval) -> r1 -> p1
+    line(ax, [(0, bot('eval')), (0, bot('eval') - 0.32), (r1, bot('eval') - 0.32)])
+    line(ax, [(W['prec1'] / 2, CY['prec1']), (r1, CY['prec1'])])
+    tag(ax, W['prec1'] / 2 + 0.1, CY['prec1'] + 0.16, 'нет')
+    line(ax, [(W['feas'] / 2, CY['feas']), (r1, CY['feas'])])
+    tag(ax, W['feas'] / 2 + 0.1, CY['feas'] + 0.16, 'нет')
+    line(ax, [(r1, bot('eval') - 0.32), (r1, CY['p1'])])
+    arrow(ax, r1, CY['p1'], W['p1'] / 2, CY['p1'])
+
+    # p1 «нет» -> левый рельс -> found
+    line(ax, [(-W['p1'] / 2, CY['p1']), (lL, CY['p1']), (lL, CY['found'])])
+    arrow(ax, lL, CY['found'], -W['found'] / 2, CY['found'])
+    tag(ax, -W['p1'] / 2 - 0.12, CY['p1'] + 0.18, 'нет', ha='right')
+
+    # found «нет» -> проход 2 (p2 -> prec2 -> cmp)
+    arrow(ax, 0, bot('found'), 0, top('p2'))
+    tag(ax, 0.12, bot('found') - 0.18, 'нет')
+    arrow(ax, 0, bot('p2'), 0, top('prec2'))
+    tag(ax, 0.12, bot('p2') - 0.18, 'да')
+    arrow(ax, 0, bot('prec2'), 0, top('cmp'))
+    tag(ax, 0.12, bot('prec2') - 0.18, 'да')
+
+    # обратные дуги прохода 2 (prec2 «нет», конец cmp) -> r2 -> p2
+    line(ax, [(0, bot('cmp')), (0, bot('cmp') - 0.32), (r2, bot('cmp') - 0.32)])
+    line(ax, [(W['prec2'] / 2, CY['prec2']), (r2, CY['prec2'])])
+    tag(ax, W['prec2'] / 2 + 0.1, CY['prec2'] + 0.16, 'нет')
+    line(ax, [(r2, bot('cmp') - 0.32), (r2, CY['p2'])])
+    arrow(ax, r2, CY['p2'], W['p2'] / 2, CY['p2'])
+
+    # found «да» -> дальний рельс rF -> вниз -> ret
+    line(ax, [(W['found'] / 2, CY['found']), (rF, CY['found']), (rF, CY['ret'])])
+    arrow(ax, rF, CY['ret'], W['ret'] / 2, CY['ret'])
+    tag(ax, W['found'] / 2 + 0.12, CY['found'] + 0.18, 'да')
+
+    # p2 «нет» -> левый рельс -> ret
+    line(ax, [(-W['p2'] / 2, CY['p2']), (lL, CY['p2']), (lL, CY['ret'])])
+    arrow(ax, lL, CY['ret'], -W['ret'] / 2, CY['ret'])
+    tag(ax, -W['p2'] / 2 - 0.12, CY['p2'] + 0.18, 'нет', ha='right')
+
+    fig.set_size_inches(xmax - xmin, ymax - ymin)
+    fig.savefig('../nnh_tw_select.png', dpi=200, facecolor='white')
+    print('nnh_tw_select.png saved')
 
 
-# Спайн левой колонки
-for a, b in [('start', 'prep'), ('prep', 'init'), ('init', 'l1s'),
-             ('l1s', 'endchk'), ('endchk', 'p1init'), ('p1init', 'l2s'),
-             ('l2s', 'feas'), ('feas', 'p1eval'), ('p1eval', 'better'),
-             ('better', 'p1set'), ('p1set', 'l2e'), ('l2e', 'connA_o')]:
-    vlink(a, b)
-# Спайн правой колонки
-for a, b in [('connA_i', 'found'), ('found', 'l3s'), ('l3s', 'cmp'),
-             ('cmp', 'p2set'), ('p2set', 'l3e'), ('l3e', 'arr'),
-             ('arr', 'upd'), ('upd', 'l1e'), ('l1e', 'output'),
-             ('output', 'end')]:
-    vlink(a, b)
-
-for k, lbl, col in [('endchk', 'нет', LX), ('feas', 'да', LX),
-                    ('better', 'да', LX), ('found', 'да', RX),
-                    ('cmp', 'да', RX)]:
-    tag(ax, col + 0.12, bot(k) - 0.16, lbl)
-
-
-def skip(src, target, rail_x, label='нет', gap=0.30):
-    yj = top(target) + gap
-    line(ax, [(XPOS[src] + W[src] / 2, CY[src]), (rail_x, CY[src]),
-              (rail_x, yj), (XPOS[target], yj)])
-    tag(ax, XPOS[src] + W[src] / 2 + 0.1, CY[src] + 0.15, label)
-
-# Левая колонка: continue Ц2
-skip('feas', 'l2e', R2)
-skip('better', 'l2e', R2)
-# Правая колонка: continue Ц3 и обход Ц3
-skip('cmp', 'l3e', R3)
-skip('found', 'arr', RFOUND)
-
-# endchk «да» → addRoute → соединитель Б
-line(ax, [(XPOS['endchk'] + W['endchk'] / 2, CY['endchk']), (ARL, CY['endchk'])])
-arrow(ax, ARL - 0.001, CY['endchk'], ARL, CY['endchk'])
-tag(ax, XPOS['endchk'] + W['endchk'] / 2 + 0.1, CY['endchk'] + 0.15, 'да')
-arrow(ax, ARX, bot('addr'), ARX, CY['connB_o'] + CR)
-
-# Соединитель Б (вход) → конец цикла Ц1 (слияние со спайном upd→Ц1)
-yj = top('l1e') + 0.30
-line(ax, [(CONNB_IX, CY['connB_i'] - CR), (CONNB_IX, yj), (XPOS['l1e'], yj)])
-
-fig.savefig('../nnh_tw_flowchart.png', dpi=200, facecolor='white')
-print('nnh_tw_flowchart.png saved')
+build_main()
+build_select()

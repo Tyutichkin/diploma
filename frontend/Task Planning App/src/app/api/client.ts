@@ -26,10 +26,13 @@ interface ApiTask {
     Latitude: number | null;
     Longitude: number | null;
     DurationMin: number | null;
-    WindowStartDate?: string | null;
-    WindowStartTime?: string | null;
-    WindowEndDate?: string | null;
-    WindowEndTime?: string | null;
+    // Бэкенд сериализует доменную сущность task.Task: окно приходит вложенным объектом Window.
+    Window?: {
+        StartDate?: string | null;
+        StartTime?: string | null;
+        EndDate?: string | null;
+        EndTime?: string | null;
+    } | null;
     SortIndex: number;
     IsCompleted: boolean;
 }
@@ -410,10 +413,10 @@ function mapTaskFromApi(task: ApiTask): Task {
         latitude: task.Latitude ?? undefined,
         longitude: task.Longitude ?? undefined,
         duration: task.DurationMin ?? undefined,
-        windowStartDate: task.WindowStartDate || undefined,
-        windowStartTime: task.WindowStartTime || undefined,
-        windowEndDate: task.WindowEndDate || undefined,
-        windowEndTime: task.WindowEndTime || undefined,
+        windowStartDate: task.Window?.StartDate || undefined,
+        windowStartTime: task.Window?.StartTime || undefined,
+        windowEndDate: task.Window?.EndDate || undefined,
+        windowEndTime: task.Window?.EndTime || undefined,
         order: task.SortIndex,
         completed: task.IsCompleted,
     };
