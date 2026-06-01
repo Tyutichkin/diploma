@@ -1,0 +1,44 @@
+@startuml matrix_source
+' Выбор источника матрицы расстояний: Яндекс на клиенте или OSRM на сервере
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 10
+skinparam ArrowColor Black
+skinparam ActivityBorderColor Black
+skinparam ActivityBackgroundColor White
+skinparam ActivityDiamondBorderColor Black
+skinparam ActivityDiamondBackgroundColor White
+skinparam NoteBackgroundColor White
+skinparam NoteBorderColor Black
+skinparam Padding 4
+
+start
+
+:Запрос оптимизации маршрута;
+
+:Клиент строит матрицу
+расстояний через Яндекс JS API;
+
+:Запрос по паре точек
+с повторами (до 3 раз);
+
+if (Яндекс доступен?\n(матрица построена)) then (да)
+  :Клиент передает матрицу
+  в запросе POST /api/routes/optimize;
+  :Сервер использует матрицу клиента;
+else (нет: API не загрузился\nили все запросы провалились)
+  :Клиент не передает матрицу;
+  :Сервер рассчитывает матрицу
+  через OSRM;
+  :Результат сохраняется
+  в серверный кэш (LRU + TTL);
+endif
+
+:Алгоритм NNH-TW
+строит маршрут;
+
+stop
+
+@enduml

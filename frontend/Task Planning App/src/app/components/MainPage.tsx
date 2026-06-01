@@ -21,7 +21,11 @@ import {
 import { useAuth } from '../context/auth-context';
 import { useOptimizedRoute } from '../hooks/useOptimizedRoute';
 import { useTaskExport } from '../hooks/useTaskExport';
-import { buildYandexDistanceMatrix, geocodeAddressSuggestions } from '../utils/routeOptimizer';
+import {
+  buildYandexDistanceMatrix,
+  geocodeAddressSuggestions,
+  YandexMatrixUnavailableError,
+} from '../utils/routeOptimizer';
 import { getRouteConflictIds } from '../utils/routeConflicts';
 import {
   normalizeTasksOrder,
@@ -383,7 +387,20 @@ export function MainPage() {
     toast.info('Построение матрицы расстояний через Яндекс...');
 
     try {
-      const distanceMatrix = await buildYandexDistanceMatrix(addressTasks, mode);
+      // По умолчанию матрицу строит клиент через Яндекс. Если Яндекс недоступен
+      // (все запросы провалились после повторов), оставляем матрицу пустой —
+      // сервер рассчитает её самостоятельно через OSRM.
+      let distanceMatrix: Awaited<ReturnType<typeof buildYandexDistanceMatrix>> | undefined;
+      try {
+        distanceMatrix = await buildYandexDistanceMatrix(addressTasks, mode);
+      } catch (matrixError) {
+        if (matrixError instanceof YandexMatrixUnavailableError) {
+          distanceMatrix = undefined;
+          toast.warning('Яндекс-маршрутизация недоступна — матрицу рассчитает сервер (OSRM)');
+        } else {
+          throw matrixError;
+        }
+      }
       toast.info('Оптимизация маршрута...');
 
       const constraintPairs: PrecedenceConstraint[] = precedences
