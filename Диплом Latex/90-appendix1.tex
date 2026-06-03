@@ -1,6 +1,6 @@
 % !TeX root = ./rpz.tex
 \setcounter{chapter}{4}
-\appendixchapter{А}{Листинги SQL-миграций и конфигурации}{cha:appendix1}
+\appendixchapter{А}{Листинг SQL-миграции и конфигурации}{cha:appendix1}
 
 \begin{center}(справочное)\end{center}
 
@@ -8,14 +8,14 @@
 \setcounter{listing}{0}
 \renewcommand{\thelisting}{А.\arabic{listing}}
 
-\section*{Схема базы данных (SQL-миграции)}
+\section*{Схема базы данных (SQL-миграция)}
 
 \begin{codelisting}{Миграция 0001\_init.up.sql \textendash{} инициализация схемы базы данных}{listing:migration_init}
   \begin{minted}{sql}
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- users
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     email         VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- refresh_tokens
-CREATE TABLE IF NOT EXISTS refresh_tokens (
+-- refresh_tokens (ротация токенов)
+CREATE TABLE refresh_tokens (
     id         UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id    UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(255) NOT NULL UNIQUE,
@@ -32,111 +32,55 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     revoked_at TIMESTAMPTZ  NULL,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS refresh_tokens_user_id_idx
-    ON refresh_tokens(user_id);
+CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens(user_id);
 
 -- tasks
-CREATE TABLE IF NOT EXISTS tasks (
-    id           UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id      UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    title        VARCHAR(200) NOT NULL,
-    address_text VARCHAR(400) NOT NULL,
-    latitude     NUMERIC(9,6) NULL,
-    longitude    NUMERIC(9,6) NULL,
-    duration_min INT          NOT NULL,
-    window_start TIME         NULL,
-    window_end   TIME         NULL,
-    sort_index   INT          NOT NULL DEFAULT 0,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+CREATE TABLE tasks (
+    id                UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id           UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title             VARCHAR(200)  NOT NULL,
+    address_text      VARCHAR(400)  NOT NULL,
+    latitude          NUMERIC(9,6)  NULL,
+    longitude         NUMERIC(9,6)  NULL,
+    duration_min      INT           NULL,
+    window_start_date DATE          NULL,
+    window_start_time TIME          NULL,
+    window_end_date   DATE          NULL,
+    window_end_time   TIME          NULL,
+    sort_index        INT           NOT NULL DEFAULT 0,
+    is_completed      BOOLEAN       NOT NULL DEFAULT false,
+    created_at        TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS tasks_user_id_idx
-    ON tasks(user_id);
-CREATE INDEX IF NOT EXISTS tasks_user_sort_idx
-    ON tasks(user_id, sort_index);
+CREATE INDEX tasks_user_id_idx   ON tasks(user_id);
+CREATE INDEX tasks_user_sort_idx ON tasks(user_id, sort_index);
 
--- routes (один маршрут на пользователя)
-CREATE TABLE IF NOT EXISTS routes (
-    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status      VARCHAR(30) NOT NULL,   -- optimized
-    source      VARCHAR(30) NOT NULL,   -- optimized
-    algorithm   VARCHAR(50) NULL,
-    started_at  TIMESTAMPTZ NULL,
-    finished_at TIMESTAMPTZ NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id)
-);
-
--- route_stats (1:1 к routes)
-CREATE TABLE IF NOT EXISTS route_stats (
-    route_id          UUID PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
-    total_distance_m  INT  NULL,
-    total_travel_sec  INT  NULL,
-    total_service_sec INT  NULL,
-    total_wait_sec    INT  NULL,
-    computed_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+-- routes (один маршрут на пользователя; агрегированные метрики хранятся прямо в строке)
+CREATE TABLE routes (
+    id                UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id           UUID         NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    algorithm         VARCHAR(50)  NOT NULL,
+    total_distance_m  INT          NOT NULL,
+    total_travel_sec  INT          NOT NULL,
+    total_service_sec INT          NOT NULL,
+    total_wait_sec    INT          NOT NULL,
+    computed_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- route_stops
-CREATE TABLE IF NOT EXISTS route_stops (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    route_id            UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
-    task_id             UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    position            INT  NOT NULL,
-    travel_from_prev_sec INT NULL,
-    arrive_time         TIMESTAMPTZ NULL,
-    service_start_time  TIMESTAMPTZ NULL,
-    service_end_time    TIMESTAMPTZ NULL,
-    wait_sec            INT NULL
+-- route_stops (упорядоченные остановки маршрута)
+CREATE TABLE route_stops (
+    id                   UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    route_id             UUID         NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+    task_id              UUID         NOT NULL REFERENCES tasks(id)  ON DELETE CASCADE,
+    position             INT          NOT NULL,
+    travel_from_prev_sec INT          NULL,
+    arrive_time          TIMESTAMPTZ  NULL,
+    service_start_time   TIMESTAMPTZ  NULL,
+    service_end_time     TIMESTAMPTZ  NULL,
+    wait_sec             INT          NULL
 );
-CREATE INDEX IF NOT EXISTS route_stops_route_id_idx
-    ON route_stops(route_id);
-CREATE UNIQUE INDEX IF NOT EXISTS route_stops_route_position_uq
-    ON route_stops(route_id, position);
-
--- route_geometry (1:1 к routes)
-CREATE TABLE IF NOT EXISTS route_geometry (
-    route_id    UUID  PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
-    polyline    TEXT  NOT NULL,
-    bbox_json   JSONB NULL,
-    geojson_json JSONB NULL,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-  \end{minted}
-\end{codelisting}
-
-\begin{codelisting}{Миграция 0002\_routes\_name.up.sql \textendash{} добавление поля name}{listing:migration_name}
-  \begin{minted}{sql}
-ALTER TABLE routes ADD COLUMN IF NOT EXISTS name VARCHAR(200) NULL;
-  \end{minted}
-\end{codelisting}
-
-\begin{codelisting}{Миграция 0003\_task\_completed.up.sql \textendash{} добавление признака выполнения}{listing:migration_completed}
-  \begin{minted}{sql}
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_completed BOOLEAN NOT NULL DEFAULT false;
-  \end{minted}
-\end{codelisting}
-
-\begin{codelisting}{Миграция 0004\_task\_duration\_optional.up.sql \textendash{} опциональная длительность}{listing:migration_duration}
-  \begin{minted}{sql}
-ALTER TABLE tasks ALTER COLUMN duration_min DROP NOT NULL;
-  \end{minted}
-\end{codelisting}
-
-\begin{codelisting}{Миграция 0005\_task\_datetime\_windows.up.sql \textendash{} раздельные дата и время окна}{listing:migration_datetime}
-  \begin{minted}{sql}
--- Разделяем window_start/window_end (TIME) на раздельные колонки дата + время
-ALTER TABLE tasks
-    DROP COLUMN window_start,
-    DROP COLUMN window_end;
-
-ALTER TABLE tasks
-    ADD COLUMN window_start_date DATE NULL,
-    ADD COLUMN window_start_time TIME NULL,
-    ADD COLUMN window_end_date   DATE NULL,
-    ADD COLUMN window_end_time   TIME NULL;
+CREATE INDEX        route_stops_route_id_idx      ON route_stops(route_id);
+CREATE UNIQUE INDEX route_stops_route_position_uq ON route_stops(route_id, position);
   \end{minted}
 \end{codelisting}
 

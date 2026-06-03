@@ -205,82 +205,6 @@ func causesWindowMiss(cand int, afterSec int64,
   \end{minted}
 \end{codelisting}
 
-\begin{codelisting}{HTTP-обработчик оптимизации маршрута (handlers\_routes.go, метод Optimize)}{app:lst_handlers_routes}
-    \begin{minted}{go}
-// Optimize — POST /api/routes/optimize.
-func (h *RouteHandlers) Optimize(c *gin.Context) {
-    userID, ok := userIDFromCtx(c)
-    if !ok {
-        return
-    }
-
-    var req OptimizeRouteReq
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
-        return
-    }
-
-    startTime := req.StartTimeUnix
-    if startTime <= 0 {
-        startTime = time.Now().Unix()
-    }
-    startTime = timing.RoundUpUnixToMinute(startTime)
-
-    matrix := convertMatrix(req.DistanceMatrix)
-    precedences := convertPrecedences(req.PrecedenceConstraints)
-
-    out, err := h.story.Optimize(c.Request.Context(), userID,
-        req.TaskIDs, startTime, matrix,
-        req.StartTaskID, req.EndTaskID, precedences)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    c.JSON(http.StatusOK, out)
-}
-
-func convertMatrix(in [][]DistanceCellDTO) [][]distance.Edge {
-    if len(in) == 0 {
-        return nil
-    }
-    out := make([][]distance.Edge, len(in))
-    for i, row := range in {
-        out[i] = make([]distance.Edge, len(row))
-        for j, cell := range row {
-            out[i][j] = distance.Edge{
-                DistanceM:   cell.DistanceM,
-                DurationSec: timing.RoundUpSecToMinute(cell.DurationSec),
-            }
-        }
-    }
-    return out
-}
-
-func convertPrecedences(in []PrecedencePairDTO) []routestory.PrecedenceConstraint {
-    out := make([]routestory.PrecedenceConstraint, len(in))
-    for i, p := range in {
-        out[i] = routestory.PrecedenceConstraint{
-            BeforeTaskID: p.BeforeTaskID,
-            AfterTaskID:  p.AfterTaskID,
-        }
-    }
-    return out
-}
-
-// OptimizeRouteReq — тело POST /api/routes/optimize.
-// Если DistanceMatrix передана — бэкенд не ходит в OSRM
-// и порядок согласован с Yandex.
-type OptimizeRouteReq struct {
-    TaskIDs               []string            `json:"taskIds"`
-    StartTimeUnix         int64               `json:"startTimeUnix"`
-    DistanceMatrix        [][]DistanceCellDTO `json:"distanceMatrix,omitempty"`
-    StartTaskID           *string             `json:"startTaskId,omitempty"`
-    EndTaskID             *string             `json:"endTaskId,omitempty"`
-    PrecedenceConstraints []PrecedencePairDTO `json:"precedenceConstraints,omitempty"`
-}
-  \end{minted}
-\end{codelisting}
-
 \begin{codelisting}{Ключевые функции API-клиента: оптимизация маршрута и обновление токена (client.ts)}{app:lst_api_client}
     \begin{minted}{typescript}
 let refreshSessionPromise: Promise<AuthSession> | null = null;
@@ -448,28 +372,6 @@ export async function buildYandexDistanceMatrix(
                 return;
               }
 
-              // Запасной путь: данные из модельных маршрутов напрямую.
-              const modelRoutes: any[] = mr.model.getRoutes();
-              if (modelRoutes.length > 0) {
-                const legs: any[] = modelRoutes[0].getLegs();
-                let totalDistM = 0;
-                let totalDurSec = 0;
-                legs.forEach((leg: any) => {
-                  const d: any = leg.properties?.get?.('distance');
-                  const dur: any = leg.properties?.get?.('duration');
-                  totalDistM += typeof d?.value === 'number' ? d.value : 0;
-                  totalDurSec +=
-                    typeof dur?.value === 'number' ? dur.value : 0;
-                });
-                resolve({
-                  distanceM: Math.round(totalDistM),
-                  durationSec:
-                    totalDurSec > 0
-                      ? roundUpSecToMinute(totalDurSec)
-                      : fallbackSec,
-                });
-                return;
-              }
               reject(new Error('no route data'));
             } catch (e) {
               reject(e);
