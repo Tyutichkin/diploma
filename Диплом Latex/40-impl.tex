@@ -109,32 +109,11 @@ planner.auth.session.
 восстанавливает состояние аутентификации без повторного ввода учетных данных.
 
 Диаграммы последовательности, отражающие три сценария
-взаимодействия компонентов системы аутентификации, представлены
-на рисунках~\ref{fig:auth_sequence_login}, \ref{fig:auth_sequence_valid}
+взаимодействия компонентов системы аутентификации (вход в систему,
+запрос с валидным токеном и автоматическое обновление токена при ответе 401),
+вынесены в приложение~Г и приведены на
+рисунках~\ref{fig:auth_sequence_login}, \ref{fig:auth_sequence_valid}
 и~\ref{fig:auth_sequence_refresh}.
-
-\begin{figure}[H]
-      \centering
-      \includegraphics[width=0.95\textwidth]{auth_sequence_login.png}
-      \caption{Диаграмма последовательности: сценарий входа в систему}
-      \label{fig:auth_sequence_login}
-\end{figure}
-\vspace{5pt}
-
-\begin{figure}[H]
-      \centering
-      \includegraphics[width=0.95\textwidth]{auth_sequence_valid.png}
-      \caption{Диаграмма последовательности: запрос с валидным токеном}
-      \label{fig:auth_sequence_valid}
-\end{figure}
-\vspace{5pt}
-
-\begin{figure}[H]
-      \centering
-      \includegraphics[width=0.95\textwidth]{auth_sequence_refresh.png}
-      \caption{Диаграмма последовательности: автоматическое обновление токена при ответе 401}
-      \label{fig:auth_sequence_refresh}
-\end{figure}
 
 Надежность инфраструктуры. При развертывании с использованием Docker Compose~\cite{mouet2017docker} зависимость между контейнерами
 управляется через механизм healthcheck: сервис применения миграций и

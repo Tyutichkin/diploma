@@ -101,7 +101,32 @@
 \usepackage{setspace} % полуторный интервал
 \setstretch{1.5}
 
+% Отбивка вокруг выключных формул --- как у обычного текста (без дополнительного
+% интервала). setspace масштабирует display-skip по \setstretch, поэтому обнуляем
+% значения уже после его настройки, в \AtBeginDocument.
+\AtBeginDocument{%
+      \setlength{\abovedisplayskip}{0pt}%
+      \setlength{\belowdisplayskip}{0pt}%
+      \setlength{\abovedisplayshortskip}{0pt}%
+      \setlength{\belowdisplayshortskip}{0pt}%
+}
+
+% Перечисления по ГОСТ 7.32: элементы-фрагменты, оканчивающиеся <<;>>,
+% нумеруются <<1)>>; элементы --- законченные предложения (оканчиваются <<.>>) ---
+% маркером <<1.>> (окружение compactlistdot ниже).
 \newenvironment{compactlist}{%
+      \renewcommand{\labelenumi}{\hspace{13mm}\arabic{enumi})}
+      \setlength{\topsep}{0pt}%
+      \setlength{\partopsep}{0pt}%
+      \setlength{\itemsep}{0pt}%
+      \setlength{\parsep}{0pt}%
+      \begin{enumerate}%
+            }{%
+      \end{enumerate}%
+}
+
+% Список из законченных предложений: маркер <<1.>>.
+\newenvironment{compactlistdot}{%
       \renewcommand{\labelenumi}{\hspace{13mm}\arabic{enumi}.}
       \setlength{\topsep}{0pt}%
       \setlength{\partopsep}{0pt}%
@@ -214,6 +239,15 @@
 \renewcommand{\listingscaption}{Листинг}
 \renewcommand{\listoflistingscaption}{Листинги}
 
+% Достройка границ рамки листинга на месте разрыва (используется в overlay
+% окружения codelisting ниже). Это TikZ-команды, исполняются внутри overlay
+% (tikzpicture) очередного куска tcolorbox, поэтому опираются на узел frame.
+\newcommand{\listingbreaktop}{\draw[line width=0.5pt] (frame.north west) -- (frame.north east);}
+\newcommand{\listingbreakbottom}{\draw[line width=0.5pt] (frame.south west) -- (frame.south east);}
+\newcommand{\listingcontlabel}{\node[anchor=south west, inner sep=0pt,
+      font=\normalfont\fontsize{14pt}{16pt}\selectfont]
+      at ([yshift=2.5mm]frame.north west) {Продолжение листинга~\codelistingnumber};}
+
 % codelisting: листинг с переносом через страницу. Использование: \begin{codelisting}{подпись}{label} \begin{minted}{lang}...\end{minted} \end{codelisting}
 \newenvironment{codelisting}[2]{%
       \par\vspace{5pt}%
@@ -223,6 +257,7 @@
       \begin{tcolorbox}[%
                   breakable,%
                   enhanced,%
+                  before skip=0pt,% рамка вплотную под подписью листинга (без отступа)
                   colback=white,%
                   colframe=black,%
                   arc=5pt,%
@@ -230,17 +265,24 @@
                   left=4pt, right=5pt, top=5pt, bottom=5pt,%
                   % при переносе листинга на следующую страницу строка
                   % <<Продолжение листинга N>> печатается ВНЕ рамки, над
-                  % продолжением (по аналогии с <<Продолжение таблицы>>): рамка
-                  % при разрыве замкнута сверху и снизу; topsep at break резервирует
-                  % место над рамкой продолжения, overlay рисует в нём подпись.
+                  % продолжением (по аналогии с <<Продолжение таблицы>>):
+                  % topsep at break резервирует место над рамкой продолжения,
+                  % overlay рисует в нём подпись.
                   toprule at break=0.5pt, bottomrule at break=0.5pt,%
                   topsep at break=8mm,%
-                  overlay middle and last={%
-                        \node[anchor=south west, inner sep=0pt,
-                              font=\normalfont\fontsize{14pt}{16pt}\selectfont]
-                        at ([yshift=2.5mm]frame.north west)
-                        {Продолжение листинга~\codelistingnumber};%
-                  },%
+                  % tcolorbox 4.42 (enhanced) для verbatim-содержимого (minted)
+                  % под XeLaTeX НЕ всегда рисует границу рамки на месте разрыва
+                  % (то верхнюю у продолжения, то нижнюю у обрываемого куска):
+                  % toprule/bottomrule at break заданы, но не срабатывают.
+                  % Поэтому линии разрыва достраиваем вручную в overlay по
+                  % геометрии frame.north/.south, чтобы рамка была замкнута на
+                  % КАЖДОЙ странице переноса: верхняя линия — на кусках с разрывом
+                  % сверху (middle, last), нижняя — на кусках с разрывом снизу
+                  % (first, middle). Подпись <<Продолжение листинга>> — на кусках
+                  % с разрывом сверху. Цельный кусок (unbroken) рисуется штатно.
+                  overlay first={\listingbreakbottom},%
+                  overlay middle={\listingcontlabel\listingbreaktop\listingbreakbottom},%
+                  overlay last={\listingcontlabel\listingbreaktop},%
             ]%
             }{%
       \end{tcolorbox}%
@@ -305,7 +347,11 @@
   \phantomsection
   \addcontentsline{toc}{chapter}{ПРИЛОЖЕНИЕ #1}%
   \label{#3}%
+  % Одинарный отступ между <<ПРИЛОЖЕНИЕ N>> и подзаголовком: гасим штатный
+  % \GostAfterTitleSkip после \chapter* (локально, чтобы не трогать все главы),
+  % оставляя зазор в одну строку. Подзаголовок остаётся жирным и центрированным.
+  \vspace{-\GostAfterTitleSkip}%
   \begin{center}
-    {\fontsize{14pt}{21pt}\selectfont #2}
+    {\setstretch{1}\fontsize{14pt}{21pt}\selectfont\bfseries #2\par}
   \end{center}
 }

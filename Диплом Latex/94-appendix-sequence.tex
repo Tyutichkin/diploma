@@ -1,0 +1,30 @@
+% !TeX root = ./rpz.tex
+\setcounter{chapter}{7}
+\appendixchapter{Г}{Диаграммы последовательности процесса аутентификации}{cha:appendix_sequence}
+
+\counterwithin{figure}{chapter}
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{Г.\arabic{figure}}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{auth_sequence_login.png}
+  \caption{Диаграмма последовательности: сценарий входа в систему}
+  \label{fig:auth_sequence_login}
+\end{figure}
+\vspace{5pt}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{auth_sequence_valid.png}
+  \caption{Диаграмма последовательности: запрос с валидным токеном}
+  \label{fig:auth_sequence_valid}
+\end{figure}
+\vspace{5pt}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{auth_sequence_refresh.png}
+  \caption{Диаграмма последовательности: автоматическое обновление токена при ответе 401}
+  \label{fig:auth_sequence_refresh}
+\end{figure}
