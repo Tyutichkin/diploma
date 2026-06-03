@@ -155,7 +155,9 @@
  \setlength\Gost@TitleDropSkip{\GostBetweenTitleSkip}
  \addtolength\Gost@TitleDropSkip{-\GostAfterTitleSkip}
 %  стиль всех заголовков, \normalfont оставлен
-\newcommand\GostTitleStyle{\normalfont\bfseries\raggedright}
+%  \setstretch{1} --- одинарный межстрочный интервал внутри многострочных заголовков
+%  (фон документа --- полуторный \setstretch{1.5}); локально в группе \@startsection
+\newcommand\GostTitleStyle{\setstretch{1}\normalfont\bfseries\raggedright}
 \newcommand\Gost@MainChapterStyle{}
 \newcommand\Gost@ChapterStyle{\Gost@MainChapterStyle}
 

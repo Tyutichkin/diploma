@@ -159,66 +159,10 @@ Time Windows, NNH-TW).
 Алгоритм также учитывает дополнительные ограничения: фиксацию начальной
 и конечной точки маршрута, а также попарные ограничения порядка посещения.
 
-Псевдокод алгоритма приведен в листинге~\ref{listing:nnh_pseudocode}.
+Псевдокод алгоритма приведен в листинге~\ref{listing:nnh_pseudocode} приложения~А.
 
-\begin{codelisting}{Псевдокод алгоритма NNH-TW с просмотром вперед}{listing:nnh_pseudocode}
-  \begin{minted}{text}
-Вход: граф G(V, E), startTimeUnix, constraints{startIdx, endIdx, precedences}
-Выход: порядок обхода order[], тайминги[], агрегированная статистика
-
-1.  prereqs <- buildPrereqs(precedences)
-2.  endIdx <- constraints.endIdx (или -1)
-3.  Если constraints.startIdx задан:
-        cur <- constraints.startIdx
-    Иначе:
-        cur <- узел с наиболее ранним окном среди допустимых
-4.  visited[cur] <- true;  order <- [cur]
-5.  currentTimeSec <- startTimeUnix + duration[cur] * 60
-
-6.  Пока |order| < |V|:
-    // Если остался только закрепленный конечный узел — ставим его
-    a. Если endIdx >= 0 И все прочие посещены:
-         Добавить endIdx в маршрут; выйти из цикла
-
-    // Проход 1: допустимый узел с минимальным completionTime + look-ahead
-    b. bestComp <- +inf;  bestSafe <- false;  bestDeadline <- +inf;  next <- -1
-    c. Для каждого i not in visited, i != endIdx:
-         Если не выполнены предшественники i: пропустить
-         arrivalSec <- currentTimeSec + travelSec[cur][i]
-         Если НЕ feasible(i, arrivalSec): пропустить
-         comp <- completionTime(i, arrivalSec)
-         safe <- НЕ causesWindowMiss(i, comp, G, visited, endIdx)
-         Если (safe > bestSafe) ИЛИ (safe = bestSafe И comp < bestComp)
-              ИЛИ (safe = bestSafe И comp = bestComp И deadline[i] < bestDeadline):
-             next <- i;  bestComp <- comp;  bestSafe <- safe
-
-    // Проход 2: резервный — минимальный completionTime без учета окна
-    d. Если next = -1:
-         Для каждого i not in visited, i != endIdx:
-             Если не выполнены предшественники i: пропустить
-             comp <- completionTime(i, arrivalSec)
-             Если comp < bestComp: next <- i
-
-    e. waitSec <- max(0, windowStart[next] - arrivalSec)
-    f. currentTimeSec <- arrivalSec + waitSec + duration[next] * 60
-    g. visited[next] <- true;  order.append(next);  cur <- next
-
-7.  Вернуть order, тайминги и статистику
-
-feasible(i, arrivalSec):
-    Если windowEnd[i] < 0: вернуть true
-    Вернуть arrivalSec <= windowEnd[i] - duration[i] * 60
-
-causesWindowMiss(cand, afterCandSec, G, visited, endIdx):
-    Для каждого j not in visited, j != cand, j != endIdx:
-        Если windowEnd[j] < 0: пропустить
-        Если НЕ feasible(j, afterCandSec + travelSec[cand][j]):
-            Вернуть true
-    Вернуть false
-  \end{minted}
-\end{codelisting}
-
-Блок-схема алгоритма разбита на два рисунка. На
+Блок-схема алгоритма вынесена в приложение~Б и разбита на два рисунка~---
+\ref{fig:nnh_tw_main} и~\ref{fig:nnh_tw_select}. На
 рисунке~\ref{fig:nnh_tw_main} показан основной цикл построения маршрута.
 Финишная задача и обязательный порядок выполнения (когда одна задача
 должна предшествовать другой) задаются пользователем как ограничения.
@@ -236,20 +180,6 @@ causesWindowMiss(cand, afterCandSec, G, visited, endIdx):
 если в проходе~1 подходящих задач не нашлось, и берет ближайшую по
 времени завершения задачу без учета временных окон, но также соблюдая
 обязательный порядок выполнения.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.92\textwidth]{nnh_tw_main.png}
-  \caption{Блок-схема алгоритма NNH-TW: основной цикл построения маршрута}
-  \label{fig:nnh_tw_main}
-\end{figure}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.64\textwidth]{nnh_tw_select.png}
-  \caption{Блок-схема подпрограммы выбора следующей задачи}
-  \label{fig:nnh_tw_select}
-\end{figure}
 
 Трассировка на числовом примере. Ниже приведен пример с тремя задачами для иллюстрации работы алгоритма.
 Исходные данные приведены в таблице~\ref{tab:trace_input},
@@ -455,7 +385,7 @@ CSV и Excel~(XLSX). Диалог импорта содержит описани
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.62\textwidth]{app_ui_transport.png}
+  \includegraphics[width=1\textwidth]{app_ui_transport.png}
   \caption{Переключатель режима передвижения и визуализация маршрута на карте}
   \label{fig:app_ui_transport}
 \end{figure}

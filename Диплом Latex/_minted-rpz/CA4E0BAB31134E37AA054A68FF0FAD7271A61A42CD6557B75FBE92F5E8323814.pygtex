@@ -1,3 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-\PYG{k}{ALTER}\PYG{+w}{ }\PYG{k}{TABLE}\PYG{+w}{ }\PYG{n}{tasks}\PYG{+w}{ }\PYG{k}{ADD}\PYG{+w}{ }\PYG{k}{COLUMN}\PYG{+w}{ }\PYG{k}{IF}\PYG{+w}{ }\PYG{k}{NOT}\PYG{+w}{ }\PYG{k}{EXISTS}\PYG{+w}{ }\PYG{n}{is\PYGZus{}completed}\PYG{+w}{ }\PYG{n+nb}{BOOLEAN}\PYG{+w}{ }\PYG{k}{NOT}\PYG{+w}{ }\PYG{k}{NULL}\PYG{+w}{ }\PYG{k}{DEFAULT}\PYG{+w}{ }\PYG{k}{false}\PYG{p}{;}
-\end{Verbatim}

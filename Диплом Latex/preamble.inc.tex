@@ -179,11 +179,24 @@
 \floatstyle{plaintop}
 \restylefloat{listing}
 
+% Колонка номеров строк листингов: ширина под 3 цифры, номера выровнены по
+% левому краю и прижаты к рамке обводки (см. переопределение \theFancyVerbLine
+% ниже). \listingxleftmargin = ширина колонки + отступ до кода.
+\newlength{\listinglinenowidth}
+\newlength{\listingnumbersep}
+\newlength{\listingxleftmargin}
+\setlength{\listingnumbersep}{4pt}
+\AtBeginDocument{%
+      \settowidth{\listinglinenowidth}{\ttfamily\fontsize{12pt}{14pt}\selectfont 999}%
+      \setlength{\listingxleftmargin}{\dimexpr\listinglinenowidth+\listingnumbersep\relax}%
+}
+
 \setminted{
+      style=bw,               % листинги без цвета; жирный/курсив подсветки убираются ниже (\AtBeginEnvironment{minted})
       linenos=true,           % включить номера строк
       numberblanklines=false, % не нумеровать пустые строки
-      numbersep=5pt,          % расстояние между номерами строк и кодом
-      xleftmargin=2.5em,      % отступ слева, чтобы номера не вылезали за границы
+      numbersep=\listingnumbersep, % расстояние между номерами строк и кодом
+      xleftmargin=\listingxleftmargin, % колонка номеров прижата к левому краю обводки
       fontsize=\fontsize{12pt}{14pt}\selectfont, % ГОСТ: листинги — 12pt; моноширинный Courier New задан через \setmonofont в G2-105.sty
       breakanywhere=true,
       breakautoindent=true,
@@ -192,8 +205,11 @@
 }
 
 % Номера строк листингов — Courier 12pt (по умолчанию fancyvrb даёт \rmfamily\tiny)
+% Номер строки выровнен по левому краю в колонке фиксированной ширины, поэтому
+% любой номер (1, 10, 100) прижат к рамке обводки слева.
 \renewcommand{\theFancyVerbLine}{%
-      \ttfamily\fontsize{12pt}{14pt}\selectfont\arabic{FancyVerbLine}}
+      \ttfamily\fontsize{12pt}{14pt}\selectfont
+      \makebox[\listinglinenowidth][l]{\arabic{FancyVerbLine}}}
 
 \renewcommand{\listingscaption}{Листинг}
 \renewcommand{\listoflistingscaption}{Листинги}
@@ -202,6 +218,7 @@
 \newenvironment{codelisting}[2]{%
       \par\vspace{5pt}%
       \noindent\captionof{listing}{#1}\label{#2}%
+      \edef\codelistingnumber{\thelisting}% запомнить номер для заголовка продолжения
       \nopagebreak[4]%
       \begin{tcolorbox}[%
                   breakable,%
@@ -210,7 +227,20 @@
                   colframe=black,%
                   arc=5pt,%
                   boxrule=0.5pt,%
-                  left=5pt, right=5pt, top=5pt, bottom=5pt,%
+                  left=4pt, right=5pt, top=5pt, bottom=5pt,%
+                  % при переносе листинга на следующую страницу строка
+                  % <<Продолжение листинга N>> печатается ВНЕ рамки, над
+                  % продолжением (по аналогии с <<Продолжение таблицы>>): рамка
+                  % при разрыве замкнута сверху и снизу; topsep at break резервирует
+                  % место над рамкой продолжения, overlay рисует в нём подпись.
+                  toprule at break=0.5pt, bottomrule at break=0.5pt,%
+                  topsep at break=8mm,%
+                  overlay middle and last={%
+                        \node[anchor=south west, inner sep=0pt,
+                              font=\normalfont\fontsize{14pt}{16pt}\selectfont]
+                        at ([yshift=2.5mm]frame.north west)
+                        {Продолжение листинга~\codelistingnumber};%
+                  },%
             ]%
             }{%
       \end{tcolorbox}%
@@ -236,6 +266,7 @@
 \makeatother
 
 \usepackage{etoolbox}
+\usepackage{refcount} % для автоподсчета числа листов в ТЗ (\getpagerefnumber, безопасен при неопределенной метке)
 \AtEndEnvironment{listing}{\vspace{-10pt}}
 \AtEndEnvironment{table}{\vspace{-10pt}}
 \AtEndEnvironment{center}{\vspace{-14pt}}
@@ -245,8 +276,13 @@
 \AtBeginEnvironment{tabular}{\setstretch{1}}
 \AtBeginEnvironment{tabularx}{\setstretch{1}}
 
-% Листинги кода — одинарный межстрочный интервал по ГОСТ 7.32-2017
-\AtBeginEnvironment{minted}{\setstretch{1}}
+% Листинги кода — одинарный межстрочный интервал по ГОСТ 7.32-2017.
+% Стиль bw (см. \setminted) убирает цвет, но всё ещё печатает ключевые слова
+% жирным (\textbf), а комментарии и строки курсивом (\textit). Чтобы листинги
+% были однородными — без подсветки синтаксиса — обнуляем \bfseries и \itshape
+% внутри окружения minted: \textbf/\textit перестают менять начертание, и весь
+% код печатается обычным Courier. Действует локально, восстанавливается после \end{minted}.
+\AtBeginEnvironment{minted}{\setstretch{1}\let\bfseries\relax\let\itshape\relax}
 
 
 \usepackage{fontspec}

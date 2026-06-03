@@ -170,12 +170,6 @@ ax.legend(handles=legend_items, loc='lower center',
           fontsize=8.5, frameon=True, edgecolor='#AAAAAA', fancybox=False)
 
 # ── Заголовок ─────────────────────────────────────────────────────────────
-ax.set_title(
-    'Граф задачи маршрутизации с временными окнами (VRPTW)\n'
-    r'$G = (V,\,E)$, $V = \{v_0, v_1, v_2\}$, '
-    r'$d_{ij}$ — время перемещения (мин), $[a_i,\,b_i]$ — временное окно',
-    fontsize=10.5, pad=10, color='#111111')
-
 plt.tight_layout()
 plt.savefig(
     '/Users/semyontyutichkin/Documents/Политех лабы/Диплом/diploma/'
